@@ -8,7 +8,7 @@ const ITEMS = [
   { href: "/", label: "Zápasy", match: (p: string) => p === "/" || p.startsWith("/zapas"), icon: "M4 5h16v14H4zM4 10h16M9 5v14" },
   { href: "/liga/cz-elh", label: "Liga", match: (p: string) => p.startsWith("/liga") || p.startsWith("/tym"), icon: "M5 4h14v4a7 7 0 01-14 0zM9 18h6M12 15v3M5 6H3a3 3 0 003 4M19 6h2a3 3 0 01-3 4" },
   { href: "/predikce", label: "Predikce", match: (p: string) => p.startsWith("/predikce") || p.startsWith("/tipovacka"), icon: "M4 19l5-6 4 3 7-9M15 7h5v5" },
-  { href: "/rekordy", label: "Rekordy", match: (p: string) => p.startsWith("/rekordy") || p.startsWith("/dnes") || p.startsWith("/porovnat"), icon: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z" },
+  { href: "/rekordy", label: "Rekordy", match: (p: string) => p.startsWith("/rekordy") || p.startsWith("/dnes") || p.startsWith("/porovnat") || p.startsWith("/historie"), icon: "M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.4 6.8 19.1l1-5.8L3.5 9.2l5.9-.9z" },
   { href: "/upozorneni", label: "Upozornění", match: (p: string) => p.startsWith("/upozorneni"), icon: "M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0" },
 ];
 
