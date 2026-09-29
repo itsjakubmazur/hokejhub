@@ -87,3 +87,16 @@ describe("time", () => {
     expect(pragueToUtcIso("2026-07-15", "18:00")).toBe("2026-07-15T16:00:00.000Z");
   });
 });
+
+import alt from "./fixtures/scoreboard-alt.json";
+import { parseScoreboardAlt } from "../src/sources/esports.ts";
+
+describe("eSports scoreboard (alt variant)", () => {
+  it("parses ELH with name-based league mapping and DD-MM-YYYY dates", () => {
+    const games = parseScoreboardAlt(alt);
+    expect(games.length).toBe(6);
+    expect(games.every((g) => g.leagueKey === "cz-elh")).toBe(true);
+    expect(games[0]).toMatchObject({ id: "cz-532950", startAt: "2026-09-29T15:00:00.000Z" });
+    expect(games[0]!.periods.length).toBe(3);
+  });
+});

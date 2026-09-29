@@ -46,6 +46,15 @@ export function leagueKeyFromEsports(esportsId: string): string {
   return ESPORTS_LEAGUE_IDS[esportsId] ?? `es-${esportsId}`;
 }
 
+/** Resolves a league key from its display name (used by feeds whose ids differ from ours). */
+export function leagueKeyFromName(name: string): string | null {
+  const n = name.trim().toLowerCase();
+  const hit = LEAGUES.find((l) => l.name.toLowerCase() === n || l.shortName.toLowerCase() === n);
+  if (hit) return hit.key;
+  if (n === "extraliga" || n === "elh") return "cz-elh";
+  return null;
+}
+
 export function getLeague(key: string, fallbackName?: string): LeagueInfo {
   return (
     byKey.get(key) ?? {

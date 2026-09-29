@@ -6,6 +6,7 @@ import {
   parseLiveOdds,
   parseNhlScore,
   parseScoreboard,
+  parseScoreboardAlt,
   pragueDate,
   type Game,
 } from "@hokejhub/core";
@@ -30,7 +31,21 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
     fetchJson(nhlUrls.score(date), parseNhlScore, { revalidate }),
   ]);
 
-  const games = combineScoreboard(es.data ?? [], nhl.data).sort(
+  // If the main feed fails outright (not a plain 404), fall back to the older ELH-only variant.
+  let esGames = es.data ?? [];
+  let esState = es.state;
+  if (es.state === "error") {
+    const alt = await fetchJson(esportsUrls.scoreboardAlt(date), parseScoreboardAlt, {
+      revalidate,
+      notFoundIsEmpty: true,
+    });
+    if (alt.data) {
+      esGames = alt.data;
+      esState = "stale";
+    }
+  }
+
+  const games = combineScoreboard(esGames, nhl.data).sort(
     (a, b) => a.startAt.localeCompare(b.startAt) || a.id.localeCompare(b.id),
   );
 
@@ -47,7 +62,7 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
     games,
     liveOdds,
     sources: {
-      esports: es.state,
+      esports: esState,
       nhl: nhl.state,
       odds: oddsState,
     },

@@ -65,6 +65,28 @@ Ligy (ID z dat 27. 9. 2026): `16` ELH, `20` Maxa liga, `3470` 2. liga, `3458` Ex
 
 **robots.txt onlajny.com:** `Crawl-delay: 10`, zakázány jen `/partner/click/`, `/bet/click/`. S3 JSON je statický obsah pro jejich vlastní frontend — budeme se chovat slušně: serverová cache, ≤ 1 req / 20 s na soubor během živých zápasů, jinak ≤ 1 / 5 min, atribuce „Data: eSports.cz / onlajny.com, kurzy Tipsport".
 
+### 2.1a Doplnění (29. 9. 2026 odpoledne)
+
+- **Varianta scoreboardu** `https://json.esports.cz/hokejcz/scoreboard/{YYYY-MM-DD}.json` ✅ — jen ELH, jiná ID lig (`101` = ELH, v onlajny variantě `101` = NHL!), datum uvnitř `DD-MM-YYYY`, `score_periods` místo `score_period`, týmy mají `hokejcz_id`. Historie stejně mělká (starší data → 404). Používáme ji jen jako **fallback**, když hlavní `onlajny` varianta selže; ligy mapujeme podle názvu.
+- **404 = den bez zápasů** (nebo zatím nenalosováno), ne chyba. Ošetřeno (`state: "empty"`).
+- **Retry s backoffem** (400 ms, 1,2 s) na síťové chyby/5xx/429, cache poslední dobré odpovědi, stav „zpožděno/nedostupné" v UI, polling 20 s živě.
+- **Historie ČR z hokej.cz:** sezónní stránky soutěží (od 1993/94, extraliga = `competition=4171`) a `/historie` (od 1936). HTML bez CORS; parsovat serverově / v ingestu. Klíč `hokejcz_id` ze scoreboardu = prolink na `hokej.cz/zapas/{id}/` (box score).
+
+### 2.1b Blokace datacenter a „klientský" fetch
+
+Tip z badmintonové appky (tahat data až v prohlížeči uživatele) funguje **jen u zdrojů, které posílají CORS hlavičky** — prohlížeč jinak odpověď z cizí domény JS kódu nevydá (to je jiné omezení než blokace IP).
+
+| Zdroj | CORS | Z prohlížeče? | Z datacentra? |
+|---|---|---|---|
+| eSports / onlajny JSON (scoreboard, kurzy, ticket-analysis) | `*` ✅ | ✅ | ✅ |
+| api-web.nhle.com | ❌ | ❌ | ✅ |
+| hokej.cz HTML | ❌ | ❌ | ❌ (403, ověřit z Vercelu) |
+
+Z toho plyne:
+- **eSports:** primárně serverově (ingest → DB → naše API); když náš server selže, **PWA si scoreboard a živé kurzy stáhne přímo v prohlížeči** (implementováno jako fallback).
+- **NHL:** jen serverově (bez CORS, ale datacentra neblokuje).
+- **hokej.cz:** pokud blokuje i Vercel, prohlížeč nepomůže (chybí CORS). Řešení bez obcházení čehokoli: **ingest skript spouštěný z tvé vlastní sítě** (tvůj počítač / Raspberry Pi doma, `pnpm ingest:hokejcz`), který stránky stáhne běžnou rychlostí jako návštěvník a výsledek zapíše do Supabase. Na historii (jednorázový backfill 1993→) ideální; pro živé box score by stačil cron na domácím stroji.
+
 ### 2.2 NHL
 
 | Data | Endpoint | Pozn. |

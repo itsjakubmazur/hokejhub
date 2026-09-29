@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getLeague, leagueKeyFromEsports } from "../domain/leagues.ts";
+import { getLeague, leagueKeyFromEsports, leagueKeyFromName } from "../domain/leagues.ts";
 import { pragueToUtcIso } from "../domain/time.ts";
 import type { BetDistribution, Decision, Game, GameStatus, Odds1x2, TeamRef } from "../domain/types.ts";
 
@@ -8,6 +8,8 @@ export const ESPORTS_ATTRIBUTION = "Data: eSports.cz / onlajny.com, kurzy Tipspo
 
 export const esportsUrls = {
   scoreboard: (date: string) => `https://json.esports.cz/hokejcz/scoreboard/onlajny/${date}.json`,
+  /** Older hokej.cz variant: ELH only, different ids and field names. Used as a fallback. */
+  scoreboardAlt: (date: string) => `https://json.esports.cz/hokejcz/scoreboard/${date}.json`,
   liveOdds: () => "https://s3.eu-west-1.amazonaws.com/data.onlajny.com/odds/tipsport-live.json",
   ticketAnalysis: (year: number, onlajnyId: number) =>
     `https://s3-eu-west-1.amazonaws.com/data.onlajny.com/hockey/ticket-analysis/${year}/${onlajnyId}.json`,
@@ -118,8 +120,8 @@ function parsePeriods(periods: string[] | null | undefined): [number, number][] 
     .filter((p): p is [number, number] => p.length === 2 && p.every(Number.isFinite));
 }
 
-function toGame(leagueId: string, leagueName: string, m: EsportsMatch): Game {
-  const leagueKey = leagueKeyFromEsports(leagueId);
+function toGame(leagueId: string, leagueName: string, m: EsportsMatch, leagueKeyOverride?: string): Game {
+  const leagueKey = leagueKeyOverride ?? leagueKeyFromEsports(leagueId);
   const s = mapEsportsStatus(m.match_status, m.match_actual_time_alias);
   const scored = s.status !== "scheduled" && s.status !== "postponed" && s.status !== "cancelled";
   return {
@@ -152,6 +154,50 @@ export function parseScoreboard(json: unknown): Game[] {
   return Object.entries(data).flatMap(([leagueId, league]) =>
     league.matches.map((m) => toGame(leagueId, league.league_name, m)),
   );
+}
+
+const altTeamSchema = teamSchema.omit({ logo_id: true });
+
+const altMatchSchema = matchSchema
+  .omit({ score_period: true, home: true, visitor: true, match_last_time: true })
+  .extend({
+    home: altTeamSchema,
+    visitor: altTeamSchema,
+    score_periods: z.array(z.string()).nullish(),
+  });
+
+const altScoreboardSchema = z.record(
+  z.string(),
+  z.object({ league_name: z.string(), matches: z.array(altMatchSchema) }),
+);
+
+/**
+ * Parses the `/hokejcz/scoreboard/{date}.json` variant. Its league ids clash with the onlajny
+ * variant (e.g. `101` is ELH here but NHL there), so leagues are resolved by name. Dates are
+ * `DD-MM-YYYY`; team `hokejcz_id` is filled in.
+ */
+export function parseScoreboardAlt(json: unknown): Game[] {
+  const data = altScoreboardSchema.parse(json);
+  return Object.entries(data).flatMap(([leagueId, league]) => {
+    const key = leagueKeyFromName(league.league_name) ?? `es-alt-${leagueId}`;
+    return league.matches.map((m) => {
+      const [d, mo, y] = m.date.split("-");
+      const date = m.date.length === 10 && m.date[2] === "-" ? `${y}-${mo}-${d}` : m.date;
+      return toGame(
+        leagueId,
+        league.league_name,
+        {
+          ...m,
+          date,
+          score_period: m.score_periods,
+          match_last_time: null,
+          home: { ...m.home, logo_id: String(m.home.onlajny_id) },
+          visitor: { ...m.visitor, logo_id: String(m.visitor.onlajny_id) },
+        },
+        key,
+      );
+    });
+  });
 }
 
 const liveOddsSchema = z.object({

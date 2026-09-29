@@ -3,7 +3,16 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { addDays, DEFAULT_LEAGUES, getLeague, pragueDate, type Game } from "@hokejhub/core";
+import {
+  addDays,
+  DEFAULT_LEAGUES,
+  esportsUrls,
+  getLeague,
+  parseLiveOdds,
+  parseScoreboard,
+  pragueDate,
+  type Game,
+} from "@hokejhub/core";
 import type { ScoreboardResponse } from "@/lib/types";
 import { formatDayLong, formatDayShort } from "@/lib/format";
 import { GameCard } from "./game-card";
@@ -13,17 +22,45 @@ import { SourceStatus } from "./source-status";
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
 async function fetchScoreboard(date: string): Promise<ScoreboardResponse> {
-  const res = await fetch(`/api/scoreboard?date=${date}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`/api/scoreboard?date=${date}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    // Our server is unreachable: eSports JSON sends `Access-Control-Allow-Origin: *`, so the
+    // browser can read it directly (Czech leagues + NHL from eSports, no official NHL data).
+    const fallback = await fetchScoreboardFromBrowser(date).catch(() => null);
+    if (fallback) return fallback;
+    throw e;
+  }
+}
+
+async function fetchScoreboardFromBrowser(date: string): Promise<ScoreboardResponse> {
+  const res = await fetch(esportsUrls.scoreboard(date));
+  const games = res.status === 404 ? [] : res.ok ? parseScoreboard(await res.json()) : null;
+  if (!games) throw new Error(`HTTP ${res.status}`);
+  let liveOdds: ScoreboardResponse["liveOdds"] = {};
+  if (games.some(isLive)) {
+    const odds = await fetch(esportsUrls.liveOdds()).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (odds) liveOdds = Object.fromEntries(parseLiveOdds(odds));
+  }
+  return {
+    date,
+    games: games.sort((a, b) => a.startAt.localeCompare(b.startAt)),
+    liveOdds,
+    sources: { server: "error", esports: "ok" },
+    fetchedAt: new Date().toISOString(),
+  };
 }
 
 export function Scoreboard({ date, initial }: { date: string; initial: ScoreboardResponse }) {
   const today = pragueDate();
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError } = useQuery({
     queryKey: ["scoreboard", date],
     queryFn: () => fetchScoreboard(date),
     initialData: initial,
+    retry: 3,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 15_000),
     refetchInterval: (q) => (q.state.data?.games.some(isLive) ? 20_000 : date >= today ? 120_000 : false),
   });
 
@@ -67,7 +104,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
 
       <LeagueChips groups={groups} selected={selected} onChange={setSelected} showAll={showAll} />
 
-      <SourceStatus sources={data.sources} />
+      <SourceStatus sources={isError ? { ...data.sources, server: "stale" } : data.sources} />
 
       {visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-10 text-center text-muted">

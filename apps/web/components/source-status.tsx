@@ -1,6 +1,6 @@
 import type { SourceState } from "@/lib/server/fetcher";
 
-const LABEL: Record<string, string> = { esports: "eSports.cz", nhl: "NHL", odds: "Kurzy", bets: "Sázky" };
+const LABEL: Record<string, string> = { server: "HokejHub server", esports: "eSports.cz", nhl: "NHL", odds: "Kurzy", bets: "Sázky" };
 
 /** Shows a small banner when any source is failing or serving stale data. */
 export function SourceStatus({ sources }: { sources: Record<string, SourceState> }) {
