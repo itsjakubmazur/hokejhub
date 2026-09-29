@@ -329,3 +329,16 @@ begin
     execute format('alter table %I enable row level security', t);
   end loop;
 end $$;
+
+-- Queue overview for the ingest endpoint.
+create or replace function crawl_summary() returns jsonb
+  language sql stable security definer set search_path = public
+  as $$
+    select coalesce(jsonb_object_agg(kind, counts), '{}'::jsonb)
+    from (
+      select kind, jsonb_object_agg(status, n) as counts
+      from (select kind, status, count(*) as n from crawl_job group by kind, status) s
+      group by kind
+    ) k
+  $$;
+revoke execute on function crawl_summary() from public, anon, authenticated;

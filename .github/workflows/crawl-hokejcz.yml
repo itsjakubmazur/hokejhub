@@ -1,0 +1,36 @@
+name: Crawl hokej.cz history
+
+# Drives the polite crawler on Vercel (/api/ingest/hokejcz) until the queue is empty.
+# Each call processes ~45 s of work (one page every ~3 s). Requires repo secret CRON_SECRET
+# (same value as the Vercel env var).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+concurrency:
+  group: crawl-hokejcz
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Drive crawler
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ENDPOINT: https://hokejhub.vercel.app/api/ingest/hokejcz
+        run: |
+          end=$(( $(date +%s) + 340*60 ))
+          idle=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            out=$(curl -sS -m 70 -X POST "$ENDPOINT?budget=50" -H "Authorization: Bearer $CRON_SECRET" || echo '{"processed":-1}')
+            n=$(echo "$out" | jq -r '.processed // -1')
+            echo "$(date -u +%H:%M:%S) processed=$n $(echo "$out" | jq -c '[.log[]? | select(.ok|not)]')"
+            if [ "$n" = "0" ]; then idle=$((idle+1)); else idle=0; fi
+            # Queue empty (or everything waiting on backoff) for ~15 min → stop.
+            [ "$idle" -ge 15 ] && break
+            [ "$n" = "0" ] && sleep 60
+            [ "$n" = "-1" ] && sleep 120
+          done
