@@ -9,6 +9,18 @@ import {
   parseNhlRoster,
   parseNhlShots,
   parseTicketAnalysis,
+  hokejczShotsToEvents,
+  hokejczShotsUrl,
+  nhlShotsWithXg,
+  onlajnyMatchUrls,
+  parseHokejczShots,
+  parseOnlajnyPlayerStats,
+  parseOnlajnyRoster,
+  parseOnlajnySummary,
+  penaltyWindows,
+  seasonOf,
+  shotsWithXg,
+  type HokejczMatch,
   type BetDistribution,
   type Game,
   type Odds1x2,
@@ -34,6 +46,41 @@ async function hokejczBox(game: Game, sources: Record<string, SourceState>) {
   );
   sources.hokejcz = res.state;
   return res.data;
+}
+
+/** Line-ups, per-period team/player stats (onlajny S3) and the shot feed (hokej.cz S3). */
+async function czDetails(game: Game, box: HokejczMatch | null, sources: Record<string, SourceState>) {
+  const live = game.status === "live" || game.status === "intermission";
+  const revalidate = live ? 20 : game.status === "final" ? 3600 : 300;
+  const onl = game.external.onlajnyId;
+  const season = seasonOf(game.startAt);
+  const hcz = game.external.hokejczId;
+  const [roster, summary, players, shotFeed] = await Promise.all([
+    onl ? fetchJson(onlajnyMatchUrls.roster(season, onl), parseOnlajnyRoster, { revalidate, notFoundIsEmpty: true }) : null,
+    onl && game.status !== "scheduled"
+      ? fetchJson(onlajnyMatchUrls.summary(season, onl), parseOnlajnySummary, { revalidate, notFoundIsEmpty: true })
+      : null,
+    onl && game.status !== "scheduled"
+      ? fetchJson(onlajnyMatchUrls.playerStats(season, onl), parseOnlajnyPlayerStats, { revalidate, notFoundIsEmpty: true })
+      : null,
+    hcz && game.status !== "scheduled"
+      ? fetchJson(hokejczShotsUrl(hcz), parseHokejczShots, { revalidate, notFoundIsEmpty: true })
+      : null,
+  ]);
+  if (roster) sources.lineups = roster.state;
+  if (shotFeed) sources.shots = shotFeed.state;
+  let shots = null;
+  if (shotFeed?.data) {
+    const pens = box ? penaltyWindows(box.penalties, box.home.abbrev) : [];
+    shots = hokejczShotsToEvents(shotsWithXg(shotFeed.data, pens), game.home.id, game.away.id);
+  }
+  return {
+    lineups: roster?.data?.available ? roster.data : null,
+    periodStats: summary?.data ?? null,
+    playerStats: players?.data ?? null,
+    shots,
+    faceoffZones: shotFeed?.data?.faceoffZones ?? null,
+  };
 }
 
 /** North American (Eastern) calendar date of a start time — the NHL API's date key. */
@@ -93,7 +140,11 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       liveOdds,
       bets,
       box: null,
-      shots: pbp.data?.shots ?? null,
+      shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
+      lineups: null,
+      periodStats: null,
+      playerStats: null,
+      faceoffZones: null,
       goals: landing.data.goals,
       players: pbp.data?.players ?? null,
       sources,
@@ -107,12 +158,13 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
     const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
+    const details = await czDetails(game, box, sources);
     return {
       game,
       liveOdds,
       bets,
       box,
-      shots: null,
+      ...details,
       goals: null,
       players: null,
       sources,

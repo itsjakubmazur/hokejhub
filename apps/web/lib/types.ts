@@ -3,6 +3,9 @@ import type {
   Game,
   GoalSummary,
   HokejczMatch,
+  MatchLineups,
+  MatchPeriodStats,
+  PlayerMatchStats,
   NhlPlayerRef,
   Odds1x2,
   ShotEvent,
@@ -24,7 +27,12 @@ export interface GameDetailResponse {
   bets: BetDistribution | null;
   /** hokej.cz box score (Czech leagues). */
   box: HokejczMatch | null;
+  /** Shot attempts with coordinates and xG (NHL play-by-play or hokej.cz shot feed). */
   shots: ShotEvent[] | null;
+  lineups: MatchLineups | null;
+  periodStats: MatchPeriodStats | null;
+  playerStats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
+  faceoffZones: { home: number[]; away: number[] } | null;
   goals: GoalSummary[] | null;
   players: Record<string, NhlPlayerRef> | null;
   sources: Record<string, SourceState>;

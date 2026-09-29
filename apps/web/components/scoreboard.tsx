@@ -15,7 +15,7 @@ import {
 } from "@hokejhub/core";
 import type { ScoreboardResponse } from "@/lib/types";
 import { formatDayLong, formatDayShort } from "@/lib/format";
-import { GameCard } from "./game-card";
+import { GameRow } from "./game-row";
 import { GamblingNotice } from "./gambling-notice";
 import { SourceStatus } from "./source-status";
 
@@ -84,7 +84,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
   const liveCount = data.games.filter(isLive).length;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <DateStrip date={date} today={today} />
 
       <div className="flex items-end justify-between gap-3">
@@ -113,17 +113,24 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       ) : null}
 
       {visible.map(({ league, games }) => (
-        <section key={league.key} className="rise">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted">
+        <section key={league.key} className="overflow-hidden rounded-xl border border-line bg-surface">
+          <h2 className="flex items-center gap-2 bg-surface-2 px-3 py-2 text-[13px] font-bold">
+            <span className="h-3.5 w-1 rounded-full bg-accent" />
             {league.name}
-            <span className="rounded-md bg-surface-2 px-1.5 text-[11px] font-medium tabular">{games.length}</span>
+            <span className="ml-auto text-[11px] font-medium text-muted tabular">
+              {games.filter(isLive).length > 0 ? (
+                <span className="mr-2 text-live">{games.filter(isLive).length} živě</span>
+              ) : null}
+              {games.length}
+            </span>
           </h2>
-          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            {games.map((g) => (
-              <GameCard
+          <div>
+            {games.map((g, i) => (
+              <GameRow
                 key={g.id}
                 game={g}
                 date={date}
+                index={i}
                 liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
               />
             ))}

@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react";
 import type { NhlPlayerRef, ShotEvent } from "@hokejhub/core";
+import { nice } from "@/lib/names";
+import { Segmented } from "./game/segmented";
 
 type Filter = "all" | "goals" | "sog";
+type PeriodFilter = "all" | "1" | "2" | "3" | "OT";
 
 /**
  * Full-rink shot map (NHL coordinates, feet). Home attempts are drawn on the right half,
@@ -23,6 +26,8 @@ export function ShotMap({
   awayAbbrev: string;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const [period, setPeriod] = useState<PeriodFilter>("all");
+  const hasOt = shots.some((s) => s.period >= 4);
   const [hover, setHover] = useState<ShotEvent | null>(null);
 
   const points = useMemo(
@@ -30,11 +35,12 @@ export function ShotMap({
       shots
         .filter((s) => s.x !== null && s.y !== null && s.type !== "blocked-shot")
         .filter((s) => (filter === "goals" ? s.type === "goal" : filter === "sog" ? s.type !== "missed-shot" : true))
+        .filter((s) => period === "all" || (period === "OT" ? s.period >= 4 : s.period === Number(period)))
         .map((s) => {
           const home = s.teamId === homeId;
           return { s, home, cx: home ? s.x! : -s.x!, cy: home ? -s.y! : s.y! };
         }),
-    [shots, filter, homeId],
+    [shots, filter, period, homeId],
   );
 
   const count = (home: boolean, t: ShotEvent["type"][]) =>
@@ -53,44 +59,50 @@ export function ShotMap({
             {homeAbbrev}: {count(true, ["goal", "shot-on-goal"])} SOG · {count(true, ["goal", "shot-on-goal", "missed-shot", "blocked-shot"])} pokusů
           </span>
         </div>
-        <div className="flex rounded-lg bg-surface-2 p-0.5 text-xs">
-          {(
-            [
-              ["all", "Vše"],
-              ["sog", "Na branku"],
-              ["goals", "Góly"],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setFilter(k)}
-              className={`rounded-md px-2.5 py-1 transition ${filter === k ? "bg-surface text-fg shadow-sm" : "text-muted"}`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2">
+          <Segmented
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { value: "all", label: "Celý zápas" },
+              { value: "1", label: "1." },
+              { value: "2", label: "2." },
+              { value: "3", label: "3." },
+              ...(hasOt ? [{ value: "OT" as const, label: "PP" }] : []),
+            ]}
+          />
+          <Segmented
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "all", label: "Vše" },
+              { value: "sog", label: "Na branku" },
+              { value: "goals", label: "Góly" },
+            ]}
+          />
         </div>
       </div>
 
       <div className="relative">
         <svg viewBox="-101 -43.5 202 87" className="w-full" role="img" aria-label="Mapa střel">
           <Rink />
-          {points.map(({ s, home, cx, cy }) => {
+          {points.map(({ s, home, cx, cy }, i) => {
             const color = home ? "var(--home)" : "var(--away)";
             const goal = s.type === "goal";
             const missed = s.type === "missed-shot";
             return (
               <circle
-                key={s.seq}
+                key={`${period}-${filter}-${s.seq}`}
                 cx={cx}
                 cy={cy}
-                r={goal ? 2.6 : 1.5}
+                r={goal ? 2.8 : s.xg !== undefined ? 1.1 + Math.sqrt(s.xg) * 4.2 : 1.5}
+                style={{ animationDelay: `${Math.min(i * 12, 900)}ms`, transformOrigin: `${cx}px ${cy}px` }}
                 fill={goal ? color : missed ? "none" : color}
                 fillOpacity={goal ? 1 : 0.45}
                 stroke={color}
                 strokeWidth={goal ? 0.8 : 0.4}
                 strokeOpacity={missed ? 0.7 : 1}
-                className="cursor-pointer transition-[r]"
+                className="shot-dot cursor-pointer"
                 onMouseEnter={() => setHover(s)}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => setHover(s)}
@@ -100,7 +112,7 @@ export function ShotMap({
         </svg>
         {hover ? <ShotTooltip shot={hover} players={players} /> : null}
       </div>
-      <p className="mt-2 text-[11px] text-muted">● střela na branku · ○ mimo · velký bod = gól</p>
+      <p className="mt-2 text-[11px] text-muted">● střela na branku · ○ mimo · velikost = xG (kvalita šance) · největší body = góly</p>
     </div>
   );
 }
@@ -114,6 +126,7 @@ const SHOT_LABEL: Record<ShotEvent["type"], string> = {
 
 function ShotTooltip({ shot, players }: { shot: ShotEvent; players: Record<string, NhlPlayerRef> | null }) {
   const shooter = shot.shooterId ? players?.[shot.shooterId] : null;
+  const shooterName = shooter?.name ?? (shot.shooterName ? nice(shot.shooterName) : null);
   const m = Math.floor(shot.periodSeconds / 60);
   const s = String(shot.periodSeconds % 60).padStart(2, "0");
   const dist = shot.x !== null && shot.y !== null ? Math.hypot(89 - shot.x, shot.y) : null;
@@ -121,11 +134,15 @@ function ShotTooltip({ shot, players }: { shot: ShotEvent; players: Record<strin
     <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 rounded-lg border border-line bg-surface/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur">
       <div className="font-medium">{SHOT_LABEL[shot.type]}</div>
       <div className="text-muted tabular">
-        {shooter ? `${shooter.name} · ` : ""}
+        {shooterName ? `${shooterName} · ` : ""}
         {shot.period}. tř. {m}:{s}
         {shot.shotType ? ` · ${shot.shotType}` : ""}
         {dist !== null ? ` · ${Math.round(dist * 0.3048)} m` : ""}
+        {shot.strength && shot.strength !== "EV" ? ` · ${shot.strength === "PP" ? "přesilovka" : shot.strength === "SH" ? "oslabení" : "prázdná branka"}` : ""}
       </div>
+      {shot.xg !== undefined && shot.type !== "blocked-shot" ? (
+        <div className="mt-0.5 font-semibold tabular">xG {shot.xg.toFixed(2)}</div>
+      ) : null}
     </div>
   );
 }

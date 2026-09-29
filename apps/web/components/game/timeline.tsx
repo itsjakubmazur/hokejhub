@@ -1,0 +1,161 @@
+"use client";
+
+import { motion } from "motion/react";
+import type { Game, GoalSummary, HokejczMatch } from "@hokejhub/core";
+import { nice } from "@/lib/names";
+
+type Side = "home" | "away";
+
+interface TimelineEvent {
+  side: Side;
+  kind: "goal" | "penalty";
+  /** Seconds elapsed in the game (for sorting). */
+  t: number;
+  clock: string;
+  period: string;
+  title: string;
+  sub?: string;
+  badge?: string;
+  score?: string;
+  minutes?: number | null;
+}
+
+function elapsed(clock: string) {
+  const m = /^(\d+):(\d{2})$/.exec(clock);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+}
+
+const SITUATION: Record<string, string> = { "5/4": "přesilovka", "5/3": "přesilovka 5/3", "4/3": "přesilovka 4/3", "4/5": "oslabení", "3/5": "oslabení", "3/4": "oslabení", EN: "prázdná branka", TS: "trestné střílení" };
+
+function fromHokejcz(box: HokejczMatch): TimelineEvent[] {
+  let h = 0;
+  let a = 0;
+  const goals = [...box.goals].sort((x, y) => elapsed(x.time) - elapsed(y.time));
+  const out: TimelineEvent[] = goals.map((g) => {
+    const side: Side = g.team === box.home.abbrev ? "home" : "away";
+    if (side === "home") h++;
+    else a++;
+    return {
+      side,
+      kind: "goal",
+      t: elapsed(g.time),
+      clock: g.time,
+      period: g.period,
+      title: nice(g.scorer.name) + (g.scorerSeasonGoals ? ` (${g.scorerSeasonGoals})` : ""),
+      sub: g.assists.map((x) => nice(x.name)).join(" + ") || undefined,
+      badge: g.situation && g.situation !== "5/5" ? (SITUATION[g.situation] ?? g.situation) : undefined,
+      score: `${h}:${a}`,
+    };
+  });
+  for (const p of box.penalties) {
+    out.push({
+      side: p.team === box.home.abbrev ? "home" : "away",
+      kind: "penalty",
+      t: elapsed(p.time),
+      clock: p.time,
+      period: p.period,
+      title: nice(p.player.name),
+      sub: p.reason,
+      minutes: p.minutes,
+    });
+  }
+  return out.sort((x, y) => x.t - y.t || (x.kind === "goal" ? -1 : 1));
+}
+
+function fromNhl(goals: GoalSummary[], game: Game): TimelineEvent[] {
+  return goals.map((g) => {
+    const periodLabel = g.periodType === "OT" ? "Prodloužení" : g.periodType === "SO" ? "Nájezdy" : `${g.period}. třetina`;
+    return {
+      side: g.teamAbbrev === game.home.abbrev ? "home" : "away",
+      kind: "goal",
+      t: (g.period - 1) * 1200 + elapsed(g.time),
+      clock: g.time,
+      period: periodLabel,
+      title: g.scorer,
+      sub: g.assists.join(" + ") || undefined,
+      badge: g.strength === "pp" ? "přesilovka" : g.strength === "sh" ? "oslabení" : undefined,
+      score: `${g.homeScore}:${g.awayScore}`,
+    };
+  });
+}
+
+function PuckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="size-4 shrink-0" aria-label="gól">
+      <ellipse cx="10" cy="12" rx="7.5" ry="3.2" fill="currentColor" opacity="0.35" />
+      <ellipse cx="10" cy="10" rx="7.5" ry="3.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EventRow({ e, index }: { e: TimelineEvent; index: number }) {
+  const home = e.side === "home";
+  const icon =
+    e.kind === "goal" ? (
+      <span className={`flex items-center gap-1.5 ${home ? "" : "flex-row-reverse"}`}>
+        <PuckIcon />
+        <span className="rounded-md bg-surface-2 px-1.5 text-sm font-bold tabular">{e.score}</span>
+      </span>
+    ) : (
+      <span
+        className={`grid h-5 min-w-5 place-items-center rounded px-1 text-[11px] font-bold tabular ${
+          (e.minutes ?? 0) >= 10 ? "bg-live text-white" : "bg-gold text-black"
+        }`}
+      >
+        {e.minutes ?? "?"}
+      </span>
+    );
+  return (
+    <motion.li
+      initial={{ opacity: 0, x: home ? -12 : 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: Math.min(index * 0.03, 0.6), duration: 0.3 }}
+      className={`flex items-start gap-3 py-2 ${home ? "" : "flex-row-reverse text-right"}`}
+    >
+      <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold text-muted tabular">{e.clock}</span>
+      <span className="pt-0.5">{icon}</span>
+      <span className={`min-w-0 ${e.kind === "goal" ? "" : "text-sm"}`}>
+        <span className={e.kind === "goal" ? "font-semibold" : "font-medium"}>{e.title}</span>
+        {e.badge ? (
+          <span className="mx-1.5 rounded bg-accent-soft px-1 py-px text-[10px] font-semibold uppercase text-accent">{e.badge}</span>
+        ) : null}
+        {e.sub ? <span className="block text-xs text-muted">{e.kind === "penalty" ? `(${e.sub})` : e.sub}</span> : null}
+      </span>
+    </motion.li>
+  );
+}
+
+/** Livesport-style match timeline: home events on the left, away events on the right. */
+export function Timeline({ game, box, goals }: { game: Game; box: HokejczMatch | null; goals: GoalSummary[] | null }) {
+  const events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game) : [];
+  if (events.length === 0) {
+    return <p className="py-8 text-center text-sm text-muted">Zatím žádné události.</p>;
+  }
+  const periods = [...new Set(events.map((e) => e.period))];
+  let index = 0;
+  return (
+    <div className="space-y-3">
+      {periods.map((period, pi) => {
+        const list = events.filter((e) => e.period === period);
+        const score = game.periods[pi];
+        return (
+          <section key={period}>
+            <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+              <span>{period}</span>
+              {score ? (
+                <span className="tabular text-fg">
+                  {score[0]} - {score[1]}
+                </span>
+              ) : null}
+            </div>
+            <ol className="divide-y divide-line px-1">
+              {list.map((e) => (
+                <EventRow key={`${e.kind}-${e.t}-${e.title}-${index}`} e={e} index={index++} />
+              ))}
+            </ol>
+          </section>
+        );
+      })}
+    </div>
+  );
+}

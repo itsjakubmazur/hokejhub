@@ -83,4 +83,9 @@ export interface ShotEvent {
   y: number | null;
   shotType: string | null;
   situationCode: string | null;
+  /** Manpower of the shooting team. */
+  strength?: "EV" | "PP" | "SH" | "EN";
+  /** Expected goals (0 for blocked attempts). */
+  xg?: number;
+  shooterName?: string | null;
 }
