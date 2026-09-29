@@ -11,9 +11,11 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "node-html-parser": "^9.0.4",
     "zod": "^4.3.3"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "typescript": "^5",
     "vitest": "^4.0.0"
   }

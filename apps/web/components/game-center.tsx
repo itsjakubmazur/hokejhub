@@ -7,6 +7,7 @@ import { impliedProbs, pragueDate, type BetDistribution, type Game, type Odds1x2
 import type { GameDetailResponse } from "@/lib/types";
 import { formatDayLong, formatOdds, formatPct, formatTime } from "@/lib/format";
 import { GamblingNotice } from "./gambling-notice";
+import { HokejczBoxScore, HokejczInfo, HokejczTeamStats, HokejczTimeline } from "./hokejcz-box";
 import { ShotMap } from "./shot-map";
 import { SourceStatus } from "./source-status";
 import { StatusPill } from "./status-pill";
@@ -92,17 +93,17 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
             </Card>
           ) : null}
 
-          {game.source === "esports" ? (
-            <Card title="Detail zápasu">
-              <p className="text-sm text-muted">
-                Box score hráčů (TOI, střely, hity, vhazování) a průběh zápasu z hokej.cz doplníme v dalším kroku.
-              </p>
-            </Card>
+          {data.box ? (
+            <>
+              <HokejczTimeline box={data.box} />
+              <HokejczBoxScore box={data.box} />
+            </>
           ) : null}
         </div>
 
         <div className="space-y-4">
           <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} />
+          {data.box ? <HokejczTeamStats box={data.box} /> : null}
           {data.bets ? <BetsCard bets={data.bets} game={game} /> : null}
           <Card title="Informace">
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -118,6 +119,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
                   <dd>{game.series}</dd>
                 </>
               ) : null}
+              {data.box ? <HokejczInfo box={data.box} /> : null}
             </dl>
           </Card>
         </div>

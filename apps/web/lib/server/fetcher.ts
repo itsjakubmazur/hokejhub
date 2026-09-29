@@ -22,11 +22,11 @@ class HttpError extends Error {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** GET with retries (exponential backoff) on network errors, timeouts and 5xx/429. */
-async function fetchWithRetry(url: string, revalidate: number): Promise<Response> {
+async function fetchWithRetry(url: string, revalidate: number, accept = "application/json"): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
     try {
       const res = await fetch(url, {
-        headers: { "user-agent": USER_AGENT, accept: "application/json" },
+        headers: { "user-agent": USER_AGENT, accept },
         next: { revalidate },
         signal: AbortSignal.timeout(8000),
       });
@@ -47,14 +47,14 @@ async function fetchWithRetry(url: string, revalidate: number): Promise<Response
 export async function fetchJson<T>(
   url: string,
   parse: (json: unknown) => T,
-  opts: { revalidate: number; notFoundIsEmpty?: boolean },
+  opts: { revalidate: number; notFoundIsEmpty?: boolean; text?: boolean },
 ): Promise<Fetched<T>> {
   const now = new Date().toISOString();
   try {
-    const res = await fetchWithRetry(url, opts.revalidate);
+    const res = await fetchWithRetry(url, opts.revalidate, opts.text ? "text/html" : "application/json");
     if (res.status === 404 && opts.notFoundIsEmpty) return { data: null, state: "empty", fetchedAt: now };
     if (!res.ok) throw new HttpError(res.status);
-    const data = parse(await res.json());
+    const data = parse(opts.text ? await res.text() : await res.json());
     lastGood.set(url, { data, at: now });
     return { data, state: "ok", fetchedAt: now };
   } catch (e) {

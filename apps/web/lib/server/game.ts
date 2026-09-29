@@ -1,6 +1,8 @@
 import {
   esportsUrls,
   nhlUrls,
+  parseHokejczMatch,
+  hokejczPaths,
   parseLiveOdds,
   parseNhlGoals,
   parseNhlLanding,
@@ -14,6 +16,25 @@ import {
 import type { GameDetailResponse } from "../types";
 import { fetchJson, type SourceState } from "./fetcher";
 import { getScoreboard, revalidateFor } from "./scoreboard";
+
+/**
+ * hokej.cz blocks some datacenter IPs; in local development point this at the deployed proxy
+ * (`https://hokejhub.vercel.app/api/src/hokejcz/`).
+ */
+const HOKEJCZ_ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
+
+async function hokejczBox(game: Game, sources: Record<string, SourceState>) {
+  const id = game.external.hokejczId;
+  if (!id || game.status === "scheduled" || game.status === "postponed" || game.status === "cancelled") return null;
+  const live = game.status === "live" || game.status === "intermission";
+  const res = await fetchJson(
+    new URL(hokejczPaths.match(id), HOKEJCZ_ORIGIN).toString(),
+    (html) => parseHokejczMatch(html as string, id),
+    { revalidate: live ? 30 : 3600, text: true },
+  );
+  sources.hokejcz = res.state;
+  return res.data;
+}
 
 /** North American (Eastern) calendar date of a start time — the NHL API's date key. */
 export function nhlDate(iso: string): string {
@@ -71,6 +92,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       game,
       liveOdds,
       bets,
+      box: null,
       shots: pbp.data?.shots ?? null,
       goals: landing.data.goals,
       players: pbp.data?.players ?? null,
@@ -84,8 +106,18 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     sources.esports = board.sources.esports ?? "error";
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
-    const { liveOdds, bets } = await extras(game, sources);
-    return { game, liveOdds, bets, shots: null, goals: null, players: null, sources, fetchedAt: new Date().toISOString() };
+    const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
+    return {
+      game,
+      liveOdds,
+      bets,
+      box,
+      shots: null,
+      goals: null,
+      players: null,
+      sources,
+      fetchedAt: new Date().toISOString(),
+    };
   }
 
   return null;

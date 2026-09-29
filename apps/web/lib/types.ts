@@ -1,4 +1,12 @@
-import type { BetDistribution, Game, GoalSummary, NhlPlayerRef, Odds1x2, ShotEvent } from "@hokejhub/core";
+import type {
+  BetDistribution,
+  Game,
+  GoalSummary,
+  HokejczMatch,
+  NhlPlayerRef,
+  Odds1x2,
+  ShotEvent,
+} from "@hokejhub/core";
 import type { SourceState } from "./server/fetcher";
 
 export interface ScoreboardResponse {
@@ -14,6 +22,8 @@ export interface GameDetailResponse {
   game: Game;
   liveOdds: Odds1x2 | null;
   bets: BetDistribution | null;
+  /** hokej.cz box score (Czech leagues). */
+  box: HokejczMatch | null;
   shots: ShotEvent[] | null;
   goals: GoalSummary[] | null;
   players: Record<string, NhlPlayerRef> | null;
