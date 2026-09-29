@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { addDays, esportsUrls, impliedProbs, parseScoreboardAlt, pragueDate, predict } from "@hokejhub/core";
+import { addDays, esportsUrls, impliedProbs, modelTip, parseScoreboardAlt, pragueDate, predict } from "@hokejhub/core";
 import { ClubLogo } from "@/components/club-logo";
 import { GamblingNotice } from "@/components/gambling-notice";
+import { TipInput } from "@/components/tip-input";
 import { Card, Empty, Stat } from "@/components/ui/card";
 import { formatTime } from "@/lib/format";
 import { dbAvailable } from "@/lib/server/db";
@@ -69,6 +70,20 @@ export default async function PredictionsPage() {
                   <span className="font-medium">{g.away.shortName}</span>
                   <ClubLogo src={logos[a]} alt="" size={22} />
                 </Link>
+                <div className="sm:col-span-2 sm:order-last">
+                  <TipInput
+                    game={{
+                      gameId: g.id,
+                      date: pragueDate(new Date(g.startAt)),
+                      startAt: g.startAt,
+                      home: g.home.shortName,
+                      away: g.away.shortName,
+                      homeLogo: logos[h] ?? null,
+                      awayLogo: logos[a] ?? null,
+                    }}
+                    model={modelTip(p.expHome, p.expAway)}
+                  />
+                </div>
                 <div className="grid grid-cols-3 gap-1 text-center text-xs tabular">
                   {(["home", "draw", "away"] as const).map((k) => {
                     const hot = edges.some((e) => e.k === k);
@@ -87,6 +102,9 @@ export default async function PredictionsPage() {
             ))}
           </ol>
         )}
+        <p className="mt-3 text-xs text-muted">
+          Tipuj skóre a porovnej se s modelem v <Link href="/tipovacka" className="font-semibold text-accent">tipovačce</Link>.
+        </p>
         <div className="mt-3">
           <GamblingNotice compact />
         </div>
