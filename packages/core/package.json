@@ -1,0 +1,20 @@
+{
+  "name": "@hokejhub/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.3.3"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vitest": "^4.0.0"
+  }
+}

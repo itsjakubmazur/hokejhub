@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg: #f3f6f9;
+  --surface: #ffffff;
+  --surface-2: #eef2f6;
+  --border: rgb(15 23 42 / 0.09);
+  --text: #0d1520;
+  --muted: #5b6b7c;
+  --accent: #0a84d6;
+  --accent-soft: rgb(10 132 214 / 0.12);
+  --live: #e11d48;
+  --win: #0f9f6e;
+  --gold: #b7791f;
+  --rink: #f8fbfd;
+  --rink-line: #c9d6e2;
+  --home: #0a84d6;
+  --away: #e0582b;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #080b10;
+  --surface: #10151d;
+  --surface-2: #171e28;
+  --border: rgb(255 255 255 / 0.07);
+  --text: #e9eff6;
+  --muted: #8a99aa;
+  --accent: #56c8ff;
+  --accent-soft: rgb(86 200 255 / 0.12);
+  --live: #ff4d6a;
+  --win: #34d399;
+  --gold: #f6c453;
+  --rink: #0e141c;
+  --rink-line: #253241;
+  --home: #56c8ff;
+  --away: #ff8a5c;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-live: var(--live);
+  --color-win: var(--win);
+  --color-gold: var(--gold);
+  --color-home: var(--home);
+  --color-away: var(--away);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+.live-dot {
+  animation: live-pulse 1.6s ease-in-out infinite;
+}
+
+/* Goal flash: the score pops and a glow sweeps across the card. */
+@keyframes goal-pop {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); color: var(--live); }
+  100% { transform: scale(1); }
+}
+@keyframes goal-sweep {
+  0% { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+.goal-pop {
+  animation: goal-pop 900ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.goal-sweep {
+  background-image: linear-gradient(100deg, transparent 30%, var(--accent-soft) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: goal-sweep 1.4s ease-out 2;
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 360ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }

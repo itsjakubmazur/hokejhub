@@ -173,11 +173,12 @@ RLS: veřejné čtení referenčních a zápasových tabulek; uživatelské tabu
 | **M7 Fan hub + design pass** | oblíbené feed, LLM souhrny, sdílecí karty, porovnání, rekordy, animace (gól, PP), haptika, a11y audit | Lighthouse ≥ 95 (perf/a11y/PWA) |
 | **M8 „2030"** | tipovačka, playoff Monte Carlo, EDGE vizualizace, další ligy | — |
 
-## 7. Otázky k odsouhlasení
+## 7. Rozhodnutí (29. 9. 2026)
 
-1. **Ingest na Supabase Edge Functions + pg_cron** (místo Vercel Cron) — OK? Alternativa: Vercel Pro (cron po minutě, ale ne po 20 s) nebo malý worker na Fly.io.
-2. **Monorepo s pnpm** a sdíleným `packages/core` — OK?
-3. **hokej.cz box score:** souhlasíš, že ho při blokaci IP vynecháme (a případně zkusíš kontaktovat ČSLH/eSports o souhlas)?
-4. **Auth:** anonymní použití + volitelné přihlášení (magic link) — OK?
-5. **Jazyk UI:** čeština primárně (i18n připravené na EN)?
-6. Máš už Supabase projekt a Vercel team, nebo mám psát vše tak, aby šlo spustit lokálně (`supabase start`) a deploy nastavíš sám?
+1. **Hosting:** Vercel (web) + Supabase (DB, cron, funkce). Live ingest běží v Supabase (`pg_cron` → Edge Function), protože Vercel Cron na Hobby tarifu běží max 1×/den.
+2. **Monorepo** s pnpm: `apps/web` + sdílený `packages/core`.
+3. **hokej.cz box score chceme.** Parsuje se serverově z veřejné stránky; ověříme dostupnost z Vercelu po prvním deployi. Blokaci IP ale neobcházíme proxy sítěmi.
+4. **Auth zatím neřešíme** — osobní appka pro jednoho uživatele. Tabulky mají `user_id` pro budoucí rozšíření; zápisy chrání serverový secret.
+5. **UI česky.**
+6. Supabase a Vercel projekty založíme, až budou potřeba (M3).
+7. Použití je čistě osobní / nekomerční.
