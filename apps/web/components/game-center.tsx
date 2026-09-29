@@ -11,6 +11,9 @@ import { formatDayLong, formatOdds, formatPct, formatTime } from "@/lib/format";
 import { GamblingNotice } from "./gambling-notice";
 import { GoalCelebration } from "./game/goal-celebration";
 import { HeadToHead } from "./game/h2h";
+import { Insights } from "./game/insights";
+import { Commentary } from "./game/commentary";
+import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
 import { PeriodStats } from "./game/period-stats";
 import { PlayersTable } from "./game/players-table";
@@ -28,7 +31,7 @@ const easternDate = (iso: string) =>
 
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
-type Tab = "prehled" | "statistiky" | "sestavy" | "strely" | "hraci" | "h2h" | "kurzy";
+type Tab = "prehled" | "prenos" | "statistiky" | "sestavy" | "strely" | "hraci" | "h2h" | "kurzy";
 
 export function GameCenter({ id, date, initial }: { id: string; date?: string; initial: GameDetailResponse }) {
   const { data } = useQuery({
@@ -46,6 +49,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: "prehled", label: "Přehled", show: true },
+    { id: "prenos", label: "Přenos", show: Boolean(data.commentary?.length) },
     { id: "statistiky", label: "Statistiky", show: Boolean(data.periodStats || data.box || data.shots?.length) },
     { id: "sestavy", label: "Sestavy", show: Boolean(data.lineups) },
     { id: "strely", label: "Střely & xG", show: Boolean(data.shots?.length) },
@@ -99,6 +103,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           transition={{ duration: 0.18 }}
         >
           {tab === "prehled" ? <Overview data={data} day={day} /> : null}
+          {tab === "prenos" && data.commentary ? (
+            <Card title="Textový přenos">
+              <Commentary comments={data.commentary} game={game} />
+            </Card>
+          ) : null}
           {tab === "statistiky" ? (
             <Card title="Statistiky zápasu">
               <PeriodStats game={game} stats={data.periodStats} box={data.box} shots={data.shots} />
@@ -143,9 +152,18 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
     : null;
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <Card title="Průběh zápasu">
-        <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} />
-      </Card>
+      <div className="space-y-4">
+        {data.insights ? (
+          <Card title="Zajímavosti">
+            <Insights game={game} data={data} />
+          </Card>
+        ) : null}
+        {game.status !== "scheduled" ? (
+          <Card title="Průběh zápasu">
+            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} />
+          </Card>
+        ) : null}
+      </div>
       <div className="space-y-4">
         {xg ? (
           <Card title="Očekávané góly (xG)">
@@ -347,7 +365,11 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
           <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${live ? "text-live" : "text-muted"}`}>
             {live ? <span className="live-dot size-1.5 rounded-full bg-live" /> : null}
             {game.statusLabel}
-            {live && game.clock ? <span className="tabular">· {game.clock}</span> : null}
+            {live ? (
+              <span className="rounded bg-live/15 px-1.5 py-0.5 text-sm">
+                <LiveClock anchor={game.status === "live" ? data.clock : null} fallback={game.clock} />
+              </span>
+            ) : null}
           </div>
           {game.periods.length > 0 ? (
             <div className="mt-1 flex gap-1.5 text-[11px] text-muted tabular">

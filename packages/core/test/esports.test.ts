@@ -98,5 +98,6 @@ describe("eSports scoreboard (alt variant)", () => {
     expect(games.every((g) => g.leagueKey === "cz-elh")).toBe(true);
     expect(games[0]).toMatchObject({ id: "cz-532950", startAt: "2026-09-29T15:00:00.000Z" });
     expect(games[0]!.periods.length).toBe(3);
+    expect(games[0]!.home.hokejczClubId).toBe(11);
   });
 });

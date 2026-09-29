@@ -33,12 +33,22 @@ export interface GameDetailResponse {
   periodStats: MatchPeriodStats | null;
   playerStats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
   faceoffZones: { home: number[]; away: number[] } | null;
+  /** Text commentary, newest first. */
+  commentary: import("@hokejhub/core").Comment[] | null;
+  /** Anchor for the running game clock (live games). */
+  clock: import("@hokejhub/core").ClockAnchor | null;
   /** Our database team ids (links to team pages) when known. */
   teamIds: { home: string; away: string } | null;
   /** Previous meetings of the two teams, newest first. */
   h2h: import("./server/queries").GameRowDb[] | null;
   /** hcz player id → photo URL. */
   photos: Record<string, string> | null;
+  insights: {
+    home: Awaited<ReturnType<typeof import("./server/queries").getTeamStreaks>>;
+    away: Awaited<ReturnType<typeof import("./server/queries").getTeamStreaks>>;
+    notes: import("./server/queries").PlayerNote[];
+    reached: { player_id: string; name: string; headshot: string | null; team_id: string; kind: string; value: number }[];
+  } | null;
   goals: GoalSummary[] | null;
   players: Record<string, NhlPlayerRef> | null;
   sources: Record<string, SourceState>;

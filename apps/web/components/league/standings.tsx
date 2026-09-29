@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { computeOverUnder, computeStandings, rulesForSeason, type FormResult, type ResultGame, type Split } from "@hokejhub/core";
@@ -34,12 +35,24 @@ export function Standings({
   season,
   logos = {},
   highlight = [],
+  liveGames: initialLive = [],
 }: {
   games: ResultGame[];
   season: number;
   logos?: Record<string, string>;
   highlight?: string[];
+  /** Games in progress (provisional scores) for the live table. */
+  liveGames?: (ResultGame & { live: string })[];
 }) {
+  const { data: liveGames = initialLive } = useQuery({
+    queryKey: ["live-elh"],
+    queryFn: async () => (await fetch("/api/live/elh")).json() as Promise<(ResultGame & { live: string })[]>,
+    initialData: initialLive,
+    refetchInterval: initialLive.length ? 20_000 : false,
+    enabled: initialLive.length > 0,
+  });
+  const [liveOn, setLiveOn] = useState(true);
+  const useLive = liveOn && liveGames.length > 0;
   const rules = rulesForSeason(season);
   const [mode, setMode] = useState<Mode>("table");
   const [split, setSplit] = useState<Split>("overall");
@@ -47,9 +60,21 @@ export function Standings({
   const [line, setLine] = useState<"4.5" | "5.5" | "6.5">("5.5");
 
   const rows = useMemo(
-    () => computeStandings(games, { split, lastN: lastN === "all" ? undefined : Number(lastN), rules }),
+    () => computeStandings(useLive ? [...games, ...liveGames] : games, { split, lastN: lastN === "all" ? undefined : Number(lastN), rules }),
+    [games, liveGames, useLive, split, lastN, rules],
+  );
+  const baseRank = useMemo(
+    () => new Map(computeStandings(games, { split, lastN: lastN === "all" ? undefined : Number(lastN), rules }).map((r) => [r.teamId, r.rank])),
     [games, split, lastN, rules],
   );
+  const liveBy = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const g of liveGames) {
+      m.set(g.homeId, `${g.homeScore}:${g.awayScore} ${g.live}`);
+      m.set(g.awayId, `${g.awayScore}:${g.homeScore} ${g.live}`);
+    }
+    return m;
+  }, [liveGames]);
   const ties = rows.some((r) => r.t > 0);
   const ou = useMemo(() => computeOverUnder(games, Number(line)), [games, line]);
 
@@ -57,6 +82,15 @@ export function Standings({
     <div>
       <div className="mb-3 flex flex-wrap gap-2">
         <Segmented value={mode} onChange={setMode} options={[{ value: "table", label: "Tabulka" }, { value: "ou", label: "Over/Under" }]} />
+        {liveGames.length > 0 ? (
+          <button
+            onClick={() => setLiveOn((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${liveOn ? "bg-live text-white" : "bg-surface-2 text-muted"}`}
+          >
+            <span className={`size-1.5 rounded-full ${liveOn ? "live-dot bg-white" : "bg-live"}`} />
+            Live tabulka
+          </button>
+        ) : null}
         {mode === "table" ? (
           <>
             <Segmented
@@ -114,6 +148,7 @@ export function Standings({
               {rows.map((r) => (
                 <tr key={r.teamId} className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}>
                   <td className="py-2 pr-2">
+                    <span className="flex items-center gap-1">
                     <span
                       className={`grid size-6 place-items-center rounded-md text-xs font-bold ${
                         r.rank <= 6 ? "bg-accent/20 text-accent" : r.rank <= 10 ? "bg-surface-2" : "text-muted"
@@ -121,12 +156,25 @@ export function Standings({
                     >
                       {r.rank}
                     </span>
+                    {useLive && baseRank.get(r.teamId) && baseRank.get(r.teamId) !== r.rank ? (
+                      <span className={`text-[10px] font-bold ${baseRank.get(r.teamId)! > r.rank ? "text-win" : "text-live"}`}>
+                        {baseRank.get(r.teamId)! > r.rank ? "▲" : "▼"}
+                        {Math.abs(baseRank.get(r.teamId)! - r.rank)}
+                      </span>
+                    ) : null}
+                    </span>
                   </td>
                   <td className="py-2 pr-2 font-medium">
                     <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={22} className="mr-2 align-middle" />
                     <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
                       {r.teamName}
                     </Link>
+                    {useLive && liveBy.get(r.teamId) ? (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-live/15 px-1.5 py-0.5 text-[10px] font-bold text-live">
+                        <span className="live-dot size-1.5 rounded-full bg-live" />
+                        {liveBy.get(r.teamId)}
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-1.5 text-right">{r.gp}</td>
                   <td className="px-1.5 text-right">{r.w}</td>

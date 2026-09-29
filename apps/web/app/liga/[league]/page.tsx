@@ -12,6 +12,7 @@ import { SeasonSelect } from "@/components/ui/season-select";
 import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
 import { dbAvailable } from "@/lib/server/db";
+import { getLiveElhGames } from "@/lib/server/live-table";
 import {
   getLeagueAttendance,
   getLeagueAttendanceByTeam,
@@ -93,7 +94,13 @@ function PhaseSwitch({ phase, league, season, tab }: { phase: string; league: st
 }
 
 async function TableTab({ league, season, phase }: { league: string; season: number; phase: string }) {
-  const [rows, logos] = await Promise.all([getSeasonGames(league, season, phase), getTeamLogos(league)]);
+  const seasons = await getLeagueSeasons(league);
+  const isCurrent = seasons[0]?.season === season;
+  const [rows, logos, live] = await Promise.all([
+    getSeasonGames(league, season, phase),
+    getTeamLogos(league),
+    isCurrent && league === "cz-elh" ? getLiveElhGames().catch(() => []) : Promise.resolve([]),
+  ]);
   const games = toResultGames(rows);
   if (games.length === 0) {
     const official = (await getOfficialStandings(league, season)).filter((r) => r.split === "overall");
@@ -102,7 +109,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
   }
   return (
     <Card title={`Tabulka ${seasonLabel(season)} · ${games.length} zápasů`}>
-      <Standings games={games} season={season} logos={logos} />
+      <Standings games={games} season={season} logos={logos} liveGames={live} />
     </Card>
   );
 }

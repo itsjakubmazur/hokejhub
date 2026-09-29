@@ -432,3 +432,144 @@ export async function getTeamLogos(league: string) {
   const rows = await sql<{ id: string; logo_url: string | null }>("select id, logo_url from team where league_id = $1", [league]);
   return Object.fromEntries(rows.filter((r) => r.logo_url).map((r) => [r.id, r.logo_url!])) as Record<string, string>;
 }
+
+// ---------- match insights (streaks, milestones) ----------
+
+export interface TeamStreak {
+  team_id: string;
+  kind: "W" | "L" | "P" | "home_W" | "away_W";
+  length: number;
+}
+
+/** Current streaks of a team before `before` (wins, losses, games with a point). */
+export async function getTeamStreaks(teamId: string, before: string) {
+  const rows = await sql<{ home: boolean; gf: number; ga: number; decided_in: string | null }>(
+    `select g.home_team_id = $1 as home,
+            case when g.home_team_id = $1 then g.home_score else g.away_score end as gf,
+            case when g.home_team_id = $1 then g.away_score else g.home_score end as ga,
+            g.decided_in
+     from game g
+     where (g.home_team_id = $1 or g.away_team_id = $1) and g.status = 'final' and g.start_at < $2
+     order by g.start_at desc limit 40`,
+    [teamId, before],
+  );
+  const count = (pred: (r: (typeof rows)[number]) => boolean, list = rows) => {
+    let n = 0;
+    for (const r of list) {
+      if (!pred(r)) break;
+      n++;
+    }
+    return n;
+  };
+  const won = (r: (typeof rows)[number]) => r.gf > r.ga;
+  const pointed = (r: (typeof rows)[number]) => r.gf > r.ga || r.gf === r.ga || (r.decided_in != null && r.decided_in !== "REG");
+  return {
+    wins: count(won),
+    losses: count((r) => r.gf < r.ga),
+    points: count(pointed),
+    homeWins: count(won, rows.filter((r) => r.home)),
+    awayWins: count(won, rows.filter((r) => !r.home)),
+    last10: rows.slice(0, 10).map((r) => (r.gf > r.ga ? (r.decided_in && r.decided_in !== "REG" ? "OTW" : "W") : r.gf === r.ga ? "T" : r.decided_in && r.decided_in !== "REG" ? "OTL" : "L")),
+  };
+}
+
+export interface PlayerNote {
+  player_id: string;
+  name: string;
+  headshot: string | null;
+  team_id: string;
+  text: string;
+  /** Higher = more interesting. */
+  weight: number;
+}
+
+/**
+ * Player storylines for a match: point streaks entering the game and round-number milestones
+ * that are one game/goal/point away (pre-game) or were reached in this game (post-game).
+ */
+export async function getPlayerNotes(teamIds: string[], before: string, gameId: string | null) {
+  const rows = await sql<{
+    player_id: string;
+    name: string;
+    headshot: string | null;
+    team_id: string;
+    league_id: string;
+    career_gp: number;
+    career_g: number;
+    career_pts: number;
+    club_gp: number;
+    club_g: number;
+    club_pts: number;
+    streak: number;
+    goal_streak: number;
+  }>(
+    `with last_game as (
+       select b.team_id, max(g.start_at) as at
+       from box_skater b join game g on g.id = b.game_id
+       where b.team_id = any($1) and g.status = 'final' and g.start_at < $2
+       group by b.team_id
+     ),
+     roster as (
+       select distinct b.player_id, b.team_id
+       from box_skater b join game g on g.id = b.game_id
+       join last_game lg on lg.team_id = b.team_id and g.start_at = lg.at
+     ),
+     log as (
+       select l.*, row_number() over (partition by l.player_id order by l.start_at desc) as rn
+       from skater_career_log l join roster r on r.player_id = l.player_id
+       where l.start_at < $2
+     ),
+     streaks as (
+       select player_id,
+         coalesce(min(rn) filter (where pts = 0), max(rn) + 1) - 1 as streak,
+         coalesce(min(rn) filter (where g = 0), max(rn) + 1) - 1 as goal_streak
+       from log where rn <= 30 group by player_id
+     )
+     select l.player_id, p.name, p.headshot, r.team_id, l.league_id,
+       l.career_gp::int, l.career_g::int, l.career_pts::int, l.club_gp::int, l.club_g::int, l.club_pts::int,
+       s.streak::int, s.goal_streak::int
+     from log l
+     join roster r on r.player_id = l.player_id
+     join player p on p.id = l.player_id
+     join streaks s on s.player_id = l.player_id
+     where l.rn = 1 and l.team_id = r.team_id`,
+    [teamIds, before],
+  );
+
+  const notes: PlayerNote[] = [];
+  const next = (v: number, step: number) => (Math.floor(v / step) + 1) * step;
+  for (const r of rows) {
+    const base = { player_id: r.player_id, name: r.name, headshot: r.headshot, team_id: r.team_id };
+    if (r.streak >= 3) notes.push({ ...base, text: `boduje ${r.streak} zápasů v řadě`, weight: r.streak * 2 });
+    if (r.goal_streak >= 2) notes.push({ ...base, text: `skóroval ${r.goal_streak}× v řadě`, weight: r.goal_streak * 3 });
+    const checks: [number, number, string, number][] = [
+      [r.career_gp, 100, "zápas v extralize", 5],
+      [r.club_gp, 100, "zápas za klub", 4],
+      [r.career_pts, 50, "bod v extralize", 6],
+      [r.career_g, 25, "gól v extralize", 7],
+      [r.club_pts, 50, "bod za klub", 4],
+    ];
+    for (const [value, step, label, w] of checks) {
+      const target = next(value, step);
+      const need = target - value;
+      if (label.startsWith("zápas") ? need === 1 : need <= 2) {
+        notes.push({
+          ...base,
+          text: label.startsWith("zápas")
+            ? `v zápase odehraje ${target}. ${label}`
+            : `potřebuje ${need} ${need === 1 ? (label.startsWith("gól") ? "gól" : "bod") : label.startsWith("gól") ? "góly" : "body"} k ${target}. ${label.replace(/^(gól|bod)/, "$1u")}`,
+          weight: w + (target >= 500 ? 5 : target >= 200 ? 3 : 0),
+        });
+      }
+    }
+  }
+  let reached: { player_id: string; name: string; headshot: string | null; team_id: string; kind: string; value: number }[] = [];
+  if (gameId) {
+    reached = await sql(
+      `select m.player_id, p.name, p.headshot, m.team_id, m.kind, m.value
+       from game_milestones($1) m join player p on p.id = m.player_id`,
+      [gameId],
+    );
+  }
+  return { notes: notes.sort((a, b) => b.weight - a.weight).slice(0, 12), reached };
+}

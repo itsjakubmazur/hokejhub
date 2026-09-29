@@ -20,6 +20,9 @@ import {
   penaltyWindows,
   seasonOf,
   shotsWithXg,
+  clockAnchor,
+  hokejczOnlineUrl,
+  parseHokejczOnline,
   type HokejczMatch,
   pragueToUtcIso,
   type BetDistribution,
@@ -29,7 +32,7 @@ import {
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
 import { fetchJson, type SourceState } from "./fetcher";
-import { getHeadToHead, getPhotos, sql } from "./queries";
+import { getHeadToHead, getPhotos, getPlayerNotes, getTeamStreaks, sql } from "./queries";
 import { getScoreboard, revalidateFor } from "./scoreboard";
 
 /**
@@ -58,7 +61,7 @@ async function czDetails(game: Game, box: HokejczMatch | null, sources: Record<s
   const onl = game.external.onlajnyId;
   const season = seasonOf(game.startAt);
   const hcz = game.external.hokejczId;
-  const [roster, summary, players, shotFeed] = await Promise.all([
+  const [roster, summary, players, shotFeed, online] = await Promise.all([
     onl ? fetchJson(onlajnyMatchUrls.roster(season, onl), parseOnlajnyRoster, { revalidate, notFoundIsEmpty: true }) : null,
     onl && game.status !== "scheduled"
       ? fetchJson(onlajnyMatchUrls.summary(season, onl), parseOnlajnySummary, { revalidate, notFoundIsEmpty: true })
@@ -68,6 +71,9 @@ async function czDetails(game: Game, box: HokejczMatch | null, sources: Record<s
       : null,
     hcz && game.status !== "scheduled"
       ? fetchJson(hokejczShotsUrl(hcz), parseHokejczShots, { revalidate, notFoundIsEmpty: true })
+      : null,
+    hcz
+      ? fetchJson(hokejczOnlineUrl(season, hcz), parseHokejczOnline, { revalidate: live ? 10 : revalidate, notFoundIsEmpty: true })
       : null,
   ]);
   if (roster) sources.lineups = roster.state;
@@ -83,6 +89,8 @@ async function czDetails(game: Game, box: HokejczMatch | null, sources: Record<s
     playerStats: players?.data ?? null,
     shots,
     faceoffZones: shotFeed?.data?.faceoffZones ?? null,
+    commentary: online?.data?.length ? online.data : null,
+    clock: live && online?.data ? clockAnchor(online.data) : null,
   };
 }
 
@@ -146,11 +154,14 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       teamIds: null,
       h2h: null,
       photos: null,
+      insights: null,
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
       periodStats: null,
       playerStats: null,
       faceoffZones: null,
+      commentary: null,
+      clock: null,
       goals: landing.data.goals,
       players: pbp.data?.players ?? null,
       sources,
@@ -164,7 +175,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
     const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
-    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box)]);
+    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box, game)]);
     return {
       game,
       liveOdds,
@@ -186,7 +197,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     if (!game) return null;
     const box = game.box;
     const details = await czDetails(game.game, box, sources);
-    const links = await dbLinks(box);
+    const links = await dbLinks(box, game.game);
     return {
       game: game.game,
       liveOdds: null,
@@ -249,23 +260,37 @@ async function gameFromHokejcz(hczId: number, sources: Record<string, SourceStat
 }
 
 /** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
-async function dbLinks(box: HokejczMatch | null) {
-  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null };
+async function dbLinks(box: HokejczMatch | null, game?: Game) {
+  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null, insights: null };
   const ids = [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]
     .map((p) => p.player.id)
     .filter((x): x is number => Boolean(x))
     .map((x) => `hcz-${x}`);
   const photos = await getPhotos(ids).catch(() => null);
-  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos };
+  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos, insights: null };
   const home = `hcz-${box.home.clubId}`;
   const away = `hcz-${box.away.clubId}`;
   try {
     const [exists] = await sql<{ n: number }>("select count(*)::int as n from team where id in ($1, $2)", [home, away]);
-    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos };
-    return { teamIds: { home, away }, h2h: await getHeadToHead(home, away, 30), photos };
+    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos, insights: null };
+    const before = game?.startAt ?? new Date().toISOString();
+    const dbGameId = game?.external.hokejczId ? `hcz-${game.external.hokejczId}` : null;
+    const [h2h, homeStreak, awayStreak, players] = await Promise.all([
+      getHeadToHead(home, away, 30),
+      getTeamStreaks(home, before),
+      getTeamStreaks(away, before),
+      getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null),
+    ]);
+    const extra = await getPhotos(players.notes.map((n) => n.player_id)).catch(() => ({}));
+    return {
+      teamIds: { home, away },
+      h2h,
+      photos: { ...extra, ...(photos ?? {}) },
+      insights: { home: homeStreak, away: awayStreak, notes: players.notes, reached: players.reached },
+    };
   } catch (e) {
     console.error("[db] links", e);
-    return { teamIds: null, h2h: null, photos };
+    return { teamIds: null, h2h: null, photos, insights: null };
   }
 }
 

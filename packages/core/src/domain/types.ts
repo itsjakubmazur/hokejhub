@@ -18,6 +18,8 @@ export interface TeamRef {
   shortName: string;
   abbrev: string;
   logoUrl: string | null;
+  /** hokej.cz club id when the feed provides it (links to our DB team `hcz-{id}`). */
+  hokejczClubId?: number;
 }
 
 export interface Odds1x2 {

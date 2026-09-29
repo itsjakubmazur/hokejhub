@@ -77,6 +77,7 @@ function toTeam(t: z.infer<typeof teamSchema>): TeamRef {
     shortName: t.short_name || t.name,
     abbrev: t.shortcut || (t.short_name ?? t.name).slice(0, 3).toUpperCase(),
     logoUrl: t.logo_id ? esportsUrls.logo(String(t.logo_id)) : null,
+    ...(t.hokejcz_id ? { hokejczClubId: t.hokejcz_id } : {}),
   };
 }
 
