@@ -14,6 +14,7 @@ const PAGES = [
   { href: "/predikce", name: "Predikce", sub: "Elo model vs. kurzy" },
   { href: "/dnes-v-historii", name: "Tento den v historii", sub: "Zápasy, narozeniny, hattricky" },
   { href: "/rekordy", name: "Rekordy extraligy", sub: "Zápasy, sezóny, kariéry" },
+  { href: "/historie", name: "Historie čs. ligy", sub: "Mistři a tabulky 1936–1993" },
   { href: "/porovnat", name: "Porovnat hráče", sub: "Kariéra vedle sebe" },
   { href: "/tipovacka", name: "Tipovačka", sub: "Ty vs. model" },
   { href: "/upozorneni", name: "Upozornění", sub: "Góly a výsledky do telefonu" },

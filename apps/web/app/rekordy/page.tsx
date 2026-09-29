@@ -46,7 +46,13 @@ export default async function RecordsPage() {
       <header className="rise">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted">Tipsport extraliga · od 1993/94</p>
         <h1 className="text-3xl font-black tracking-tight">Rekordy</h1>
-        <p className="mt-1 text-sm text-muted">Počítáno z kompletní databáze zápasů – doplňuje se, jak crawler prochází historii hokej.cz.</p>
+        <p className="mt-1 text-sm text-muted">
+          Počítáno z kompletní databáze zápasů – doplňuje se, jak crawler prochází historii hokej.cz. Starší éra:{" "}
+          <Link href="/historie" className="text-accent">
+            československá liga 1936–1993
+          </Link>
+          .
+        </p>
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">
