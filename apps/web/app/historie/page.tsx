@@ -4,7 +4,7 @@ import { Card, Empty } from "@/components/ui/card";
 import { franchiseOf, getCzechoslovakHistory } from "@/lib/server/history";
 
 export const metadata: Metadata = { title: "Historie československé ligy" };
-export const revalidate = 86400;
+export const dynamic = "force-dynamic";
 
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<{ s?: string }> }) {
   const seasons = await getCzechoslovakHistory();
