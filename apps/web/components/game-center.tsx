@@ -14,6 +14,7 @@ import { HeadToHead } from "./game/h2h";
 import { Insights } from "./game/insights";
 import { Commentary } from "./game/commentary";
 import { PredictionCard } from "./game/prediction";
+import { Recap } from "./game/recap";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
@@ -156,6 +157,11 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4">
+        {data.box && game.status === "final" ? (
+          <Card title="Report">
+            <Recap box={data.box} xg={xg} homeWinProb={data.prediction?.homeWin ?? null} />
+          </Card>
+        ) : null}
         {data.insights ? (
           <Card title="Zajímavosti">
             <Insights game={game} data={data} />
