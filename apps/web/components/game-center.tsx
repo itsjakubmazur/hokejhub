@@ -26,6 +26,7 @@ import { ShotMap } from "./shot-map";
 import { SourceStatus } from "./source-status";
 import { TeamLogo } from "./team-logo";
 import { PlayerPhoto } from "./player-photo";
+import { ShareButton } from "./share-button";
 import { useGoalFlash } from "./use-goal-flash";
 
 const easternDate = (iso: string) =>
@@ -362,6 +363,7 @@ function FaceoffZones({ game, zones }: { game: Game; zones: { home: number[]; aw
 
 function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse; day: string }) {
   const flash = useGoalFlash(game.homeScore, game.awayScore);
+  const pathname = usePathname();
   const started = game.homeScore !== null;
   const live = isLive(game);
   const lastSide = flash.home + flash.away === 0 ? "home" : flash.home >= flash.away ? "home" : "away";
@@ -372,9 +374,17 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
           ← {game.leagueName}
           {data.box?.round ? ` · ${data.box.round}` : ""}
         </Link>
-        <span className="tabular">
-          {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(game.startAt))}{" "}
-          {formatTime(game.startAt)}
+        <span className="flex items-center gap-3">
+          <span className="tabular">
+            {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(game.startAt))}{" "}
+            {formatTime(game.startAt)}
+          </span>
+          <span className="normal-case tracking-normal">
+            <ShareButton
+              title={`${game.home.shortName} ${started ? `${game.homeScore}:${game.awayScore}` : "vs"} ${game.away.shortName}`}
+              image={`/api/og${pathname}?d=${day}`}
+            />
+          </span>
         </span>
       </div>
       <div

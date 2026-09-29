@@ -9,6 +9,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin", "lat
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "https://hokejhub.vercel.app",
+  ),
   title: { default: "HokejHub", template: "%s · HokejHub" },
   description: "Živé výsledky, kurzy a analytika – české ligy a NHL.",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "HokejHub" },

@@ -11,11 +11,17 @@ async function load(props: PageProps<"/zapas/[id]">) {
 }
 
 export async function generateMetadata(props: PageProps<"/zapas/[id]">): Promise<Metadata> {
-  const { detail } = await load(props);
+  const { id, date, detail } = await load(props);
   if (!detail) return { title: "Zápas" };
   const g = detail.game;
   const score = g.homeScore !== null ? ` ${g.homeScore}:${g.awayScore}` : "";
-  return { title: `${g.home.shortName}${score} ${g.away.shortName}` };
+  const title = `${g.home.shortName}${score} ${g.away.shortName}`;
+  const image = `/api/og/zapas/${id}${date ? `?d=${date}` : ""}`;
+  return {
+    title,
+    openGraph: { title, images: [{ url: image, width: 1200, height: 630 }] },
+    twitter: { card: "summary_large_image", title, images: [image] },
+  };
 }
 
 export default async function GamePage(props: PageProps<"/zapas/[id]">) {
