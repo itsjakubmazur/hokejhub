@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { Game, Odds1x2 } from "@hokejhub/core";
+import { impliedProbs, type Game, type Odds1x2 } from "@hokejhub/core";
 import { formatOdds, formatTime } from "@/lib/format";
 import { TeamLogo } from "./team-logo";
 import { useGoalFlash } from "./use-goal-flash";
@@ -35,7 +35,19 @@ function StatusCell({ game }: { game: Game }) {
 }
 
 /** One dense Livesport-style row: status · teams · score · period scores · 1X2. */
-export function GameRow({ game, date, liveOdds, index }: { game: Game; date: string; liveOdds?: Odds1x2; index: number }) {
+export function GameRow({
+  game,
+  date,
+  liveOdds,
+  index,
+  prediction,
+}: {
+  game: Game;
+  date: string;
+  liveOdds?: Odds1x2;
+  index: number;
+  prediction?: { home: number; draw: number; away: number };
+}) {
   const flash = useGoalFlash(game.homeScore, game.awayScore);
   const live = game.status === "live" || game.status === "intermission";
   const final = game.status === "final";
@@ -43,6 +55,7 @@ export function GameRow({ game, date, liveOdds, index }: { game: Game; date: str
     final && game.homeScore !== null && game.awayScore !== null ? (game.homeScore > game.awayScore ? "home" : "away") : null;
   const odds = live ? (liveOdds ?? null) : game.preOdds;
   const periods = game.periods.slice(0, 4);
+  const market = prediction && game.preOdds ? impliedProbs(game.preOdds) : null;
 
   return (
     <Link
@@ -99,14 +112,26 @@ export function GameRow({ game, date, liveOdds, index }: { game: Game; date: str
               const pre = game.preOdds?.[k];
               const v = odds[k];
               const move = live && v && pre ? (v < pre ? "▼" : v > pre ? "▲" : "") : "";
+              const value = !live && prediction && market && prediction[k] - market[k] > 0.04;
               return (
-                <span key={k} className="rounded bg-surface-2 px-1 py-1 text-center text-[11px] font-medium tabular">
+                <span
+                  key={k}
+                  title={prediction ? `model ${Math.round(prediction[k] * 100)} %${market ? ` · trh ${Math.round(market[k] * 100)} %` : ""}` : undefined}
+                  className={`rounded bg-surface-2 px-1 py-1 text-center text-[11px] font-medium tabular ${value ? "ring-1 ring-win" : ""}`}
+                >
                   {move ? <span className={move === "▼" ? "text-win" : "text-live"}>{move}</span> : null}
                   {formatOdds(v)}
                 </span>
               );
             })
           : null}
+        {prediction && !live && !final ? (
+          <div className="col-span-3 flex h-1 gap-px overflow-hidden rounded-full" title={`Model: ${Math.round(prediction.home * 100)} / ${Math.round(prediction.draw * 100)} / ${Math.round(prediction.away * 100)} %`}>
+            <span className="bg-home" style={{ width: `${prediction.home * 100}%` }} />
+            <span className="bg-muted/50" style={{ width: `${prediction.draw * 100}%` }} />
+            <span className="bg-away" style={{ width: `${prediction.away * 100}%` }} />
+          </div>
+        ) : null}
       </div>
     </Link>
   );

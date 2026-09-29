@@ -6,6 +6,7 @@ import { computeStandings, rulesForSeason } from "@hokejhub/core";
 import { FavoriteButton } from "@/components/favorite-button";
 import { Leaders } from "@/components/league/leaders";
 import { FormBadges } from "@/components/league/standings";
+import { EloChart } from "@/components/team/elo-chart";
 import { TeamResults } from "@/components/team/results";
 import { BarChart } from "@/components/ui/bar-chart";
 import { Card, Empty, Stat } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import { SeasonSelect } from "@/components/ui/season-select";
 import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
 import { dbAvailable } from "@/lib/server/db";
+import { getEloState } from "@/lib/server/model";
 import {
   getAllTeamGames,
   getAttendanceByOpponent,
@@ -294,11 +296,19 @@ async function Attendance({ teamId, season }: { teamId: string; season: number }
 }
 
 async function History({ teamId }: { teamId: string }) {
-  const [games, ranks] = await Promise.all([getAllTeamGames(teamId), getTeamFinalRanks(teamId)]);
+  const [games, ranks, elo] = await Promise.all([getAllTeamGames(teamId), getTeamFinalRanks(teamId), getEloState("cz-elh")]);
   if (games.length === 0) return <Empty>Historie zatím není stažená.</Empty>;
   const seasons = [...new Set(games.map((g) => g.season!).filter(Boolean))].sort((a, b) => b - a);
   const rankBy = new Map(ranks.map((r) => [r.season, r]));
+  const eloPoints = elo.state.history.get(teamId) ?? [];
+  const leagueBest = Math.max(...elo.state.ratings.values());
   return (
+    <div className="space-y-4">
+      {eloPoints.length > 5 ? (
+        <Card title="Síla týmu v čase (Elo)">
+          <EloChart points={eloPoints} leagueBest={leagueBest} />
+        </Card>
+      ) : null}
     <Card title="Sezóny v extralize">
       <div className="-mx-4 overflow-x-auto px-4">
         <table className="w-full min-w-[560px] text-sm tabular">
@@ -338,5 +348,6 @@ async function History({ teamId }: { teamId: string }) {
         </table>
       </div>
     </Card>
+    </div>
   );
 }

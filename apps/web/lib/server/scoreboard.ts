@@ -1,5 +1,6 @@
 import {
   addDays,
+  predict,
   combineScoreboard,
   esportsUrls,
   nhlUrls,
@@ -10,6 +11,8 @@ import {
   pragueDate,
   type Game,
 } from "@hokejhub/core";
+import { dbAvailable } from "./db";
+import { getEloState } from "./model";
 import type { ScoreboardResponse } from "../types";
 import { fetchJson } from "./fetcher";
 
@@ -57,10 +60,36 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
     if (odds.data) liveOdds = Object.fromEntries(odds.data);
   }
 
+  // Model probabilities for extraliga games that have not started (needs the database).
+  const predictions: NonNullable<ScoreboardResponse["predictions"]> = {};
+  const elh = games.filter((g) => g.leagueKey === "cz-elh" && g.status === "scheduled");
+  if (elh.length && dbAvailable()) {
+    try {
+      // The main feed lacks hokej.cz club ids; the ELH-only variant has them (same onlajny team ids).
+      const clubOf = new Map<string, number>();
+      for (const g of elh) for (const t of [g.home, g.away]) if (t.hokejczClubId) clubOf.set(t.id, t.hokejczClubId);
+      if (elh.some((g) => !clubOf.has(g.home.id) || !clubOf.has(g.away.id))) {
+        const alt = await fetchJson(esportsUrls.scoreboardAlt(date), parseScoreboardAlt, { revalidate: 3600, notFoundIsEmpty: true });
+        for (const g of alt.data ?? []) for (const t of [g.home, g.away]) if (t.hokejczClubId) clubOf.set(t.id, t.hokejczClubId);
+      }
+      const { state } = await getEloState("cz-elh");
+      for (const g of elh) {
+        const h = clubOf.get(g.home.id);
+        const a = clubOf.get(g.away.id);
+        if (!h || !a) continue;
+        const p = predict(state.ratings.get(`hcz-${h}`) ?? 1500, state.ratings.get(`hcz-${a}`) ?? 1500);
+        predictions[g.id] = { home: p.home, draw: p.draw, away: p.away };
+      }
+    } catch {
+      /* predictions are optional */
+    }
+  }
+
   return {
     date,
     games,
     liveOdds,
+    predictions,
     sources: {
       esports: esState,
       nhl: nhl.state,

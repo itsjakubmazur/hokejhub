@@ -121,7 +121,14 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
             Moje týmy
           </h2>
           {mine.map((g, i) => (
-            <GameRow key={g.id} game={g} date={date} index={i} liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined} />
+            <GameRow
+              key={g.id}
+              game={g}
+              date={date}
+              index={i}
+              liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
+              prediction={data.predictions?.[g.id]}
+            />
           ))}
         </section>
       ) : null}
@@ -152,6 +159,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
                 date={date}
                 index={i}
                 liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
+                prediction={data.predictions?.[g.id]}
               />
             ))}
           </div>

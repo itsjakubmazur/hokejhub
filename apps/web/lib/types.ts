@@ -17,6 +17,8 @@ export interface ScoreboardResponse {
   games: Game[];
   /** Live Tipsport odds keyed by onlajny id. */
   liveOdds: Record<string, Odds1x2>;
+  /** Pre-game model 1X2 (60 min) for extraliga games, keyed by game id. */
+  predictions?: Record<string, { home: number; draw: number; away: number }>;
   sources: Record<string, SourceState>;
   fetchedAt: string;
 }
