@@ -31,6 +31,7 @@ import {
 } from "@hokejhub/core";
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
+import { predictMatch } from "./model";
 import { fetchJson, type SourceState } from "./fetcher";
 import { getHeadToHead, getPhotos, getPlayerNotes, getTeamStreaks, sql } from "./queries";
 import { getScoreboard, revalidateFor } from "./scoreboard";
@@ -155,6 +156,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       h2h: null,
       photos: null,
       insights: null,
+      prediction: null,
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
       periodStats: null,
@@ -261,18 +263,18 @@ async function gameFromHokejcz(hczId: number, sources: Record<string, SourceStat
 
 /** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
 async function dbLinks(box: HokejczMatch | null, game?: Game) {
-  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null, insights: null };
+  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null, insights: null, prediction: null };
   const ids = [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]
     .map((p) => p.player.id)
     .filter((x): x is number => Boolean(x))
     .map((x) => `hcz-${x}`);
   const photos = await getPhotos(ids).catch(() => null);
-  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos, insights: null };
+  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
   const home = `hcz-${box.home.clubId}`;
   const away = `hcz-${box.away.clubId}`;
   try {
     const [exists] = await sql<{ n: number }>("select count(*)::int as n from team where id in ($1, $2)", [home, away]);
-    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos, insights: null };
+    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
     const before = game?.startAt ?? new Date().toISOString();
     const dbGameId = game?.external.hokejczId ? `hcz-${game.external.hokejczId}` : null;
     const [h2h, homeStreak, awayStreak, players] = await Promise.all([
@@ -282,15 +284,17 @@ async function dbLinks(box: HokejczMatch | null, game?: Game) {
       getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null),
     ]);
     const extra = await getPhotos(players.notes.map((n) => n.player_id)).catch(() => ({}));
+    const prediction = await predictMatch("cz-elh", home, away, dbGameId ?? undefined).catch(() => null);
     return {
       teamIds: { home, away },
       h2h,
       photos: { ...extra, ...(photos ?? {}) },
       insights: { home: homeStreak, away: awayStreak, notes: players.notes, reached: players.reached },
+      prediction,
     };
   } catch (e) {
     console.error("[db] links", e);
-    return { teamIds: null, h2h: null, photos, insights: null };
+    return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
   }
 }
 

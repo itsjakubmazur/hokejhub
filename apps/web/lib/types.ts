@@ -33,6 +33,8 @@ export interface GameDetailResponse {
   periodStats: MatchPeriodStats | null;
   playerStats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
   faceoffZones: { home: number[]; away: number[] } | null;
+  /** Pre-game model prediction (Elo → Poisson). */
+  prediction: (import("@hokejhub/core").MatchProbabilities & { homeElo: number; awayElo: number }) | null;
   /** Text commentary, newest first. */
   commentary: import("@hokejhub/core").Comment[] | null;
   /** Anchor for the running game clock (live games). */

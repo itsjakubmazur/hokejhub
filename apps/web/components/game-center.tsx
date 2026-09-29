@@ -13,6 +13,8 @@ import { GoalCelebration } from "./game/goal-celebration";
 import { HeadToHead } from "./game/h2h";
 import { Insights } from "./game/insights";
 import { Commentary } from "./game/commentary";
+import { PredictionCard } from "./game/prediction";
+import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
 import { PeriodStats } from "./game/period-stats";
@@ -158,6 +160,17 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
             <Insights game={game} data={data} />
           </Card>
         ) : null}
+        {data.prediction && game.status !== "scheduled" ? (
+          <Card title="Pravděpodobnost výhry v průběhu zápasu">
+            <WinProbability
+              game={game}
+              goals={goalMoments(data)}
+              expHome={data.prediction.expHome}
+              expAway={data.prediction.expAway}
+              elapsedNow={game.status === "final" ? 3600 : elapsedNow(data)}
+            />
+          </Card>
+        ) : null}
         {game.status !== "scheduled" ? (
           <Card title="Průběh zápasu">
             <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} />
@@ -175,6 +188,11 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
             <p className="mt-2 text-[11px] text-muted">
               Součet pravděpodobností gólu všech střel podle místa, úhlu a herní situace.
             </p>
+          </Card>
+        ) : null}
+        {data.prediction ? (
+          <Card title={game.status === "scheduled" ? "Predikce" : "Predikce před zápasem"}>
+            <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
           </Card>
         ) : null}
         {game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} /> : null}
@@ -198,6 +216,29 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
       </div>
     </div>
   );
+}
+
+function clockSeconds(t: string) {
+  const m = /^(\d+):(\d{2})$/.exec(t);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+
+/** Goals as [elapsed seconds, side] from the hokej.cz box or the NHL scoring summary. */
+function goalMoments(data: GameDetailResponse): [number, "home" | "away"][] {
+  if (data.box) {
+    return data.box.goals
+      .map((g) => [clockSeconds(g.time), g.team === data.box!.home.abbrev ? "home" : "away"] as const)
+      .filter((g): g is [number, "home" | "away"] => g[0] !== null && g[0] <= 3900);
+  }
+  return (data.goals ?? [])
+    .filter((g) => g.periodType !== "SO")
+    .map((g) => [(g.period - 1) * 1200 + (clockSeconds(g.time) ?? 0), g.teamAbbrev === data.game.home.abbrev ? "home" : "away"]);
+}
+
+function elapsedNow(data: GameDetailResponse) {
+  if (data.clock) return data.clock.gameSeconds;
+  const minute = Number.parseInt(data.game.clock ?? "", 10);
+  return Number.isFinite(minute) ? minute * 60 : (data.game.period ?? 1) * 1200;
 }
 
 function BigNumber({ value, side, label }: { value: number; side: "home" | "away"; label: string }) {
