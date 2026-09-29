@@ -13,7 +13,7 @@ export interface ResultGame {
 }
 
 export type Split = "overall" | "home" | "away";
-export type FormResult = "W" | "OTW" | "OTL" | "L";
+export type FormResult = "W" | "OTW" | "T" | "OTL" | "L";
 
 export interface StandingRow {
   teamId: string;
@@ -21,6 +21,8 @@ export interface StandingRow {
   gp: number;
   w: number;
   otw: number;
+  /** Ties (only in seasons where games could end level). */
+  t: number;
   otl: number;
   l: number;
   gf: number;
@@ -34,14 +36,30 @@ export interface StandingRow {
 export interface PointsRules {
   win: number;
   otWin: number;
+  tie: number;
   otLoss: number;
   loss: number;
+  /** Human-readable description for table footers. */
+  label: string;
 }
 
-/** Tipsport extraliga / modern European 3-2-1-0. */
-export const THREE_POINT: PointsRules = { win: 3, otWin: 2, otLoss: 1, loss: 0 };
+/** Tipsport extraliga / modern European 3-2-1-0 (overtime + shootout, no ties). */
+export const THREE_POINT: PointsRules = { win: 3, otWin: 2, tie: 1, otLoss: 1, loss: 0, label: "3 body výhra, 2 výhra po prodl./SN, 1 prohra po prodl./SN" };
+
+/**
+ * Czech extraliga points by era (verified against published final tables):
+ * - 1993/94–1999/00: 2 win, 1 tie, no regular-season overtime.
+ * - 2000/01–2005/06: 3 win, 2 OT win, 1 tie (scoreless OT), 1 OT loss.
+ * - 2006/07+: 3-2-1-0 with shootouts, no ties.
+ */
+export function rulesForSeason(season: number): PointsRules {
+  if (season <= 1999) return { win: 2, otWin: 2, tie: 1, otLoss: 0, loss: 0, label: "2 body výhra, 1 remíza" };
+  if (season <= 2005) return { win: 3, otWin: 2, tie: 1, otLoss: 1, loss: 0, label: "3 body výhra, 2 výhra v prodl., 1 remíza nebo prohra v prodl." };
+  return THREE_POINT;
+}
 
 function resultFor(g: ResultGame, teamId: string): FormResult {
+  if (g.homeScore === g.awayScore) return "T";
   const home = g.homeId === teamId;
   const won = home ? g.homeScore > g.awayScore : g.awayScore > g.homeScore;
   const ot = g.decidedIn === "OT" || g.decidedIn === "SO";
@@ -72,7 +90,7 @@ export function computeStandings(
   const rows: StandingRow[] = [];
   for (const [teamId, { name, games: list }] of byTeam) {
     const used = lastN ? list.slice(0, lastN) : list;
-    const r: StandingRow = { teamId, teamName: name, gp: 0, w: 0, otw: 0, otl: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [], rank: 0 };
+    const r: StandingRow = { teamId, teamName: name, gp: 0, w: 0, otw: 0, t: 0, otl: 0, l: 0, gf: 0, ga: 0, pts: 0, form: [], rank: 0 };
     for (const g of used) {
       const home = g.homeId === teamId;
       const res = resultFor(g, teamId);
@@ -81,6 +99,7 @@ export function computeStandings(
       r.ga += home ? g.awayScore : g.homeScore;
       if (res === "W") (r.w++, (r.pts += rules.win));
       else if (res === "OTW") (r.otw++, (r.pts += rules.otWin));
+      else if (res === "T") (r.t++, (r.pts += rules.tie));
       else if (res === "OTL") (r.otl++, (r.pts += rules.otLoss));
       else (r.l++, (r.pts += rules.loss));
       if (r.form.length < 5) r.form.push(res);
@@ -106,7 +125,7 @@ export interface OverUnderRow {
 export function computeOverUnder(games: ResultGame[], line = 5.5): OverUnderRow[] {
   const map = new Map<string, OverUnderRow & { sum: number }>();
   for (const g of games) {
-    // A shootout adds one "goal" to the winner's final score.
+    // A shootout adds one "goal" to the winner's final score (ties have none).
     const total = g.homeScore + g.awayScore - (g.decidedIn === "SO" ? 1 : 0);
     for (const [id, name] of [
       [g.homeId, g.homeName],

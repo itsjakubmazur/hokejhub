@@ -137,6 +137,7 @@ export async function getOfficialStandings(league: string, season: number) {
 export interface SkaterSeasonRow {
   player_id: string;
   name: string;
+  headshot: string | null;
   team_id: string;
   team_abbrev: string;
   position: string | null;
@@ -156,7 +157,7 @@ export interface SkaterSeasonRow {
 }
 
 const SKATER_COLS = `
-  s.player_id, p.name, s.team_id, t.abbrev as team_abbrev, p.position,
+  s.player_id, p.name, p.headshot, s.team_id, t.abbrev as team_abbrev, p.position,
   s.gp::int, s.g::int, s.a::int, s.pts::int, s.pm::int, s.pim::int, s.sog::int, s.hits::int, s.blk::int,
   coalesce(s.fo_w,0)::int as fo_w, coalesce(s.fo_taken,0)::int as fo_taken, s.toi_avg::int,
   x.xg::float as xg`;
@@ -194,6 +195,7 @@ export async function getTeamSkaters(teamId: string, season: number, phase = "re
 export interface GoalieSeasonRow {
   player_id: string;
   name: string;
+  headshot: string | null;
   team_abbrev: string;
   gp: number;
   saves: number;
@@ -205,7 +207,7 @@ export interface GoalieSeasonRow {
 
 export async function getLeagueGoalies(league: string, season: number, phase = "regular") {
   return sql<GoalieSeasonRow>(
-    `select s.player_id, p.name, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int,
             s.sv_pct::float, s.gaa::float, s.shutouts::int
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.league_id = $1 and s.season = $2 and s.phase = $3 and s.gp > 0
@@ -217,8 +219,21 @@ export async function getLeagueGoalies(league: string, season: number, phase = "
 // ---------- players ----------
 
 export async function getPlayer(id: string) {
-  const [p] = await sql<{ id: string; name: string; position: string | null }>(
-    "select id, name, position from player where id = $1",
+  const [p] = await sql<{
+    id: string;
+    name: string;
+    position: string | null;
+    headshot: string | null;
+    birth_date: string | null;
+    height_cm: number | null;
+    weight_kg: number | null;
+    shoots: string | null;
+    current_team_id: string | null;
+    current_team_name: string | null;
+  }>(
+    `select p.id, p.name, p.position, p.headshot, to_char(p.birth_date, 'YYYY-MM-DD') as birth_date, p.height_cm, p.weight_kg,
+            p.shoots, p.current_team_id, t.name as current_team_name
+     from player p left join team t on t.id = p.current_team_id where p.id = $1`,
     [id],
   );
   return p ?? null;
@@ -239,7 +254,7 @@ export async function getPlayerSeasons(id: string) {
 
 export async function getPlayerGoalieSeasons(id: string) {
   return sql<GoalieSeasonRow & { season: number; phase: string }>(
-    `select s.player_id, p.name, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
             s.gaa::float, s.shutouts::int, s.season, s.phase
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.player_id = $1 order by s.season desc, s.phase desc`,
@@ -401,4 +416,19 @@ export async function getPlayerShots(id: string, season: number) {
      where e.type = 'shot' and e.player_ids[1] = $1 and g.season = $2 and e.x is not null`,
     [id, season],
   );
+}
+
+/** Photos for a set of player ids (hcz-…). */
+export async function getPhotos(ids: string[]) {
+  if (ids.length === 0) return {} as Record<string, string>;
+  const rows = await sql<{ id: string; headshot: string }>(
+    "select id, headshot from player where id = any($1) and headshot is not null",
+    [ids],
+  );
+  return Object.fromEntries(rows.map((r) => [r.id, r.headshot])) as Record<string, string>;
+}
+
+export async function getTeamLogos(league: string) {
+  const rows = await sql<{ id: string; logo_url: string | null }>("select id, logo_url from team where league_id = $1", [league]);
+  return Object.fromEntries(rows.filter((r) => r.logo_url).map((r) => [r.id, r.logo_url!])) as Record<string, string>;
 }

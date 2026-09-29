@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import type { Game, GoalSummary, HokejczMatch } from "@hokejhub/core";
 import { nice } from "@/lib/names";
+import { PlayerPhoto } from "../player-photo";
 
 type Side = "home" | "away";
 
@@ -20,6 +21,7 @@ interface TimelineEvent {
   score?: string;
   minutes?: number | null;
   href?: string;
+  playerId?: string;
 }
 
 function elapsed(clock: string) {
@@ -45,6 +47,7 @@ function fromHokejcz(box: HokejczMatch): TimelineEvent[] {
       period: g.period,
       title: nice(g.scorer.name) + (g.scorerSeasonGoals ? ` (${g.scorerSeasonGoals})` : ""),
       href: g.scorer.id ? `/hrac/hcz-${g.scorer.id}` : undefined,
+      playerId: g.scorer.id ? `hcz-${g.scorer.id}` : undefined,
       sub: g.assists.map((x) => nice(x.name)).join(" + ") || undefined,
       badge: g.situation && g.situation !== "5/5" ? (SITUATION[g.situation] ?? g.situation) : undefined,
       score: `${h}:${a}`,
@@ -92,7 +95,7 @@ function PuckIcon() {
   );
 }
 
-function EventRow({ e, index }: { e: TimelineEvent; index: number }) {
+function EventRow({ e, index, photos }: { e: TimelineEvent; index: number; photos: Record<string, string> | null }) {
   const home = e.side === "home";
   const icon =
     e.kind === "goal" ? (
@@ -118,6 +121,7 @@ function EventRow({ e, index }: { e: TimelineEvent; index: number }) {
     >
       <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold text-muted tabular">{e.clock}</span>
       <span className="pt-0.5">{icon}</span>
+      {e.kind === "goal" && e.playerId ? <PlayerPhoto src={photos?.[e.playerId]} alt={e.title} size={34} ring={e.side} /> : null}
       <span className={`min-w-0 ${e.kind === "goal" ? "" : "text-sm"}`}>
         {e.href ? (
           <Link href={e.href} className={`${e.kind === "goal" ? "font-semibold" : "font-medium"} hover:text-accent`}>
@@ -136,7 +140,17 @@ function EventRow({ e, index }: { e: TimelineEvent; index: number }) {
 }
 
 /** Livesport-style match timeline: home events on the left, away events on the right. */
-export function Timeline({ game, box, goals }: { game: Game; box: HokejczMatch | null; goals: GoalSummary[] | null }) {
+export function Timeline({
+  game,
+  box,
+  goals,
+  photos = null,
+}: {
+  game: Game;
+  box: HokejczMatch | null;
+  goals: GoalSummary[] | null;
+  photos?: Record<string, string> | null;
+}) {
   const events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game) : [];
   if (events.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">Zatím žádné události.</p>;
@@ -160,7 +174,7 @@ export function Timeline({ game, box, goals }: { game: Game; box: HokejczMatch |
             </div>
             <ol className="divide-y divide-line px-1">
               {list.map((e) => (
-                <EventRow key={`${e.kind}-${e.t}-${e.title}-${index}`} e={e} index={index++} />
+                <EventRow key={`${e.kind}-${e.t}-${e.title}-${index}`} e={e} index={index++} photos={photos} />
               ))}
             </ol>
           </section>

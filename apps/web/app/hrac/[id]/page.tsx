@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
+import { PlayerPhoto } from "@/components/player-photo";
 import { ShotMap } from "@/components/shot-map";
 import { Card, Empty, Stat } from "@/components/ui/card";
 import { SeasonSelect } from "@/components/ui/season-select";
@@ -36,7 +37,13 @@ const MILESTONE: Record<string, (v: number) => string> = {
   club_pts: (v) => `${v}. bod za klub`,
 };
 
-const POS: Record<string, string> = { O: "obránce", Ú: "útočník", B: "brankář" };
+const POS: Record<string, string> = { D: "obránce", F: "útočník", G: "brankář", O: "obránce", Ú: "útočník", B: "brankář" };
+
+function age(birth: string) {
+  const b = new Date(birth);
+  const n = new Date();
+  return n.getFullYear() - b.getFullYear() - (n < new Date(n.getFullYear(), b.getMonth(), b.getDate()) ? 1 : 0);
+}
 
 export async function generateMetadata(props: PageProps<"/hrac/[id]">): Promise<Metadata> {
   const { id } = await props.params;
@@ -68,19 +75,32 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
       <header className="rise relative overflow-hidden rounded-3xl border border-line bg-surface p-5 sm:p-7">
         <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(60% 120% at 100% 0%, var(--accent-soft), transparent)" }} />
         <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div className="flex items-center gap-4">
+          <PlayerPhoto src={player.headshot} alt={player.name} size={96} className="shadow-xl" />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">
               {player.position ? POS[player.position] ?? player.position : isGoalie ? "brankář" : "hráč"}
-              {currentTeam ? (
+              {player.current_team_id || currentTeam ? (
                 <>
                   {" · "}
-                  <Link href={`/tym/${currentTeam.team_id}`} className="hover:text-fg">
-                    {currentTeam.team_name}
+                  <Link href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`} className="hover:text-fg">
+                    {player.current_team_name ?? currentTeam!.team_name}
                   </Link>
                 </>
               ) : null}
             </p>
             <h1 className="text-3xl font-black tracking-tight">{player.name}</h1>
+            <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-muted">
+              {player.birth_date ? (
+                <span>
+                  {age(player.birth_date)} let · nar. {new Date(player.birth_date).toLocaleDateString("cs-CZ")}
+                </span>
+              ) : null}
+              {player.height_cm ? <span>{player.height_cm} cm</span> : null}
+              {player.weight_kg ? <span>{player.weight_kg} kg</span> : null}
+              {player.shoots ? <span>hůl {player.shoots === "L" ? "levá" : "pravá"}</span> : null}
+            </p>
+          </div>
           </div>
           {seasonList.length ? <SeasonSelect seasons={seasonList} value={season} /> : null}
         </div>

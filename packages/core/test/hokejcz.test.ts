@@ -146,3 +146,21 @@ describe("hokej.cz standings", () => {
     expect(t.away[0]!.gf).toBe(73);
   });
 });
+
+import { parseHokejczPlayer } from "../src/sources/hokejcz.ts";
+
+describe("hokej.cz player profile", () => {
+  it("parses photo and bio", () => {
+    const p = parseHokejczPlayer(fx("hokejcz-player.html"), 14636);
+    expect(p).toMatchObject({
+      name: "Filip Pyrochta",
+      photoUrl: "https://www.hokej.cz/static/images/hrac/py/pyrochta-filip-tri-24-standard.png",
+      birthDate: "1996-06-24",
+      heightCm: 189,
+      weightKg: 87,
+      position: "D",
+      shoots: "L",
+      clubId: 11,
+    });
+  });
+});

@@ -7,6 +7,7 @@ import { parseHokejczShots, penaltyWindows, shotsWithXg } from "../sources/hokej
 import {
   hokejczPaths,
   parseHokejczMatch,
+  parseHokejczPlayer,
   parseHokejczSchedule,
   parseHokejczStandings,
   type HokejczCompetitionOption,
@@ -15,7 +16,7 @@ import {
 
 export const LEAGUE_ID = "cz-elh";
 
-export type CrawlKind = "season" | "schedule" | "round" | "match" | "table";
+export type CrawlKind = "season" | "schedule" | "round" | "match" | "table" | "player";
 
 export interface CrawlJob {
   key: string;
@@ -88,6 +89,7 @@ export const job = {
     priority: 30,
   }),
   table: (season: number): CrawlJob => ({ key: `hcz:table:${season}`, kind: "table", params: { season }, priority: 40 }),
+  player: (id: number): CrawlJob => ({ key: `hcz:player:${id}`, kind: "player", params: { id }, priority: 120 }),
   match: (id: number, params: Record<string, unknown>): CrawlJob => ({
     key: `hcz:match:${id}`,
     kind: "match",
@@ -114,6 +116,8 @@ export function jobPath(j: Pick<CrawlJob, "kind" | "params">): string {
       return hokejczPaths.table(p.season);
     case "match":
       return hokejczPaths.match(p.id);
+    case "player":
+      return `hrac/x/${p.id}`;
   }
 }
 
@@ -132,6 +136,15 @@ function slug(s: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+/** Box score / profile position codes → G (goalie), D (defence), F (forward). */
+export function normPosition(pos: string | null | undefined): "G" | "D" | "F" | null {
+  const p = (pos ?? "").toUpperCase();
+  if (p === "B" || p === "G" || p === "GK") return "G";
+  if (p === "O" || p === "D" || p === "BK") return "D";
+  if (p === "Ú" || p === "F" || p === "FW" || p === "FO") return "F";
+  return null;
 }
 
 export const playerId = (p: HokejczPlayerRef) => (p.id ? `hcz-${p.id}` : `hcz-n-${slug(p.name)}`);
@@ -290,8 +303,9 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         if (!ref.name) return null;
         const id = playerId(ref);
         const existing = players.get(id);
-        if (!existing) players.set(id, { id, name: niceName(ref.name), position: position ?? null, external: { hokejczId: ref.id } });
-        else if (position && !existing.position) existing.position = position;
+        const pos = normPosition(position);
+        if (!existing) players.set(id, { id, name: niceName(ref.name), position: pos, external: { hokejczId: ref.id } });
+        else if (pos && !existing.position) existing.position = pos;
         return id;
       };
       const teamByAbbrev = (abbrev: string) =>
@@ -400,6 +414,27 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         if (feed.faceoffZones) game.external = { ...(game.external as object), faceoffZones: feed.faceoffZones };
       }
       rows.player.push(...players.values());
+      for (const pl of players.values()) {
+        const hid = (pl.external as { hokejczId: number | null }).hokejczId;
+        if (hid) jobs.push(job.player(hid));
+      }
+      break;
+    }
+    case "player": {
+      const prof = parseHokejczPlayer(html, p.id);
+      if (!prof.name) break;
+      rows.player.push({
+        id: `hcz-${p.id}`,
+        name: prof.name,
+        headshot: prof.photoUrl,
+        birth_date: prof.birthDate,
+        position: prof.position,
+        shoots: prof.shoots,
+        height_cm: prof.heightCm,
+        weight_kg: prof.weightKg,
+        current_team_id: prof.clubId ? `hcz-${prof.clubId}` : null,
+        external: { hokejczId: p.id },
+      });
       break;
     }
   }

@@ -570,3 +570,45 @@ export function parseHokejczStandings(html: string): HokejczStandings {
   }
   return out;
 }
+
+// ---------- player profile (/hrac/{slug}/{id}) ----------
+
+export interface HokejczPlayerProfile {
+  id: number;
+  name: string;
+  /** Absolute URL, null when hokej.cz only has a placeholder. */
+  photoUrl: string | null;
+  birthDate: string | null;
+  heightCm: number | null;
+  weightKg: number | null;
+  position: "G" | "D" | "F" | null;
+  shoots: "L" | "R" | null;
+  clubId: number | null;
+  clubName: string | null;
+}
+
+export function parseHokejczPlayer(html: string, id: number): HokejczPlayerProfile {
+  const root = parse(html);
+  const info = root.querySelector(".person-info") ?? root;
+  const img = info.querySelector(".person-info__image img")?.getAttribute("src") ?? null;
+  const data: Record<string, string> = {};
+  for (const d of info.querySelectorAll(".person-info__data")) {
+    data[clean(d.querySelector("h2")?.text).toLowerCase()] = clean(d.querySelector("span")?.text);
+  }
+  const birth = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(data["narozen"] ?? "");
+  const post = (data["post"] ?? "").toLowerCase();
+  const stick = (data["hůl"] ?? "").toLowerCase();
+  const club = info.querySelector(".person-info-club a");
+  return {
+    id,
+    name: clean(info.querySelector("h1")?.text),
+    photoUrl: img && !/placeholder/i.test(img) ? new URL(img, "https://www.hokej.cz/").toString() : null,
+    birthDate: birth ? `${birth[3]}-${birth[2]!.padStart(2, "0")}-${birth[1]!.padStart(2, "0")}` : null,
+    heightCm: int(data["výška"]),
+    weightKg: int(data["váha"]),
+    position: post.startsWith("brank") ? "G" : post.startsWith("obr") ? "D" : post.startsWith("út") ? "F" : null,
+    shoots: stick.startsWith("lev") ? "L" : stick.startsWith("prav") ? "R" : null,
+    clubId: idFromHref(club?.getAttribute("href"), "klub"),
+    clubName: clean(club?.text) || null,
+  };
+}

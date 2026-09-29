@@ -28,3 +28,23 @@ describe("standings", () => {
     expect([a.over, a.under]).toEqual([2, 1]);
   });
 });
+
+import { rulesForSeason } from "../src/model/standings.ts";
+
+describe("historical rules", () => {
+  it("reproduces published tables of each era", () => {
+    const pts = (s: number, w: number, otw: number, t: number, otl: number) => {
+      const r = rulesForSeason(s);
+      return w * r.win + otw * r.otWin + t * r.tie + otl * r.otLoss;
+    };
+    expect(pts(1993, 24, 0, 8, 0)).toBe(56); // Kladno 1993/94
+    expect(pts(1998, 33, 0, 12, 0)).toBe(78); // Vsetín 1998/99
+    expect(pts(2005, 32, 1, 5, 3)).toBe(106); // Liberec 2005/06
+    expect(pts(2006, 28, 6, 0, 4)).toBe(100); // Liberec 2006/07
+  });
+  it("counts level games as ties", () => {
+    const tie: ResultGame = { id: "t", startAt: "1995-10-01T17:00:00Z", homeId: "A", awayId: "B", homeName: "A", awayName: "B", homeScore: 2, awayScore: 2, decidedIn: "REG" };
+    const t = computeStandings([tie], { rules: rulesForSeason(1995) });
+    expect(t.map((r) => [r.t, r.pts])).toEqual([[1, 1], [1, 1]]);
+  });
+});

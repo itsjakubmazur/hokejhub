@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLeague } from "@hokejhub/core";
 import { Leaders } from "@/components/league/leaders";
+import { PlayerPhoto } from "@/components/player-photo";
 import { Standings } from "@/components/league/standings";
 import { BarChart } from "@/components/ui/bar-chart";
 import { Card, Empty, Stat } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import {
   getLeagueSkaters,
   getOfficialStandings,
   getSeasonGames,
+  getTeamLogos,
   toResultGames,
 } from "@/lib/server/queries";
 
@@ -91,7 +93,8 @@ function PhaseSwitch({ phase, league, season, tab }: { phase: string; league: st
 }
 
 async function TableTab({ league, season, phase }: { league: string; season: number; phase: string }) {
-  const games = toResultGames(await getSeasonGames(league, season, phase));
+  const [rows, logos] = await Promise.all([getSeasonGames(league, season, phase), getTeamLogos(league)]);
+  const games = toResultGames(rows);
   if (games.length === 0) {
     const official = (await getOfficialStandings(league, season)).filter((r) => r.split === "overall");
     if (official.length === 0) return <Empty>Pro tuto sezónu zatím nejsou výsledky.</Empty>;
@@ -99,7 +102,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
   }
   return (
     <Card title={`Tabulka ${seasonLabel(season)} · ${games.length} zápasů`}>
-      <Standings games={games} />
+      <Standings games={games} season={season} logos={logos} />
     </Card>
   );
 }
@@ -182,6 +185,7 @@ async function GoaliesTab({ league, season, phase }: { league: string; season: n
           {rows.map((r) => (
             <tr key={r.player_id} className="hover:bg-surface-2">
               <td className="py-1.5 font-medium">
+                <PlayerPhoto src={r.headshot} alt={r.name} size={26} className="mr-2 align-middle" />
                 <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
                   {r.name}
                 </Link>

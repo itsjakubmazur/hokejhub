@@ -29,7 +29,7 @@ import {
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
 import { fetchJson, type SourceState } from "./fetcher";
-import { getHeadToHead, sql } from "./queries";
+import { getHeadToHead, getPhotos, sql } from "./queries";
 import { getScoreboard, revalidateFor } from "./scoreboard";
 
 /**
@@ -145,6 +145,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       box: null,
       teamIds: null,
       h2h: null,
+      photos: null,
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
       periodStats: null,
@@ -249,16 +250,22 @@ async function gameFromHokejcz(hczId: number, sources: Record<string, SourceStat
 
 /** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
 async function dbLinks(box: HokejczMatch | null) {
-  if (!box || !dbAvailable() || !box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null };
+  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null };
+  const ids = [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]
+    .map((p) => p.player.id)
+    .filter((x): x is number => Boolean(x))
+    .map((x) => `hcz-${x}`);
+  const photos = await getPhotos(ids).catch(() => null);
+  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos };
   const home = `hcz-${box.home.clubId}`;
   const away = `hcz-${box.away.clubId}`;
   try {
     const [exists] = await sql<{ n: number }>("select count(*)::int as n from team where id in ($1, $2)", [home, away]);
-    if (!exists || exists.n < 2) return { teamIds: null, h2h: null };
-    return { teamIds: { home, away }, h2h: await getHeadToHead(home, away, 30) };
+    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos };
+    return { teamIds: { home, away }, h2h: await getHeadToHead(home, away, 30), photos };
   } catch (e) {
     console.error("[db] links", e);
-    return { teamIds: null, h2h: null };
+    return { teamIds: null, h2h: null, photos };
   }
 }
 

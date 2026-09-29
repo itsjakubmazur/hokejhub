@@ -37,6 +37,8 @@ export interface GameDetailResponse {
   teamIds: { home: string; away: string } | null;
   /** Previous meetings of the two teams, newest first. */
   h2h: import("./server/queries").GameRowDb[] | null;
+  /** hcz player id → photo URL. */
+  photos: Record<string, string> | null;
   goals: GoalSummary[] | null;
   players: Record<string, NhlPlayerRef> | null;
   sources: Record<string, SourceState>;

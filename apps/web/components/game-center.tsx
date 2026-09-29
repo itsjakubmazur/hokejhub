@@ -20,6 +20,7 @@ import { HokejczBoxScore, HokejczInfo } from "./hokejcz-box";
 import { ShotMap } from "./shot-map";
 import { SourceStatus } from "./source-status";
 import { TeamLogo } from "./team-logo";
+import { PlayerPhoto } from "./player-photo";
 import { useGoalFlash } from "./use-goal-flash";
 
 const easternDate = (iso: string) =>
@@ -104,12 +105,12 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
               {data.faceoffZones ? <FaceoffZones game={game} zones={data.faceoffZones} /> : null}
             </Card>
           ) : null}
-          {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} /> : null}
+          {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} box={data.box} photos={data.photos} /> : null}
           {tab === "strely" && data.shots ? <ShotsTab data={data} /> : null}
           {tab === "hraci" ? (
             data.playerStats ? (
               <Card title="Statistiky hráčů">
-                <PlayersTable game={game} stats={data.playerStats} box={data.box} />
+                <PlayersTable game={game} stats={data.playerStats} box={data.box} photos={data.photos} />
               </Card>
             ) : data.box ? (
               <HokejczBoxScore box={data.box} />
@@ -143,7 +144,7 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <Card title="Průběh zápasu">
-        <Timeline game={game} box={data.box} goals={data.goals} />
+        <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} />
       </Card>
       <div className="space-y-4">
         {xg ? (
@@ -205,12 +206,19 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
   const shots = data.shots!;
   const hasXg = shots.some((s) => s.xg !== undefined);
   // Top shooters by xG.
-  const byShooter = new Map<string, { name: string; side: "home" | "away"; xg: number; shots: number; goals: number }>();
+  const byShooter = new Map<string, { name: string; id: string | null; side: "home" | "away"; xg: number; shots: number; goals: number }>();
   for (const s of shots) {
     if (s.type === "blocked-shot") continue;
     const name = s.shooterName ?? (s.shooterId ? data.players?.[s.shooterId]?.name : null);
     if (!name) continue;
-    const e = byShooter.get(name) ?? { name, side: s.teamId === game.home.id ? ("home" as const) : ("away" as const), xg: 0, shots: 0, goals: 0 };
+    const e = byShooter.get(name) ?? {
+      name,
+      id: game.source === "nhl" ? null : s.shooterId ? `hcz-${s.shooterId}` : null,
+      side: s.teamId === game.home.id ? ("home" as const) : ("away" as const),
+      xg: 0,
+      shots: 0,
+      goals: 0,
+    };
     e.xg += s.xg ?? 0;
     e.shots++;
     if (s.type === "goal") e.goals++;
@@ -236,9 +244,16 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
             {top.map((p, i) => (
               <li key={p.name} className="text-sm">
                 <div className="flex justify-between gap-2">
-                  <span className="truncate">
-                    <span className="mr-1.5 text-muted tabular">{i + 1}.</span>
-                    {p.name}
+                  <span className="flex min-w-0 items-center gap-2 truncate">
+                    <span className="text-muted tabular">{i + 1}.</span>
+                    <PlayerPhoto src={p.id ? data.photos?.[p.id] : null} alt={p.name} size={26} ring={p.side} />
+                    {p.id ? (
+                      <Link href={`/hrac/${p.id}`} className="truncate hover:text-accent">
+                        {p.name}
+                      </Link>
+                    ) : (
+                      <span className="truncate">{p.name}</span>
+                    )}
                   </span>
                   <span className="shrink-0 tabular">
                     <span className="font-semibold">{p.xg.toFixed(2)}</span>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { fmtToi } from "@/lib/names";
+import { PlayerPhoto } from "../player-photo";
 import type { SkaterSeasonRow } from "@/lib/server/queries";
 
 type Key = "pts" | "g" | "a" | "pm" | "sog" | "xg" | "gax" | "hits" | "blk" | "pim" | "toi_avg" | "fo";
@@ -54,6 +55,7 @@ export function Leaders({ rows, initialSort = "pts", showTeam = true }: { rows: 
             <tr key={r.player_id} className="hover:bg-surface-2">
               <td className="py-1.5 pr-2 text-muted">{i + 1}.</td>
               <td className="whitespace-nowrap py-1.5 pr-2 font-medium">
+                <PlayerPhoto src={r.headshot} alt={r.name} size={26} className="mr-2 align-middle" />
                 <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
                   {r.name}
                 </Link>

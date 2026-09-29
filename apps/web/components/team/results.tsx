@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { GameRowDb } from "@/lib/server/queries";
 import { Segmented } from "../game/segmented";
+import { ClubLogo } from "../club-logo";
 
 type Where = "all" | "home" | "away";
 type Phase = "all" | "regular" | "playoff";
@@ -37,8 +38,9 @@ export function TeamResults({ teamId, games }: { teamId: string; games: GameRowD
           const ga = home ? g.away_score : g.home_score;
           const won = played && gf! > ga!;
           const ot = g.decided_in === "OT" || g.decided_in === "SO";
-          const badge = !played ? null : won ? (ot ? "VP" : "V") : ot ? "PP" : "P";
-          const color = badge === "V" ? "bg-win" : badge === "VP" ? "bg-win/60" : badge === "PP" ? "bg-gold/70 text-black" : "bg-live";
+          const tie = played && gf === ga;
+          const badge = !played ? null : tie ? "R" : won ? (ot ? "VP" : "V") : ot ? "PP" : "P";
+          const color = badge === "V" ? "bg-win" : badge === "VP" ? "bg-win/60" : badge === "R" ? "bg-muted/60" : badge === "PP" ? "bg-gold/70 text-black" : "bg-live";
           const xgf = home ? g.xg_home : g.xg_away;
           const xga = home ? g.xg_away : g.xg_home;
           return (
@@ -48,8 +50,9 @@ export function TeamResults({ teamId, games }: { teamId: string; games: GameRowD
                   {new Date(g.start_at).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric" })}
                 </span>
                 <span className="text-center text-[10px] font-semibold uppercase text-muted">{home ? "doma" : "venku"}</span>
-                <span className="min-w-0 truncate">
-                  <span className="font-medium">{home ? g.away_name : g.home_name}</span>
+                <span className="flex min-w-0 items-center gap-2 truncate">
+                  <ClubLogo src={home ? g.away_logo : g.home_logo} alt="" size={20} />
+                  <span className="truncate font-medium">{home ? g.away_name : g.home_name}</span>
                   {g.phase === "playoff" && g.round ? <span className="ml-1.5 text-xs text-muted">{g.round}</span> : null}
                 </span>
                 {xgf != null && xga != null ? (

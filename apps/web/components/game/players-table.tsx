@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Game, HokejczMatch, PlayerMatchStats, PlayerPeriodLine } from "@hokejhub/core";
 import { fmtToi } from "@/lib/names";
+import { PlayerPhoto } from "../player-photo";
 import { Segmented } from "./segmented";
 
 type Key = keyof PlayerPeriodLine;
@@ -27,10 +28,12 @@ export function PlayersTable({
   game,
   stats,
   box,
+  photos,
 }: {
   game: Game;
   stats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] };
   box?: HokejczMatch | null;
+  photos?: Record<string, string> | null;
 }) {
   const [side, setSide] = useState<"home" | "away">("home");
   const [period, setPeriod] = useState<"all" | "0" | "1" | "2" | "3">("all");
@@ -97,6 +100,12 @@ export function PlayersTable({
               <tr key={p.id} className="transition-colors hover:bg-surface-2">
                 <td className="py-1.5 pr-2 text-muted">{p.jersey}</td>
                 <td className="whitespace-nowrap py-1.5 pr-2">
+                  <PlayerPhoto
+                    src={idByJersey.get(p.jersey) ? photos?.[`hcz-${idByJersey.get(p.jersey)}`] : null}
+                    alt={p.name}
+                    size={24}
+                    className="mr-2 align-middle"
+                  />
                   {idByJersey.get(p.jersey) ? (
                     <Link href={`/hrac/hcz-${idByJersey.get(p.jersey)}`} className="font-medium hover:text-accent">
                       {p.name}

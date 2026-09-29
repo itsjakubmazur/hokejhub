@@ -50,7 +50,8 @@ describe("hokej.cz crawler", () => {
     expect(kubiesa.period_seconds).toBe(26 * 60 + 16 - 1200);
     expect(r.rows.box_skater.length).toBe(39);
     expect(r.rows.box_goalie.length).toBe(4);
-    expect(r.rows.player.find((p) => p.id === "hcz-11411")).toMatchObject({ name: "David Musil" });
+    expect(r.rows.player.find((p) => p.id === "hcz-11411")).toMatchObject({ name: "David Musil", position: "D" });
+    expect(r.jobs.filter((j) => j.kind === "player").length).toBe(r.rows.player.length);
     // every referenced player exists
     const ids = new Set(r.rows.player.map((p) => p.id));
     expect(r.rows.box_skater.every((b) => ids.has(b.player_id as string))).toBe(true);
@@ -88,5 +89,12 @@ describe("hokej.cz shots + xG", () => {
     expect(ev.some((e) => e.situation === "PP")).toBe(true);
     const ids = new Set(r.rows.player.map((p) => p.id));
     expect(ev.every((e) => (e.player_ids as string[]).every((p) => ids.has(p)))).toBe(true);
+  });
+});
+
+describe("player profile job", () => {
+  it("stores photo and bio", () => {
+    const r = processJob({ kind: "player", params: { id: 14636 } }, fx("hokejcz-player.html"));
+    expect(r.rows.player[0]).toMatchObject({ id: "hcz-14636", headshot: expect.stringContaining("pyrochta"), height_cm: 189, position: "D", current_team_id: "hcz-11" });
   });
 });

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import type { Game } from "@hokejhub/core";
 import type { GameRowDb } from "@/lib/server/queries";
 import { Segmented } from "./segmented";
+import { ClubLogo } from "../club-logo";
 
 export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRowDb[]; teamIds: { home: string; away: string } }) {
   const [where, setWhere] = useState<"all" | "home">("all");
@@ -20,7 +21,7 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
       const aGoals = homeIsA ? g.home_score! : g.away_score!;
       const bGoals = homeIsA ? g.away_score! : g.home_score!;
       if (aGoals > bGoals) hw++;
-      else aw++;
+      else if (bGoals > aGoals) aw++;
       if (g.decided_in === "OT" || g.decided_in === "SO") ot++;
       goals += g.home_score! + g.away_score!;
     }
@@ -66,13 +67,17 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
             <li key={g.id}>
               <Link href={`/zapas/${g.id}`} className="grid grid-cols-[70px_1fr_auto_1fr] items-center gap-2 py-2 text-sm hover:bg-surface-2">
                 <span className="text-xs text-muted tabular">{new Date(g.start_at).toLocaleDateString("cs-CZ")}</span>
-                <span className={`truncate text-right ${homeWon ? "font-bold" : "text-muted"}`}>{g.home_name}</span>
+                <span className={`flex items-center justify-end gap-2 truncate text-right ${homeWon ? "font-bold" : "text-muted"}`}>
+                  <span className="truncate">{g.home_name}</span>
+                  <ClubLogo src={g.home_logo} alt="" size={20} />
+                </span>
                 <span className="rounded-md bg-surface-2 px-2 py-0.5 font-bold tabular">
                   {g.home_score}:{g.away_score}
                   {g.decided_in && g.decided_in !== "REG" ? <span className="ml-1 text-[10px] text-muted">{g.decided_in === "OT" ? "PP" : "SN"}</span> : null}
                 </span>
-                <span className={`truncate ${!homeWon ? "font-bold" : "text-muted"}`}>
-                  {g.away_name}
+                <span className={`flex items-center gap-2 truncate ${!homeWon ? "font-bold" : "text-muted"}`}>
+                  <ClubLogo src={g.away_logo} alt="" size={20} />
+                  <span className="truncate">{g.away_name}</span>
                   {g.phase === "playoff" ? <span className="ml-1.5 text-[10px] font-semibold uppercase text-accent">PO</span> : null}
                 </span>
               </Link>

@@ -2,7 +2,9 @@
 
 import { motion } from "motion/react";
 import { useState } from "react";
-import type { Game, LineupPlayer, MatchLineups, PlayerMatchStats, TeamLineup } from "@hokejhub/core";
+import type { Game, HokejczMatch, LineupPlayer, MatchLineups, PlayerMatchStats, TeamLineup } from "@hokejhub/core";
+import Link from "next/link";
+import { PlayerPhoto } from "../player-photo";
 import { fmtToi } from "@/lib/names";
 import { Segmented } from "./segmented";
 
@@ -17,16 +19,20 @@ function age(birth: string | null) {
   return a;
 }
 
+type PlayerLink = { id: string; photo: string | null };
+
 function Chip({
   p,
   side,
   stats,
   delay,
+  link,
 }: {
   p: LineupPlayer | null;
   side: Side;
   stats?: PlayerMatchStats;
   delay: number;
+  link?: PlayerLink;
 }) {
   if (!p) return <div className="w-20" />;
   const a = age(p.birthDate);
@@ -37,7 +43,7 @@ function Chip({
   ]
     .filter(Boolean)
     .join(" · ");
-  return (
+  const body = (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -45,14 +51,15 @@ function Chip({
       className="group flex w-20 flex-col items-center text-center sm:w-24"
       title={title}
     >
-      <div className="relative">
-        <div
-          className={`grid size-10 place-items-center rounded-full text-sm font-bold text-white shadow-lg ring-2 ring-surface transition-transform group-hover:scale-110 sm:size-11 ${
+      <div className="relative transition-transform group-hover:scale-110">
+        <PlayerPhoto src={link?.photo} alt={`${p.name} ${p.surname}`} size={48} ring={side} />
+        <span
+          className={`absolute -bottom-1 -left-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-surface ${
             side === "home" ? "bg-home" : "bg-away"
           }`}
         >
           {p.jersey ?? "–"}
-        </div>
+        </span>
         {p.role ? (
           <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-gold text-[9px] font-black text-black">
             {p.role.toUpperCase()}
@@ -70,6 +77,7 @@ function Chip({
       ) : null}
     </motion.div>
   );
+  return link ? <Link href={`/hrac/${link.id}`}>{body}</Link> : body;
 }
 
 function TeamFormation({
@@ -77,11 +85,13 @@ function TeamFormation({
   side,
   name,
   stats,
+  links,
 }: {
   team: TeamLineup;
   side: Side;
   name: string;
   stats?: PlayerMatchStats[];
+  links: Map<number | null, PlayerLink>;
 }) {
   const byJersey = new Map((stats ?? []).map((s) => [s.jersey, s]));
   return (
@@ -96,7 +106,7 @@ function TeamFormation({
             <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">{i + 1}. útok</div>
             <div className="flex justify-center gap-1 sm:gap-3">
               {line.map((p, j) => (
-                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} delay={(i * 3 + j) * 0.025} />
+                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} link={p ? links.get(p.jersey) : undefined} delay={(i * 3 + j) * 0.025} />
               ))}
             </div>
           </div>
@@ -107,7 +117,7 @@ function TeamFormation({
             <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">{i + 1}. obrana</div>
             <div className="flex justify-center gap-6 sm:gap-10">
               {pair.map((p, j) => (
-                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} delay={(12 + i * 2 + j) * 0.025} />
+                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} link={p ? links.get(p.jersey) : undefined} delay={(12 + i * 2 + j) * 0.025} />
               ))}
             </div>
           </div>
@@ -117,7 +127,7 @@ function TeamFormation({
           <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">Brankáři</div>
           <div className="flex justify-center gap-6">
             {team.goalies.map((p, j) => (
-              <Chip key={j} p={p} side={side} delay={(20 + j) * 0.025} />
+              <Chip key={j} p={p} side={side} link={links.get(p.jersey)} delay={(20 + j) * 0.025} />
             ))}
           </div>
         </div>
@@ -140,12 +150,25 @@ export function Lineups({
   game,
   lineups,
   stats,
+  box,
+  photos,
 }: {
   game: Game;
   lineups: MatchLineups | null;
   stats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
+  box: HokejczMatch | null;
+  photos: Record<string, string> | null;
 }) {
   const [side, setSide] = useState<Side>("home");
+  const links = (s: Side) =>
+    new Map<number | null, PlayerLink>(
+      [...(box?.skaters[s] ?? []), ...(box?.goalies[s] ?? [])]
+        .filter((p) => p.player.id)
+        .map((p) => {
+          const id = `hcz-${p.player.id}`;
+          return [p.number, { id, photo: photos?.[id] ?? null }];
+        }),
+    );
   if (!lineups) {
     return <p className="py-8 text-center text-sm text-muted">Sestavy budou k dispozici těsně před zápasem.</p>;
   }
@@ -163,7 +186,7 @@ export function Lineups({
       <div className="grid gap-4 lg:grid-cols-2">
         {(["home", "away"] as const).map((s) => (
           <div key={s} className={s === side ? "" : "hidden lg:block"}>
-            <TeamFormation team={lineups[s]} side={s} name={game[s].name} stats={stats?.[s]} />
+            <TeamFormation team={lineups[s]} side={s} name={game[s].name} stats={stats?.[s]} links={links(s)} />
           </div>
         ))}
       </div>

@@ -2,7 +2,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { computeStandings } from "@hokejhub/core";
+import { computeStandings, rulesForSeason } from "@hokejhub/core";
 import { Leaders } from "@/components/league/leaders";
 import { FormBadges } from "@/components/league/standings";
 import { TeamResults } from "@/components/team/results";
@@ -88,8 +88,8 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
   );
 }
 
-function record(teamId: string, games: GameRowDb[]) {
-  const [row] = computeStandings(toResultGames(games)).filter((r) => r.teamId === teamId);
+function record(teamId: string, games: GameRowDb[], season: number) {
+  const [row] = computeStandings(toResultGames(games), { rules: rulesForSeason(season) }).filter((r) => r.teamId === teamId);
   return row;
 }
 
@@ -97,11 +97,12 @@ async function Overview({ teamId, games, season }: { teamId: string; games: Game
   const regular = games.filter((g) => g.phase === "regular");
   const played = toResultGames(regular);
   if (played.length === 0) return <Empty>Tato sezóna zatím nemá odehrané zápasy.</Empty>;
-  const table = computeStandings(played);
+  const rules = rulesForSeason(season);
+  const table = computeStandings(played, { rules });
   const me = table.find((r) => r.teamId === teamId)!;
-  const home = computeStandings(played, { split: "home" }).find((r) => r.teamId === teamId);
-  const away = computeStandings(played, { split: "away" }).find((r) => r.teamId === teamId);
-  const last10 = computeStandings(played, { lastN: 10 }).find((r) => r.teamId === teamId);
+  const home = computeStandings(played, { split: "home", rules }).find((r) => r.teamId === teamId);
+  const away = computeStandings(played, { split: "away", rules }).find((r) => r.teamId === teamId);
+  const last10 = computeStandings(played, { lastN: 10, rules }).find((r) => r.teamId === teamId);
   const xg = regular.reduce(
     (a, g) => {
       if (g.xg_home == null) return a;
@@ -121,7 +122,11 @@ async function Overview({ teamId, games, season }: { teamId: string; games: Game
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
         <Stat label="Body" value={me.pts} sub={`${me.gp} zápasů · ${(me.pts / me.gp).toFixed(2)} na zápas`} />
-        <Stat label="Bilance V-VP-PP-P" value={`${me.w}-${me.otw}-${me.otl}-${me.l}`} sub={`skóre ${me.gf}:${me.ga}`} />
+        <Stat
+          label={me.t ? "Bilance V-VP-R-PP-P" : "Bilance V-VP-PP-P"}
+          value={me.t ? `${me.w}-${me.otw}-${me.t}-${me.otl}-${me.l}` : `${me.w}-${me.otw}-${me.otl}-${me.l}`}
+          sub={`skóre ${me.gf}:${me.ga}`}
+        />
         <Stat
           label="xG pro : proti"
           value={xg.n ? `${xg.f.toFixed(1)} : ${xg.a.toFixed(1)}` : "–"}
@@ -298,7 +303,7 @@ async function History({ teamId }: { teamId: string }) {
               <th className="py-2 text-left">Sezóna</th>
               <th className="text-right">Pořadí</th>
               <th className="text-right">Z</th>
-              <th className="text-right">V-VP-PP-P</th>
+              <th className="text-right">V-VP-(R)-PP-P</th>
               <th className="text-right">Skóre</th>
               <th className="text-right font-bold">B</th>
               <th className="text-left pl-4">Play-off</th>
@@ -306,7 +311,7 @@ async function History({ teamId }: { teamId: string }) {
           </thead>
           <tbody className="divide-y divide-line">
             {seasons.map((s) => {
-              const reg = record(teamId, games.filter((g) => g.season === s && g.phase === "regular"));
+              const reg = record(teamId, games.filter((g) => g.season === s && g.phase === "regular"), s);
               const po = games.filter((g) => g.season === s && g.phase === "playoff");
               const lastPo = po.at(-1);
               return (
@@ -318,7 +323,7 @@ async function History({ teamId }: { teamId: string }) {
                   </td>
                   <td className="text-right font-semibold">{rankBy.get(s)?.rank ? `${rankBy.get(s)!.rank}.` : "–"}</td>
                   <td className="text-right">{reg?.gp ?? "–"}</td>
-                  <td className="text-right">{reg ? `${reg.w}-${reg.otw}-${reg.otl}-${reg.l}` : "–"}</td>
+                  <td className="text-right">{reg ? (reg.t ? `${reg.w}-${reg.otw}-${reg.t}-${reg.otl}-${reg.l}` : `${reg.w}-${reg.otw}-${reg.otl}-${reg.l}`) : "–"}</td>
                   <td className="text-right">{reg ? `${reg.gf}:${reg.ga}` : "–"}</td>
                   <td className="text-right font-bold">{reg?.pts ?? "–"}</td>
                   <td className="pl-4 text-xs text-muted">{lastPo?.round ?? (po.length ? "play-off" : "")}</td>

@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { computeOverUnder, computeStandings, type FormResult, type ResultGame, type Split } from "@hokejhub/core";
+import { computeOverUnder, computeStandings, rulesForSeason, type FormResult, type ResultGame, type Split } from "@hokejhub/core";
 import { Segmented } from "../game/segmented";
+import { ClubLogo } from "../club-logo";
 
 const FORM_STYLE: Record<FormResult, string> = {
   W: "bg-win text-white",
   OTW: "bg-win/60 text-white",
+  T: "bg-muted/50 text-white",
   OTL: "bg-gold/70 text-black",
   L: "bg-live text-white",
 };
-const FORM_LABEL: Record<FormResult, string> = { W: "V", OTW: "VP", OTL: "PP", L: "P" };
+const FORM_LABEL: Record<FormResult, string> = { W: "V", OTW: "VP", T: "R", OTL: "PP", L: "P" };
 
 export function FormBadges({ form }: { form: FormResult[] }) {
   return (
@@ -27,16 +29,28 @@ export function FormBadges({ form }: { form: FormResult[] }) {
 
 type Mode = "table" | "ou";
 
-export function Standings({ games, highlight = [] }: { games: ResultGame[]; highlight?: string[] }) {
+export function Standings({
+  games,
+  season,
+  logos = {},
+  highlight = [],
+}: {
+  games: ResultGame[];
+  season: number;
+  logos?: Record<string, string>;
+  highlight?: string[];
+}) {
+  const rules = rulesForSeason(season);
   const [mode, setMode] = useState<Mode>("table");
   const [split, setSplit] = useState<Split>("overall");
   const [lastN, setLastN] = useState<"all" | "5" | "10" | "15">("all");
   const [line, setLine] = useState<"4.5" | "5.5" | "6.5">("5.5");
 
   const rows = useMemo(
-    () => computeStandings(games, { split, lastN: lastN === "all" ? undefined : Number(lastN) }),
-    [games, split, lastN],
+    () => computeStandings(games, { split, lastN: lastN === "all" ? undefined : Number(lastN), rules }),
+    [games, split, lastN, rules],
   );
+  const ties = rows.some((r) => r.t > 0);
   const ou = useMemo(() => computeOverUnder(games, Number(line)), [games, line]);
 
   return (
@@ -87,6 +101,7 @@ export function Standings({ games, highlight = [] }: { games: ResultGame[]; high
                 <th className="px-1.5 text-right font-medium" title="Zápasy">Z</th>
                 <th className="px-1.5 text-right font-medium" title="Výhry">V</th>
                 <th className="px-1.5 text-right font-medium" title="Výhry po prodl./nájezdech">VP</th>
+                {ties ? <th className="px-1.5 text-right font-medium" title="Remízy">R</th> : null}
                 <th className="px-1.5 text-right font-medium" title="Prohry po prodl./nájezdech">PP</th>
                 <th className="px-1.5 text-right font-medium" title="Prohry">P</th>
                 <th className="px-1.5 text-right font-medium">Skóre</th>
@@ -108,6 +123,7 @@ export function Standings({ games, highlight = [] }: { games: ResultGame[]; high
                     </span>
                   </td>
                   <td className="py-2 pr-2 font-medium">
+                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={22} className="mr-2 align-middle" />
                     <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
                       {r.teamName}
                     </Link>
@@ -115,6 +131,7 @@ export function Standings({ games, highlight = [] }: { games: ResultGame[]; high
                   <td className="px-1.5 text-right">{r.gp}</td>
                   <td className="px-1.5 text-right">{r.w}</td>
                   <td className="px-1.5 text-right">{r.otw}</td>
+                  {ties ? <td className="px-1.5 text-right">{r.t}</td> : null}
                   <td className="px-1.5 text-right">{r.otl}</td>
                   <td className="px-1.5 text-right">{r.l}</td>
                   <td className="px-1.5 text-right">
@@ -148,6 +165,7 @@ export function Standings({ games, highlight = [] }: { games: ResultGame[]; high
               {ou.map((r) => (
                 <tr key={r.teamId} className="hover:bg-surface-2">
                   <td className="py-2 font-medium">
+                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={22} className="mr-2 align-middle" />
                     <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
                       {r.teamName}
                     </Link>
@@ -163,7 +181,9 @@ export function Standings({ games, highlight = [] }: { games: ResultGame[]; high
           </table>
         )}
       </div>
-      <p className="mt-2 text-[11px] text-muted">V = výhra, VP = výhra po prodloužení/nájezdech, PP = prohra po prodloužení/nájezdech, P = prohra. Body 3-2-1-0.</p>
+      <p className="mt-2 text-[11px] text-muted">
+        V = výhra, VP = výhra po prodloužení/nájezdech, {ties ? "R = remíza, " : ""}PP = prohra po prodloužení/nájezdech, P = prohra. Bodování této sezóny: {rules.label}.
+      </p>
     </div>
   );
 }
