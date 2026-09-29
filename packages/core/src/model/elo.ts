@@ -16,9 +16,14 @@ export interface EloParams {
   goalsPerTeam: number;
   /** How strongly the Elo gap scales expected goals. */
   goalScale: number;
+  /**
+   * Multiplier on level scores: independent Poisson under-predicts hockey ties (score effects,
+   * late-game caution), ELH regulation ties run ~22–24 % vs ~17 % from plain Poisson.
+   */
+  drawInflation: number;
 }
 
-export const DEFAULT_ELO: EloParams = { k: 18, homeAdvantage: 45, seasonRegress: 0.7, goalsPerTeam: 2.85, goalScale: 0.0022 };
+export const DEFAULT_ELO: EloParams = { k: 18, homeAdvantage: 45, seasonRegress: 0.7, goalsPerTeam: 2.85, goalScale: 0.0022, drawInflation: 1.35 };
 
 const MEAN = 1500;
 
@@ -39,7 +44,7 @@ function poisson(k: number, lambda: number): number {
 }
 
 /** 1X2 over 60 minutes from two independent Poisson goal rates. */
-export function poisson1x2(lh: number, la: number, maxGoals = 12): { home: number; draw: number; away: number } {
+export function poisson1x2(lh: number, la: number, drawInflation = 1, maxGoals = 12): { home: number; draw: number; away: number } {
   let home = 0;
   let draw = 0;
   let away = 0;
@@ -52,6 +57,7 @@ export function poisson1x2(lh: number, la: number, maxGoals = 12): { home: numbe
       else away += p;
     }
   }
+  draw *= drawInflation;
   const s = home + draw + away;
   return { home: home / s, draw: draw / s, away: away / s };
 }
@@ -64,7 +70,7 @@ export function expectedGoals(homeElo: number, awayElo: number, p: EloParams = D
 
 export function predict(homeElo: number, awayElo: number, p: EloParams = DEFAULT_ELO): MatchProbabilities {
   const { expHome, expAway } = expectedGoals(homeElo, awayElo, p);
-  const r = poisson1x2(expHome, expAway);
+  const r = poisson1x2(expHome, expAway, p.drawInflation);
   // Overtime: split by relative strength.
   const otHome = expHome / (expHome + expAway);
   return { ...r, homeWin: r.home + r.draw * otHome, expHome, expAway };

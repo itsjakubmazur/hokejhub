@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchPalette } from "./search-palette";
 import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
@@ -11,7 +12,7 @@ export function Header() {
             Hokej<span className="text-accent">Hub</span>
           </span>
         </Link>
-        <nav className="ml-2 flex items-center gap-1 text-sm text-muted">
+        <nav className="ml-2 flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-muted">
           <Link href="/" className="rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg">
             Zápasy
           </Link>
@@ -21,8 +22,15 @@ export function Header() {
           <Link href="/predikce" className="hidden rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg sm:inline">
             Predikce
           </Link>
+          <Link href="/rekordy" className="hidden rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg md:inline">
+            Rekordy
+          </Link>
+          <Link href="/dnes-v-historii" className="hidden rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg lg:inline">
+            Tento den
+          </Link>
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <SearchPalette />
           <ThemeToggle />
         </div>
       </div>

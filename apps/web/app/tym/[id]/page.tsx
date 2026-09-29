@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { computeStandings, rulesForSeason } from "@hokejhub/core";
+import { FavoriteButton } from "@/components/favorite-button";
 import { Leaders } from "@/components/league/leaders";
 import { FormBadges } from "@/components/league/standings";
 import { TeamResults } from "@/components/team/results";
@@ -70,6 +71,9 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
               Tipsport extraliga
             </Link>
             <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">{team.name}</h1>
+            <div className="mt-2">
+              <FavoriteButton id={id} label={team.name} names={[team.short_name, team.name]} />
+            </div>
           </div>
           <SeasonSelect seasons={seasons} value={season} />
         </div>

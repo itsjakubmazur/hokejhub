@@ -14,6 +14,7 @@ import {
   type Game,
 } from "@hokejhub/core";
 import type { ScoreboardResponse } from "@/lib/types";
+import { isFavoriteTeam, useFavorites } from "@/lib/favorites";
 import { formatDayLong, formatDayShort } from "@/lib/format";
 import { GameRow } from "./game-row";
 import { GamblingNotice } from "./gambling-notice";
@@ -79,6 +80,11 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       .sort((a, b) => a.league.sort - b.league.sort || a.league.name.localeCompare(b.league.name, "cs"));
   }, [data.games]);
 
+  const { list: favorites } = useFavorites();
+  const mine = favorites.length
+    ? data.games.filter((g) => isFavoriteTeam(favorites, g.home.shortName, g.home.name) || isFavoriteTeam(favorites, g.away.shortName, g.away.name))
+    : [];
+
   const visible = groups.filter((g) => showAll || selected.includes(g.league.key));
   const hidden = groups.length - visible.length;
   const liveCount = data.games.filter(isLive).length;
@@ -105,6 +111,20 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       <LeagueChips groups={groups} selected={selected} onChange={setSelected} showAll={showAll} />
 
       <SourceStatus sources={isError ? { ...data.sources, server: "stale" } : data.sources} />
+
+      {mine.length > 0 ? (
+        <section className="overflow-hidden rounded-xl border border-gold/50 bg-surface">
+          <h2 className="flex items-center gap-2 bg-gold/10 px-3 py-2 text-[13px] font-bold">
+            <svg viewBox="0 0 24 24" className="size-3.5 text-gold" fill="currentColor" aria-hidden>
+              <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z" />
+            </svg>
+            Moje týmy
+          </h2>
+          {mine.map((g, i) => (
+            <GameRow key={g.id} game={g} date={date} index={i} liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined} />
+          ))}
+        </section>
+      ) : null}
 
       {visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-10 text-center text-muted">
