@@ -12,7 +12,7 @@ export function Header() {
             Hokej<span className="text-accent">Hub</span>
           </span>
         </Link>
-        <nav className="ml-2 flex min-w-0 items-center gap-1 overflow-x-auto text-sm text-muted">
+        <nav className="ml-2 hidden min-w-0 items-center gap-1 overflow-x-auto text-sm text-muted sm:flex">
           <Link href="/" className="rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg">
             Zápasy
           </Link>

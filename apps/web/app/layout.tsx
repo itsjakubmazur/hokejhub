@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { BottomNav } from "@/components/bottom-nav";
 import { Header } from "@/components/header";
 import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
@@ -37,7 +38,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-dvh font-sans">
         <Providers>
           <Header />
-          <main className="mx-auto w-full max-w-6xl px-4 pb-24 pt-4 sm:px-6">{children}</main>
+          <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-24">{children}</main>
+          <BottomNav />
         </Providers>
         <SwRegister />
       </body>
