@@ -15,6 +15,7 @@ import { Insights } from "./game/insights";
 import { Commentary } from "./game/commentary";
 import { PredictionCard } from "./game/prediction";
 import { Recap } from "./game/recap";
+import { PeriodSiren } from "./game/period-siren";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
@@ -401,6 +402,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
         }}
       />
       <GoalCelebration trigger={flash.home + flash.away} side={lastSide} team={game[lastSide].shortName} />
+      <PeriodSiren game={game} />
       <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-5 sm:px-8 sm:py-7">
         <TeamBlock game={game} side="home" href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
         <div className="flex flex-col items-center gap-1.5">

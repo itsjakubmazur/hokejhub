@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CountUp } from "./count-up";
 
 export function Card({ title, children, action, className = "" }: { title?: ReactNode; children: ReactNode; action?: ReactNode; className?: string }) {
   return (
@@ -18,7 +19,7 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
   return (
     <div className="rounded-xl bg-surface-2 p-3">
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-0.5 text-2xl font-bold tabular">{value}</div>
+      <div className="mt-0.5 text-2xl font-bold tabular">{typeof value === "number" && Number.isFinite(value) ? <CountUp value={value} decimals={Number.isInteger(value) ? 0 : 1} /> : value}</div>
       {sub ? <div className="text-xs text-muted">{sub}</div> : null}
     </div>
   );
