@@ -23,7 +23,7 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 const ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
-const PAUSE_MS = 3000;
+const PAUSE_MS = 2000;
 const MAX_ATTEMPTS = 5;
 const USER_AGENT = "HokejHub/0.1 (personal, non-commercial)";
 
@@ -99,18 +99,39 @@ export async function POST(req: Request) {
   const started = Date.now();
   const log: { key: string; ok: boolean; info: string }[] = [];
 
+  // Jobs stuck in "running" (a crashed invocation) go back to the queue after 10 minutes.
+  await db
+    .from("crawl_job")
+    .update({ status: "pending" })
+    .eq("status", "running")
+    .lt("updated_at", new Date(Date.now() - 10 * 60_000).toISOString());
+
   while (Date.now() - started < budgetMs - PAUSE_MS - 8000) {
-    const { data: next, error } = await db
+    const { data: candidates, error } = await db
       .from("crawl_job")
       .select("id,key,kind,params,priority,attempts")
       .eq("status", "pending")
       .lte("next_at", new Date().toISOString())
       .order("priority")
       .order("id")
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
     if (error) return Response.json({ error: error.message, log }, { status: 500 });
-    if (!next) break;
+    if (!candidates?.length) break;
+    // Claim atomically so several drivers can run in parallel without doing a job twice.
+    let next: (typeof candidates)[number] | null = null;
+    for (const c of candidates) {
+      const { data: claimed } = await db
+        .from("crawl_job")
+        .update({ status: "running", updated_at: new Date().toISOString() })
+        .eq("id", c.id)
+        .eq("status", "pending")
+        .select("id");
+      if (claimed?.length) {
+        next = c;
+        break;
+      }
+    }
+    if (!next) continue;
 
     const target = new URL(jobPath(next), ORIGIN).toString();
     try {
