@@ -21,12 +21,15 @@ import {
   seasonOf,
   shotsWithXg,
   type HokejczMatch,
+  pragueToUtcIso,
   type BetDistribution,
   type Game,
   type Odds1x2,
 } from "@hokejhub/core";
 import type { GameDetailResponse } from "../types";
+import { dbAvailable } from "./db";
 import { fetchJson, type SourceState } from "./fetcher";
+import { getHeadToHead, sql } from "./queries";
 import { getScoreboard, revalidateFor } from "./scoreboard";
 
 /**
@@ -140,6 +143,8 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       liveOdds,
       bets,
       box: null,
+      teamIds: null,
+      h2h: null,
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
       periodStats: null,
@@ -158,13 +163,36 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
     const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
-    const details = await czDetails(game, box, sources);
+    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box)]);
     return {
       game,
       liveOdds,
       bets,
       box,
       ...details,
+      ...links,
+      goals: null,
+      players: null,
+      sources,
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+
+  // Historical / archived Czech game from our database (hokej.cz match id).
+  if (id.startsWith("hcz-")) {
+    const hczId = Number(id.slice(4));
+    const game = await gameFromHokejcz(hczId, sources);
+    if (!game) return null;
+    const box = game.box;
+    const details = await czDetails(game.game, box, sources);
+    const links = await dbLinks(box);
+    return {
+      game: game.game,
+      liveOdds: null,
+      bets: null,
+      box,
+      ...details,
+      ...links,
       goals: null,
       players: null,
       sources,
@@ -173,6 +201,65 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
   }
 
   return null;
+}
+
+/** Builds a Game from the hokej.cz match page (used for archive games without a live feed). */
+async function gameFromHokejcz(hczId: number, sources: Record<string, SourceState>) {
+  const res = await fetchJson(new URL(hokejczPaths.match(hczId), HOKEJCZ_ORIGIN).toString(), (html) => parseHokejczMatch(html as string, hczId), {
+    revalidate: 3600,
+    text: true,
+  });
+  sources.hokejcz = res.state;
+  const box = res.data;
+  if (!box || !box.home.name) return null;
+  const m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/.exec(box.startLocal ?? "");
+  const startAt = m
+    ? pragueToUtcIso(`${m[3]}-${m[2]!.padStart(2, "0")}-${m[1]!.padStart(2, "0")}`, m[4] ? `${m[4].padStart(2, "0")}:${m[5]}` : "00:00")
+    : new Date(0).toISOString();
+  const final = /konec/i.test(box.statusLabel ?? "");
+  const team = (t: HokejczMatch["home"]) => ({
+    id: t.clubId ? `hcz-${t.clubId}` : `hcz-n-${t.abbrev}`,
+    name: t.name,
+    shortName: t.shortName || t.name,
+    abbrev: t.abbrev,
+    logoUrl: t.logoUrl,
+  });
+  const game: Game = {
+    id: `hcz-${hczId}`,
+    source: "esports",
+    leagueKey: "cz-elh",
+    leagueName: box.competition ?? "Tipsport extraliga",
+    startAt,
+    status: final ? "final" : box.homeScore !== null ? "live" : "scheduled",
+    statusLabel: box.statusLabel ?? "",
+    period: null,
+    clock: null,
+    home: team(box.home),
+    away: team(box.away),
+    homeScore: box.homeScore,
+    awayScore: box.awayScore,
+    periods: box.periods,
+    decidedIn: box.decidedIn,
+    series: box.series,
+    preOdds: null,
+    external: { hokejczId: hczId },
+  };
+  return { game, box };
+}
+
+/** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
+async function dbLinks(box: HokejczMatch | null) {
+  if (!box || !dbAvailable() || !box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null };
+  const home = `hcz-${box.home.clubId}`;
+  const away = `hcz-${box.away.clubId}`;
+  try {
+    const [exists] = await sql<{ n: number }>("select count(*)::int as n from team where id in ($1, $2)", [home, away]);
+    if (!exists || exists.n < 2) return { teamIds: null, h2h: null };
+    return { teamIds: { home, away }, h2h: await getHeadToHead(home, away, 30) };
+  } catch (e) {
+    console.error("[db] links", e);
+    return { teamIds: null, h2h: null };
+  }
 }
 
 export { revalidateFor };

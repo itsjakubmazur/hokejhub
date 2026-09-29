@@ -10,6 +10,7 @@ import type { GameDetailResponse } from "@/lib/types";
 import { formatDayLong, formatOdds, formatPct, formatTime } from "@/lib/format";
 import { GamblingNotice } from "./gambling-notice";
 import { GoalCelebration } from "./game/goal-celebration";
+import { HeadToHead } from "./game/h2h";
 import { Lineups } from "./game/lineups";
 import { PeriodStats } from "./game/period-stats";
 import { PlayersTable } from "./game/players-table";
@@ -26,7 +27,7 @@ const easternDate = (iso: string) =>
 
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
-type Tab = "prehled" | "statistiky" | "sestavy" | "strely" | "hraci" | "kurzy";
+type Tab = "prehled" | "statistiky" | "sestavy" | "strely" | "hraci" | "h2h" | "kurzy";
 
 export function GameCenter({ id, date, initial }: { id: string; date?: string; initial: GameDetailResponse }) {
   const { data } = useQuery({
@@ -48,6 +49,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
     { id: "sestavy", label: "Sestavy", show: Boolean(data.lineups) },
     { id: "strely", label: "Střely & xG", show: Boolean(data.shots?.length) },
     { id: "hraci", label: "Hráči", show: Boolean(data.playerStats || data.box?.skaters.home.length) },
+    { id: "h2h", label: "H2H", show: Boolean(data.teamIds && data.h2h) },
     { id: "kurzy", label: "Kurzy", show: Boolean(game.preOdds || data.liveOdds || data.bets) },
   ];
   const visible = tabs.filter((t) => t.show);
@@ -107,11 +109,16 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           {tab === "hraci" ? (
             data.playerStats ? (
               <Card title="Statistiky hráčů">
-                <PlayersTable game={game} stats={data.playerStats} />
+                <PlayersTable game={game} stats={data.playerStats} box={data.box} />
               </Card>
             ) : data.box ? (
               <HokejczBoxScore box={data.box} />
             ) : null
+          ) : null}
+          {tab === "h2h" && data.teamIds && data.h2h ? (
+            <Card title="Vzájemné zápasy">
+              <HeadToHead game={game} games={data.h2h} teamIds={data.teamIds} />
+            </Card>
           ) : null}
           {tab === "kurzy" ? (
             <div className="grid gap-4 md:grid-cols-2">
@@ -305,7 +312,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
       />
       <GoalCelebration trigger={flash.home + flash.away} side={lastSide} team={game[lastSide].shortName} />
       <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-5 sm:px-8 sm:py-7">
-        <TeamBlock game={game} side="home" />
+        <TeamBlock game={game} side="home" href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
         <div className="flex flex-col items-center gap-1.5">
           <div className="flex items-center gap-2 text-5xl font-black tracking-tight tabular sm:text-6xl">
             {started ? (
@@ -337,15 +344,15 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
             </div>
           ) : null}
         </div>
-        <TeamBlock game={game} side="away" />
+        <TeamBlock game={game} side="away" href={data.teamIds ? `/tym/${data.teamIds.away}` : undefined} />
       </div>
     </section>
   );
 }
 
-function TeamBlock({ game, side }: { game: Game; side: "home" | "away" }) {
+function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; href?: string }) {
   const team = game[side];
-  return (
+  const inner = (
     <motion.div
       className="flex flex-col items-center gap-2 text-center"
       initial={{ opacity: 0, x: side === "home" ? -20 : 20 }}
@@ -357,6 +364,13 @@ function TeamBlock({ game, side }: { game: Game; side: "home" | "away" }) {
       </div>
       <div className="text-sm font-semibold sm:text-base">{team.shortName}</div>
     </motion.div>
+  );
+  return href ? (
+    <Link href={href} className="transition-transform hover:scale-[1.03]">
+      {inner}
+    </Link>
+  ) : (
+    inner
   );
 }
 

@@ -15,6 +15,9 @@ export function Header() {
           <Link href="/" className="rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg">
             Zápasy
           </Link>
+          <Link href="/liga/cz-elh" className="rounded-lg px-3 py-1.5 hover:bg-surface-2 hover:text-fg">
+            Extraliga
+          </Link>
         </nav>
         <div className="ml-auto">
           <ThemeToggle />

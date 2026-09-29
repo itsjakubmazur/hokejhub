@@ -11,3 +11,4 @@ export * from "./sources/hokejcz-shots.ts";
 export * from "./model/xg.ts";
 export * from "./sources/onlajny-match.ts";
 export * from "./model/shots.ts";
+export * from "./model/standings.ts";

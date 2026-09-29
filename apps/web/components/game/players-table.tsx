@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { Game, PlayerMatchStats, PlayerPeriodLine } from "@hokejhub/core";
+import type { Game, HokejczMatch, PlayerMatchStats, PlayerPeriodLine } from "@hokejhub/core";
 import { fmtToi } from "@/lib/names";
 import { Segmented } from "./segmented";
 
@@ -22,10 +23,22 @@ const COLS: { key: Key; label: string; title: string }[] = [
   { key: "ri", label: "RI", title: "Radegast index" },
 ];
 
-export function PlayersTable({ game, stats }: { game: Game; stats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } }) {
+export function PlayersTable({
+  game,
+  stats,
+  box,
+}: {
+  game: Game;
+  stats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] };
+  box?: HokejczMatch | null;
+}) {
   const [side, setSide] = useState<"home" | "away">("home");
   const [period, setPeriod] = useState<"all" | "0" | "1" | "2" | "3">("all");
   const [sort, setSort] = useState<Key>("toi");
+  const idByJersey = useMemo(
+    () => new Map((box?.skaters[side] ?? []).filter((p) => p.player.id).map((p) => [p.number, p.player.id!])),
+    [box, side],
+  );
   const maxPeriods = Math.max(0, ...stats[side].map((p) => p.periods.length));
 
   const rows = useMemo(() => {
@@ -84,7 +97,13 @@ export function PlayersTable({ game, stats }: { game: Game; stats: { home: Playe
               <tr key={p.id} className="transition-colors hover:bg-surface-2">
                 <td className="py-1.5 pr-2 text-muted">{p.jersey}</td>
                 <td className="whitespace-nowrap py-1.5 pr-2">
-                  <span className="font-medium">{p.name}</span>
+                  {idByJersey.get(p.jersey) ? (
+                    <Link href={`/hrac/hcz-${idByJersey.get(p.jersey)}`} className="font-medium hover:text-accent">
+                      {p.name}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">{p.name}</span>
+                  )}
                   <span className="ml-1 text-muted">{p.position === "O" || p.position === "BK" ? "O" : "Ú"}</span>
                 </td>
                 {COLS.map((c) => {

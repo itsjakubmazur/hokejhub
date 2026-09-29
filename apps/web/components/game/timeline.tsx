@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import Link from "next/link";
 import type { Game, GoalSummary, HokejczMatch } from "@hokejhub/core";
 import { nice } from "@/lib/names";
 
@@ -18,6 +19,7 @@ interface TimelineEvent {
   badge?: string;
   score?: string;
   minutes?: number | null;
+  href?: string;
 }
 
 function elapsed(clock: string) {
@@ -42,6 +44,7 @@ function fromHokejcz(box: HokejczMatch): TimelineEvent[] {
       clock: g.time,
       period: g.period,
       title: nice(g.scorer.name) + (g.scorerSeasonGoals ? ` (${g.scorerSeasonGoals})` : ""),
+      href: g.scorer.id ? `/hrac/hcz-${g.scorer.id}` : undefined,
       sub: g.assists.map((x) => nice(x.name)).join(" + ") || undefined,
       badge: g.situation && g.situation !== "5/5" ? (SITUATION[g.situation] ?? g.situation) : undefined,
       score: `${h}:${a}`,
@@ -55,6 +58,7 @@ function fromHokejcz(box: HokejczMatch): TimelineEvent[] {
       clock: p.time,
       period: p.period,
       title: nice(p.player.name),
+      href: p.player.id ? `/hrac/hcz-${p.player.id}` : undefined,
       sub: p.reason,
       minutes: p.minutes,
     });
@@ -115,7 +119,13 @@ function EventRow({ e, index }: { e: TimelineEvent; index: number }) {
       <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold text-muted tabular">{e.clock}</span>
       <span className="pt-0.5">{icon}</span>
       <span className={`min-w-0 ${e.kind === "goal" ? "" : "text-sm"}`}>
-        <span className={e.kind === "goal" ? "font-semibold" : "font-medium"}>{e.title}</span>
+        {e.href ? (
+          <Link href={e.href} className={`${e.kind === "goal" ? "font-semibold" : "font-medium"} hover:text-accent`}>
+            {e.title}
+          </Link>
+        ) : (
+          <span className={e.kind === "goal" ? "font-semibold" : "font-medium"}>{e.title}</span>
+        )}
         {e.badge ? (
           <span className="mx-1.5 rounded bg-accent-soft px-1 py-px text-[10px] font-semibold uppercase text-accent">{e.badge}</span>
         ) : null}

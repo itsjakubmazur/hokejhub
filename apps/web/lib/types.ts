@@ -33,6 +33,10 @@ export interface GameDetailResponse {
   periodStats: MatchPeriodStats | null;
   playerStats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
   faceoffZones: { home: number[]; away: number[] } | null;
+  /** Our database team ids (links to team pages) when known. */
+  teamIds: { home: string; away: string } | null;
+  /** Previous meetings of the two teams, newest first. */
+  h2h: import("./server/queries").GameRowDb[] | null;
   goals: GoalSummary[] | null;
   players: Record<string, NhlPlayerRef> | null;
   sources: Record<string, SourceState>;

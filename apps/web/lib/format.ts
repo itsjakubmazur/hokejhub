@@ -29,3 +29,5 @@ export function formatOdds(v: number | null | undefined): string {
 export function formatPct(v: number): string {
   return `${Math.round(v * 100)} %`;
 }
+
+export const seasonLabel = (s: number) => `${s}/${String((s + 1) % 100).padStart(2, "0")}`;

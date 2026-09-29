@@ -289,8 +289,9 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
       const addPlayer = (ref: HokejczPlayerRef, position?: string) => {
         if (!ref.name) return null;
         const id = playerId(ref);
-        if (!players.has(id))
-          players.set(id, { id, name: niceName(ref.name), position: position ?? null, external: { hokejczId: ref.id } });
+        const existing = players.get(id);
+        if (!existing) players.set(id, { id, name: niceName(ref.name), position: position ?? null, external: { hokejczId: ref.id } });
+        else if (position && !existing.position) existing.position = position;
         return id;
       };
       const teamByAbbrev = (abbrev: string) =>

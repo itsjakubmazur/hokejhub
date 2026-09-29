@@ -50,7 +50,7 @@ export function ShotMap({
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-4 text-xs text-muted tabular">
-          <span>
+          <span className={count(false, ["goal", "shot-on-goal", "missed-shot", "blocked-shot"]) === 0 ? "hidden" : ""}>
             <span className="mr-1 inline-block size-2 rounded-full bg-away" />
             {awayAbbrev}: {count(false, ["goal", "shot-on-goal"])} SOG · {count(false, ["goal", "shot-on-goal", "missed-shot", "blocked-shot"])} pokusů
           </span>
