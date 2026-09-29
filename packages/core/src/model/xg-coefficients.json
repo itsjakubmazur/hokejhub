@@ -1,1 +1,13 @@
-{"intercept":-1.0,"weights":{"distance":-0.03,"logDistance":-0.4,"angle":-0.01,"rebound":0.8,"pp":0.35,"sh":0.1,"en":2.5}}
+{
+  "intercept": -0.8104199745603179,
+  "weights": {
+    "distance": -0.03369819257777604,
+    "logDistance": -0.1661957284781074,
+    "angle": -0.011870720766889432,
+    "rebound": -0.08972835787720163,
+    "pp": 0.26248733683192726,
+    "sh": 0.23261047013418687,
+    "en": 5.415659303320371
+  },
+  "trainedOn": "NHL play-by-play, 187 games, 15911 unblocked attempts"
+}
