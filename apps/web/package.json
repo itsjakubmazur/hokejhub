@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "prebuild": "node scripts/embed-migrations.mjs",
+    "pretypecheck": "node scripts/embed-migrations.mjs"
   },
   "dependencies": {
     "@hokejhub/core": "workspace:*",
@@ -15,12 +17,14 @@
     "@tanstack/react-query": "^5.104.0",
     "motion": "^13.4.6",
     "next": "16.3.7",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

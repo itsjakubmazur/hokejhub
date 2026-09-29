@@ -277,6 +277,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         decided_in: played ? m.decidedIn : null,
         series: m.series,
         attendance: m.attendance,
+        capacity: m.capacity,
         venue: m.venue,
         referees: m.referees.length ? m.referees : null,
         team_stats: Object.keys(m.teamStats).length ? m.teamStats : null,
