@@ -1,0 +1,42 @@
+name: Push notifications
+
+# Drives the notification rule engine (/api/push/tick) while games are on. The endpoint reports
+# `nextActive` (next game start − 20 min, or now while something is live); the loop sleeps until
+# then and exits when nothing is left for the day. Czech games start 14:00–19:30 Prague time and
+# NHL games 00:00–05:00, hence two daily windows. Requires repo secret CRON_SECRET.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 10 * * *"   # ~12:05 Prague: covers weekend afternoon + evening Czech games
+    - cron: "35 21 * * *"  # ~23:35 Prague: NHL night
+
+concurrency:
+  group: push-notify
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - name: Run rule engine while games are on
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ENDPOINT: https://hokejhub.vercel.app/api/push/tick
+        run: |
+          end=$(( $(date +%s) + 350*60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            out=$(curl -sS -m 70 -X POST "$ENDPOINT" -H "Authorization: Bearer $CRON_SECRET" || echo '{}')
+            next=$(echo "$out" | jq -r '.nextActive // "none"')
+            echo "$(date -u +%H:%M:%S) $(echo "$out" | jq -c '[.passes[]? | {games, events, sent}]') next=$next"
+            if [ "$next" = "none" ] || [ "$next" = "null" ]; then
+              echo "Nothing more to watch."; break
+            fi
+            wait=$(( $(date -d "$next" +%s) - $(date +%s) ))
+            if [ "$wait" -gt 60 ]; then
+              [ $(( $(date +%s) + wait )) -gt "$end" ] && { echo "Next window after job limit."; break; }
+              echo "Sleeping ${wait}s until $next"; sleep "$wait"
+            else
+              sleep 3
+            fi
+          done

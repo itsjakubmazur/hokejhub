@@ -14,3 +14,4 @@ export * from "./model/shots.ts";
 export * from "./model/standings.ts";
 export * from "./sources/hokejcz-online.ts";
 export * from "./model/elo.ts";
+export * from "./notify/engine.ts";
