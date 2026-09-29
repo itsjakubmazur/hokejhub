@@ -93,7 +93,11 @@ export interface HokejczMatch {
   homeScore: number | null;
   awayScore: number | null;
   statusLabel: string | null;
+  /** Regulation periods plus overtime (if played); a shootout is not a period. */
   periods: [number, number][];
+  decidedIn: "REG" | "OT" | "SO" | null;
+  /** Playoff series state after this game, e.g. `4:2`. */
+  series: string | null;
   attendance: number | null;
   venue: string | null;
   capacity: number | null;
@@ -279,6 +283,23 @@ function parsePenaltyTable(table: HTMLElement, period: string): HokejczPenalty[]
     });
 }
 
+/**
+ * Parses hokej.cz period strings: `1:0, 2:1, 0:0` (regulation), `… - 1:0` (overtime) and
+ * `… - 0:0 - 1:0` (overtime then shootout).
+ */
+export function parsePeriodString(text: string): { periods: [number, number][]; decidedIn: "REG" | "OT" | "SO" | null } {
+  const segments = clean(text.replace(/[()]/g, "")).split(/\s+-\s+/);
+  const regulation = (segments[0] ?? "")
+    .split(",")
+    .map(pair)
+    .filter((p): p is [number, number] => p !== null);
+  if (regulation.length === 0) return { periods: [], decidedIn: null };
+  const ot = segments[1] ? pair(segments[1]) : null;
+  const so = segments[2] ? pair(segments[2]) : null;
+  const periods = ot ? [...regulation, ot] : regulation;
+  return { periods, decidedIn: so ? "SO" : ot ? "OT" : "REG" };
+}
+
 /** Parses a hokej.cz match page (`/zapas/{id}/`). Older matches may lack some sections. */
 export function parseHokejczMatch(html: string, id: number): HokejczMatch {
   const root = parse(html);
@@ -288,10 +309,7 @@ export function parseHokejczMatch(html: string, id: number): HokejczMatch {
   const scoreEl = page.querySelector(".match-score .score");
   const scoreMeta = scoreEl?.querySelectorAll("div span").map((s) => clean(s.text)) ?? [];
 
-  const periods = (scoreMeta[1] ?? "")
-    .split(",")
-    .map((p) => pair(p))
-    .filter((p): p is [number, number] => p !== null);
+  const { periods, decidedIn } = parsePeriodString(scoreMeta[1] ?? "");
 
   const teamStats: Record<string, [number, number]> = {};
   const referees: string[] = [];
@@ -343,6 +361,8 @@ export function parseHokejczMatch(html: string, id: number): HokejczMatch {
     awayScore: int(scoreEl?.querySelector(".visiting")?.text),
     statusLabel: scoreMeta[0] ?? null,
     periods,
+    decidedIn: /s\.\s*n\./.test(scoreMeta[0] ?? "") ? "SO" : decidedIn,
+    series: headingItems.find((h) => h.startsWith("stav série"))?.replace("stav série", "").trim() ?? null,
     attendance: int(root.querySelector(".box-count-visitors")?.text),
     venue: clean(root.querySelector(".box-heading-stadium")?.text) || null,
     capacity: int(root.querySelector(".box-count-stadium")?.text),
@@ -355,4 +375,198 @@ export function parseHokejczMatch(html: string, id: number): HokejczMatch {
     skaters,
     goalies,
   };
+}
+
+// ---------- schedule (/zapasy) ----------
+
+export interface HokejczCompetitionOption {
+  id: number;
+  name: string;
+  phase: "regular" | "playoff" | "relegation" | "other";
+}
+
+export interface HokejczScheduleMatch {
+  id: number;
+  home: { name: string; shortName: string; abbrev: string };
+  away: { name: string; shortName: string; abbrev: string };
+  homeScore: number | null;
+  awayScore: number | null;
+  periods: [number, number][];
+  decidedIn: "REG" | "OT" | "SO" | null;
+  /** `YYYY-MM-DD`, year inferred from the season (July+ = start year). */
+  date: string | null;
+  /** Nearest group heading, e.g. "Čtvrtfinále" (playoff pages). */
+  stage: string | null;
+  /** Series heading, e.g. "Série A - B: 3:2". */
+  seriesLabel: string | null;
+}
+
+export interface HokejczSchedulePage {
+  seasons: number[];
+  competitions: HokejczCompetitionOption[];
+  selectedCompetition: number | null;
+  /** Round numbers available in the round dropdown (regular season). */
+  rounds: number[];
+  matches: HokejczScheduleMatch[];
+}
+
+export function competitionPhase(name: string): HokejczCompetitionOption["phase"] {
+  const n = name.toLowerCase();
+  if (n.includes("play") || n.includes("předkolo")) return "playoff";
+  if (n.includes("baráž") || n.includes("sestup") || n.includes("kvalifikace")) return "relegation";
+  if (n.includes("extraliga") || n.includes("liga")) return "regular";
+  return "other";
+}
+
+function selectOptions(root: HTMLElement, name: string) {
+  const sel = root.querySelector(`select[name="${name}"]`);
+  return (sel?.querySelectorAll("option") ?? []).map((o) => ({
+    value: o.getAttribute("value") ?? "",
+    label: clean(o.text),
+    selected: o.hasAttribute("selected"),
+  }));
+}
+
+function inferDate(label: string, season: number): string | null {
+  const m = /(\d{1,2})\.\s*(\d{1,2})\./.exec(label);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = month >= 7 ? season : season + 1;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function parseHokejczSchedule(html: string, season: number): HokejczSchedulePage {
+  const root = parse(html);
+  const seasons = selectOptions(root, "season")
+    .map((o) => Number(o.value))
+    .filter(Number.isFinite);
+  const compOpts = selectOptions(root, "competition").filter((o) => o.value && o.value !== "0");
+  const competitions = compOpts.map((o) => ({ id: Number(o.value), name: o.label, phase: competitionPhase(o.label) }));
+  const selected = compOpts.find((o) => o.selected);
+
+  // The round <option>s are not closed in the markup, so read them from the raw HTML.
+  const rounds = new Set<number>();
+  for (const m of html.matchAll(/value="[^"]*matchList-view-round-round=(\d+)/g)) rounds.add(Number(m[1]));
+
+  const matches: HokejczScheduleMatch[] = [];
+  const seen = new Set<number>();
+  let stage: string | null = null;
+  let seriesLabel: string | null = null;
+  for (const el of root.querySelectorAll("h2, h3, table.preview tr")) {
+    if (el.tagName === "H2") {
+      stage = clean(el.text);
+      seriesLabel = null;
+      continue;
+    }
+    if (el.tagName === "H3") {
+      const t = clean(el.text);
+      if (t.startsWith("Série")) seriesLabel = t;
+      else stage = t;
+      continue;
+    }
+    const href = el.getAttribute("data-href") ?? el.querySelector("a")?.getAttribute("href") ?? "";
+    const idm = /\/zapas\/(\d+)/.exec(href);
+    if (!idm) continue;
+    const id = Number(idm[1]);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const names = el.querySelectorAll(".preview__name");
+    const team = (td: HTMLElement | undefined) => ({
+      name: clean(td?.querySelector(".preview__name--long")?.text),
+      shortName: clean(td?.querySelector(".preview__name--medium")?.text),
+      abbrev: clean(td?.querySelector(".preview__name--short")?.text),
+    });
+    const scores = el.querySelectorAll(".preview__score");
+    const periodCell = el.querySelector(".preview__period");
+    const spans = periodCell?.querySelectorAll("span") ?? [];
+    const dateLabel = clean(periodCell?.querySelector(".match-start-time")?.text);
+    const periodText = spans.map((x) => clean(x.text)).find((t) => t.startsWith("(")) ?? "";
+    const parsed = parsePeriodString(periodText);
+    const dot = clean(el.querySelector(".preview__dot")?.text);
+    matches.push({
+      id,
+      home: team(names[0]),
+      away: team(names[1]),
+      homeScore: int(scores[0]?.text),
+      awayScore: int(scores[1]?.text),
+      periods: parsed.periods,
+      decidedIn: dot === "SN" ? "SO" : dot === "P" ? "OT" : parsed.decidedIn,
+      date: inferDate(dateLabel, season),
+      stage: stage && !/^Tabulka|bodování|index|turnaje|zápasy|Reprezentace/i.test(stage) ? stage : null,
+      seriesLabel,
+    });
+  }
+
+  return {
+    seasons,
+    competitions,
+    selectedCompetition: selected ? Number(selected.value) : null,
+    rounds: [...rounds].sort((a, b) => a - b),
+    matches,
+  };
+}
+
+// ---------- standings (/table) ----------
+
+export interface HokejczStandingRow {
+  rank: number | null;
+  team: string;
+  /** Raw columns keyed by header (Z, V, VP, R, PP, P, Skóre, B, …). */
+  values: Record<string, string>;
+  gp: number | null;
+  w: number | null;
+  otw: number | null;
+  ties: number | null;
+  otl: number | null;
+  l: number | null;
+  gf: number | null;
+  ga: number | null;
+  pts: number | null;
+}
+
+export interface HokejczStandings {
+  overall: HokejczStandingRow[];
+  home: HokejczStandingRow[];
+  away: HokejczStandingRow[];
+}
+
+export function parseHokejczStandings(html: string): HokejczStandings {
+  const root = parse(html);
+  const out: HokejczStandings = { overall: [], home: [], away: [] };
+  const tables = root.querySelectorAll("table.table-soupiska");
+  for (const table of tables) {
+    // The heading right before the table says which split it is.
+    let heading = "";
+    for (const el of root.querySelectorAll("h2, table.table-soupiska")) {
+      if (el === table) break;
+      if (el.tagName === "H2") heading = clean(el.text);
+    }
+    const key = /DOMA$/i.test(heading) ? "home" : /VENKU$/i.test(heading) ? "away" : "overall";
+    if (out[key].length > 0) continue;
+    const head = headers(table);
+    for (const tr of table.querySelectorAll("tr")) {
+      const c = cells(tr);
+      if (c.length < head.length - 1 || c.length < 4) continue;
+      const values: Record<string, string> = {};
+      head.forEach((h, i) => (values[h] = clean(c[i]?.text)));
+      const score = pair(values["Skóre"] ?? "");
+      const n = (k: string) => (k in values ? int(values[k]) : null);
+      out[key].push({
+        rank: int(values["#"]),
+        team: values["Tým"] ?? "",
+        values,
+        gp: n("Z"),
+        w: n("V"),
+        otw: n("VP"),
+        ties: n("R"),
+        otl: n("PP"),
+        l: n("P"),
+        gf: score?.[0] ?? null,
+        ga: score?.[1] ?? null,
+        pts: n("B"),
+      });
+    }
+  }
+  return out;
 }

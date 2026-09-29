@@ -18,6 +18,22 @@ create table league (
   source_ids jsonb not null default '{}'  -- {"esports": ["16"]}
 );
 
+insert into league (id, name, short_name, grp, sort, source_ids) values
+  ('nhl', 'NHL', 'NHL', 'nhl', 1, '{"esports": ["101"]}'),
+  ('cz-elh', 'Tipsport extraliga', 'ELH', 'cz', 2, '{"esports": ["16"], "hokejcz": ["4171"]}'),
+  ('cz-maxa', 'Maxa liga', 'Maxa', 'cz', 3, '{"esports": ["20"]}'),
+  ('cz-2liga', '2. liga', '2. liga', 'cz', 4, '{"esports": ["3470"]}'),
+  ('cz-women', 'Extraliga žen', 'ELŽ', 'cz-women', 10, '{"esports": ["3458"]}');
+
+-- hokej.cz "competition" = one phase of one season (regular / playoff / relegation).
+create table competition (
+  id int primary key,                  -- hokej.cz competition id
+  league_id text not null references league(id),
+  season int not null,                 -- start year, 1995 = 1995/96
+  name text not null,
+  phase text not null                  -- regular|playoff|relegation|other
+);
+
 create table season (
   id text primary key,                 -- 'nhl-20262027', 'cz-elh-2026'
   league_id text not null references league(id),
@@ -66,6 +82,11 @@ create table game (
   start_at timestamptz not null,
   home_team_id text not null references team(id),
   away_team_id text not null references team(id),
+  phase text,                          -- regular|playoff|relegation
+  competition_id int,
+  round text,                          -- "6. kolo", "Semifinále"
+  home_name text,                      -- team names as of that game (sponsors change)
+  away_name text,
   status text not null,                -- scheduled|live|intermission|final|postponed|cancelled
   status_label text,
   period int,
@@ -75,9 +96,14 @@ create table game (
   periods jsonb not null default '[]',
   decided_in text,                     -- REG|OT|SO
   series text,
+  attendance int,
+  venue text,
+  referees text[],
+  team_stats jsonb,                    -- {"Střely na branku": [37, 27], ...}
   external jsonb not null default '{}',
   updated_at timestamptz not null default now()
 );
+create index game_season_idx on game (season_id, phase);
 create index game_start_idx on game (start_at);
 create index game_league_start_idx on game (league_id, start_at);
 create index game_live_idx on game (status) where status in ('live', 'intermission');
@@ -118,8 +144,9 @@ create table box_skater (
   game_id text references game(id) on delete cascade,
   player_id text references player(id),
   team_id text references team(id),
+  number int, position text,
   toi_s int, g int, a int, pts int, pm int, sog int, hits int, blk int,
-  fo_w int, fo_l int, pim int, pp_toi_s int, sh_toi_s int,
+  fo_w int, fo_taken int, pim int, pp_toi_s int, sh_toi_s int, ri int,
   extra jsonb,
   primary key (game_id, player_id)
 );
@@ -128,7 +155,8 @@ create table box_goalie (
   game_id text references game(id) on delete cascade,
   player_id text references player(id),
   team_id text references team(id),
-  toi_s int, sa int, ga int, sv_pct real,
+  number int,
+  toi_s int, saves int, ga int, sv_pct real,
   extra jsonb,
   primary key (game_id, player_id)
 );
@@ -160,6 +188,18 @@ create table standing_snapshot (
   team_id text references team(id),
   gp int, w int, otw int, otl int, l int, gf int, ga int, pts int, rank int,
   primary key (league_id, season_id, date, team_id)
+);
+
+-- Final tables as published (split: overall|home|away).
+create table standing_final (
+  league_id text not null references league(id),
+  season int not null,
+  split text not null,
+  rank int,
+  team_name text not null,
+  gp int, w int, otw int, ties int, otl int, l int, gf int, ga int, pts int,
+  raw jsonb,
+  primary key (league_id, season, split, team_name)
 );
 
 create table player_season_stats (
@@ -253,6 +293,21 @@ create table source_health (
   last_modified text
 );
 
+-- Polite crawler queue (one row per page to fetch).
+create table crawl_job (
+  id bigserial primary key,
+  key text not null unique,            -- e.g. 'hcz:match:233641'
+  kind text not null,
+  params jsonb not null default '{}',
+  priority int not null default 100,   -- lower first
+  status text not null default 'pending',  -- pending|done|failed
+  attempts int not null default 0,
+  next_at timestamptz not null default now(),
+  last_error text,
+  updated_at timestamptz not null default now()
+);
+create index crawl_job_next_idx on crawl_job (priority, id) where status = 'pending';
+
 create table ingest_cursor (
   key text primary key,
   value jsonb not null
@@ -264,12 +319,12 @@ declare t text;
 begin
   foreach t in array array['league','season','team','player','roster','game','game_event','game_state_log',
     'box_skater','box_goalie','odds_snapshot','bet_distribution','standing_snapshot','player_season_stats',
-    'team_rating','prediction','game_summary']
+    'team_rating','prediction','game_summary','competition','standing_final']
   loop
     execute format('alter table %I enable row level security', t);
     execute format('create policy %I on %I for select using (true)', t || '_read', t);
   end loop;
-  foreach t in array array['favorite','push_subscription','notification_rule','notification_outbox','source_health','ingest_cursor']
+  foreach t in array array['favorite','push_subscription','notification_rule','notification_outbox','source_health','ingest_cursor','crawl_job']
   loop
     execute format('alter table %I enable row level security', t);
   end loop;

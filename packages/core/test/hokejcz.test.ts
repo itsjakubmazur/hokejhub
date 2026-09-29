@@ -69,3 +69,80 @@ describe("hokej.cz match page", () => {
     expect(homeG).toBe(6);
   });
 });
+
+import {
+  parseHokejczSchedule,
+  parseHokejczStandings,
+  parsePeriodString,
+} from "../src/sources/hokejcz.ts";
+
+const fx = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), "utf8");
+
+describe("hokej.cz periods", () => {
+  it("handles regulation, OT and shootout", () => {
+    expect(parsePeriodString("1:3, 2:0, 3:1")).toEqual({ periods: [[1, 3], [2, 0], [3, 1]], decidedIn: "REG" });
+    expect(parsePeriodString("(0:1, 3:1, 0:1 - 1:0)").decidedIn).toBe("OT");
+    const so = parsePeriodString("(1:1, 2:2, 1:1 - 0:0 - 1:0)");
+    expect(so).toEqual({ periods: [[1, 1], [2, 2], [1, 1], [0, 0]], decidedIn: "SO" });
+  });
+});
+
+describe("hokej.cz 1996 match", () => {
+  const m = parseHokejczMatch(fx("hokejcz-match-1996.html"), 233641);
+  it("parses an old playoff game", () => {
+    expect(m).toMatchObject({ homeScore: 5, awayScore: 4, decidedIn: "SO", series: "4:2", round: "Semifinále" });
+    expect(m.periods.length).toBe(4);
+    expect(m.goals.length).toBeGreaterThan(5);
+    expect(m.skaters.home.length).toBeGreaterThan(10);
+  });
+});
+
+describe("hokej.cz schedule", () => {
+  it("parses a regular-season round with competitions and rounds", () => {
+    const p = parseHokejczSchedule(fx("hokejcz-schedule-round.html"), 2024);
+    expect(p.seasons).toContain(1991);
+    expect(p.competitions.map((c) => [c.id, c.phase])).toEqual([
+      [7374, "playoff"],
+      [7230, "regular"],
+      [7375, "relegation"],
+    ]);
+    expect(p.rounds.length).toBe(52);
+    expect(p.matches.length).toBe(7);
+    expect(p.matches[0]).toMatchObject({
+      id: 2915099,
+      home: { abbrev: "SPA" },
+      away: { abbrev: "TRI" },
+      homeScore: 3,
+      awayScore: 0,
+      date: "2024-09-17",
+      decidedIn: "REG",
+    });
+  });
+
+  it("parses a whole playoff with stages, series and OT/SO markers", () => {
+    const p = parseHokejczSchedule(fx("hokejcz-playoff.html"), 2024);
+    expect(p.matches.length).toBeGreaterThan(50);
+    const first = p.matches[0]!;
+    expect(first.stage).toBe("Předkolo");
+    expect(first.seriesLabel).toMatch(/^Série .*: 3:2$/);
+    expect(first.decidedIn).toBe("OT");
+    expect(first.date).toBe("2025-03-07");
+    expect(p.matches.some((m) => m.decidedIn === "SO")).toBe(true);
+  });
+
+  it("picks the default competition for an old season", () => {
+    const p = parseHokejczSchedule(fx("hokejcz-zapasy-1995.html"), 1995);
+    expect(p.competitions.map((c) => c.id)).toEqual([4271, 4191, 4281]);
+    expect(p.matches.length).toBeGreaterThan(40);
+  });
+});
+
+describe("hokej.cz standings", () => {
+  it("parses overall, home and away tables", () => {
+    const t = parseHokejczStandings(fx("hokejcz-table.html"));
+    expect(t.overall.length).toBe(14);
+    expect(t.overall[0]).toMatchObject({ rank: 1, team: "HC Sparta Praha", gp: 52, w: 29, gf: 177, ga: 110, pts: 104 });
+    expect(t.home[0]!.gf).toBe(104);
+    expect(t.away[0]!.gf).toBe(73);
+  });
+});
