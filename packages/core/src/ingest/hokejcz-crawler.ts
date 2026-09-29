@@ -3,6 +3,7 @@
  * calls `processJob`, writes the returned rows and enqueues the returned jobs.
  */
 import { pragueToUtcIso } from "../domain/time.ts";
+import { parseHokejczShots, penaltyWindows, shotsWithXg } from "../sources/hokejcz-shots.ts";
 import {
   hokejczPaths,
   parseHokejczMatch,
@@ -170,7 +171,10 @@ export interface ProcessResult {
   jobs: CrawlJob[];
 }
 
-export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string): ProcessResult {
+/**
+ * @param shotsJson for match jobs: the hokej.cz shot feed (`hokejczShotsUrl`), when available.
+ */
+export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, shotsJson?: unknown): ProcessResult {
   const rows = emptyRows();
   const jobs: CrawlJob[] = [];
   const p = j.params as unknown as JobParams;
@@ -367,6 +371,31 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string): 
             extra: { assists: gk.assists, pim: gk.pim },
           });
         }
+      }
+      if (shotsJson) {
+        const feed = parseHokejczShots(shotsJson);
+        const shots = shotsWithXg(feed, penaltyWindows(m.penalties, m.home.abbrev));
+        const xg: [number, number] = [0, 0];
+        for (const s of shots) {
+          xg[s.isHome ? 0 : 1] += s.xg;
+          rows.game_event.push({
+            game_id: gameId,
+            seq: 1000 + seq++,
+            type: "shot",
+            period: s.period,
+            period_seconds: s.periodSeconds,
+            team_id: s.isHome ? homeId : awayId,
+            player_ids: s.playerId ? [addPlayer({ id: s.playerId, name: s.name })] : [],
+            x: s.x,
+            y: s.y,
+            xg: Math.round(s.xg * 10000) / 10000,
+            situation: s.strength,
+            payload: { result: s.result, elapsed: s.elapsed, jersey: s.jersey },
+          });
+        }
+        const game = rows.game[0]!;
+        game.team_stats = { ...((game.team_stats as object) ?? {}), xG: xg.map((v) => Math.round(v * 100) / 100) };
+        if (feed.faceoffZones) game.external = { ...(game.external as object), faceoffZones: feed.faceoffZones };
       }
       rows.player.push(...players.values());
       break;

@@ -1,4 +1,5 @@
 import {
+  hokejczShotsUrl,
   job as jobs,
   jobPath,
   PRIMARY_KEYS,
@@ -73,6 +74,18 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const db = supabaseAdmin();
 
+  // Re-run finished jobs of a kind (e.g. after a parser improvement).
+  const requeue = url.searchParams.get("requeue");
+  if (requeue) {
+    const { error, count } = await db
+      .from("crawl_job")
+      .update({ status: "pending", attempts: 0, next_at: new Date().toISOString() }, { count: "exact" })
+      .eq("kind", requeue)
+      .neq("status", "pending");
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ requeued: count });
+  }
+
   const seed = url.searchParams.get("seed");
   if (seed) {
     const [from, to] = seed.split("-").map(Number);
@@ -107,14 +120,25 @@ export async function POST(req: Request) {
         signal: AbortSignal.timeout(20000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { rows, jobs: found } = processJob(next, await res.text());
+      const html = await res.text();
+      // The shot feed (coordinates → xG) lives on S3; missing for older seasons.
+      let shots: unknown;
+      if (next.kind === "match") {
+        const s = await fetch(hokejczShotsUrl(next.params.id), { cache: "no-store", signal: AbortSignal.timeout(15000) });
+        if (s.ok) shots = await s.json();
+      }
+      const { rows, jobs: found } = processJob(next, html, shots);
       await writeRows(rows);
       await enqueue(found);
       await db
         .from("crawl_job")
         .update({ status: "done", attempts: next.attempts + 1, last_error: null, updated_at: new Date().toISOString() })
         .eq("id", next.id);
-      log.push({ key: next.key, ok: true, info: `+${found.length} jobs, ${rows.game.length} games` });
+      log.push({
+        key: next.key,
+        ok: true,
+        info: `+${found.length} jobs, ${rows.game.length} games, ${rows.game_event.filter((e) => e.type === "shot").length} shots`,
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       const attempts = next.attempts + 1;

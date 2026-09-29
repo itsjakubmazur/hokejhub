@@ -7,3 +7,5 @@ export * from "./sources/nhl.ts";
 export * from "./model/market.ts";
 export * from "./sources/hokejcz.ts";
 export * from "./ingest/hokejcz-crawler.ts";
+export * from "./sources/hokejcz-shots.ts";
+export * from "./model/xg.ts";

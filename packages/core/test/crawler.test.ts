@@ -67,3 +67,26 @@ describe("hokej.cz crawler", () => {
     expect(r.rows.standing_final.length).toBe(42);
   });
 });
+
+describe("hokej.cz shots + xG", () => {
+  it("stores shots with coordinates, strength and xG", () => {
+    const shots = JSON.parse(fx("hokejcz-shots.json"));
+    const r = processJob(
+      { kind: "match", params: { id: 2928291, season: 2026, competition: 7562, phase: "regular" } },
+      fx("hokejcz-match.html"),
+      shots,
+    );
+    const ev = r.rows.game_event.filter((e) => e.type === "shot");
+    expect(ev.length).toBe(114);
+    expect(ev.filter((e) => (e.payload as { result: string }).result === "goal").length).toBe(10);
+    // shooters attack +x after normalisation
+    const unblocked = ev.filter((e) => (e.payload as { result: string }).result !== "blocked");
+    expect(unblocked.filter((e) => (e.x as number) > 0).length / unblocked.length).toBeGreaterThan(0.9);
+    const [hx, ax] = (r.rows.game[0]!.team_stats as { xG: [number, number] }).xG;
+    expect(hx).toBeGreaterThan(1);
+    expect(ax).toBeGreaterThan(1);
+    expect(ev.some((e) => e.situation === "PP")).toBe(true);
+    const ids = new Set(r.rows.player.map((p) => p.id));
+    expect(ev.every((e) => (e.player_ids as string[]).every((p) => ids.has(p)))).toBe(true);
+  });
+});
