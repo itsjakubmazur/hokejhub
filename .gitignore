@@ -9,3 +9,7 @@ out
 supabase/.temp
 supabase/.branches
 coverage
+
+# Local ML training data (downloaded, never committed)
+/data/
+ml/xg/data/
