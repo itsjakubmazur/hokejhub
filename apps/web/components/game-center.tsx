@@ -1,10 +1,36 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Activity, ChartBar, ChartNoAxesColumnIncreasing, CircleDot, ClipboardList, Crosshair, FileText, Grid3x3, Info, ListOrdered, MessageSquareText, Sparkles, Star, Swords, Users } from "lucide-react";
+import {
+  Activity,
+  Award,
+  ChartBar,
+  Gauge,
+  Shield,
+  Waves,
+  ChartNoAxesColumnIncreasing,
+  CircleDot,
+  ClipboardList,
+  Crosshair,
+  FileText,
+  Grid3x3,
+  Info,
+  ListOrdered,
+  MessageSquareText,
+  Sparkles,
+  Star,
+  Swords,
+  Users,
+} from "lucide-react";
 
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ShotDanger } from "./game/danger";
+import { BestPlayers, GoalieDuel, MatchInfo } from "./game/goalies";
+import { Momentum, type MomentumPenalty } from "./game/momentum";
+import { PreviewGoalies, PreviewPlayers, PreviewTeams } from "./game/preview-pro";
+import { InfoButton } from "./game/versus";
+import { WinGauge } from "./game/win-gauge";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CS, csCount, impliedProbs, pragueDate, type BetDistribution, type FormResult, type Game, type Odds1x2 } from "@hokejhub/core";
@@ -22,7 +48,6 @@ import { Recap } from "./game/recap";
 import { PeriodSiren } from "./game/period-siren";
 import { Faceoffs } from "./game/faceoffs";
 import { NhlInfoRows, NhlMatchup, NhlPlayers, SeasonSeries, ThreeStars } from "./game/nhl";
-import { ElhPreviewPanel } from "./game/preview";
 import { ScoreGrid } from "./game/score-grid";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
@@ -31,7 +56,7 @@ import { PeriodStats } from "./game/period-stats";
 import { PlayersTable } from "./game/players-table";
 import { Timeline } from "./game/timeline";
 import { XgFlow } from "./game/xg-flow";
-import { HokejczBoxScore, HokejczInfo } from "./hokejcz-box";
+import { HokejczBoxScore } from "./hokejcz-box";
 import { ShotMap } from "./shot-map";
 import { SourceStatus } from "./source-status";
 import { TeamLogo } from "./team-logo";
@@ -40,12 +65,11 @@ import { ShareButton } from "./share-button";
 import { Card } from "./ui/card";
 import { useGoalFlash } from "./use-goal-flash";
 
-const easternDate = (iso: string) =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso));
+const easternDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso));
 
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
-type Tab = "prehled" | "prenos" | "statistiky" | "sestavy" | "strely" | "hraci" | "h2h" | "kurzy";
+type Tab = "prehled" | "prenos" | "statistiky" | "sestavy" | "strely" | "vyvoj" | "hraci" | "h2h" | "kurzy";
 
 export function GameCenter({ id, date, initial }: { id: string; date?: string; initial: GameDetailResponse }) {
   const { data } = useQuery({
@@ -67,11 +91,23 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
     { id: "statistiky", label: "Statistiky", show: Boolean(data.periodStats || data.box || data.shots?.length || data.nhl?.rail?.teamStats.length) },
     { id: "sestavy", label: "Sestavy", show: Boolean(data.lineups) },
     { id: "strely", label: "Střely & xG", show: Boolean(data.shots?.length) },
+    { id: "vyvoj", label: "Výhrometr & vývoj", show: Boolean(data.prediction || (data.shots?.length && game.status !== "scheduled")) },
     { id: "hraci", label: "Hráči", show: Boolean(data.playerStats || data.box?.skaters.home.length || data.nhl?.box) },
     { id: "h2h", label: "H2H", show: Boolean(data.teamIds && data.h2h) },
     { id: "kurzy", label: "Kurzy", show: Boolean(game.preOdds || data.liveOdds || data.bets) },
   ];
   const visible = tabs.filter((t) => t.show);
+
+  // Compact score bar once the big board has scrolled away.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setCompact(!e!.isIntersecting), { rootMargin: "-120px 0px 0px 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -88,25 +124,56 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
 
   return (
     <div className="space-y-3">
-      <MatchHeader game={game} data={data} day={day} />
+      <div ref={boardRef}>
+        <MatchHeader game={game} data={data} day={day} />
+      </div>
       <SourceStatus sources={data.sources} />
 
-      <nav className="no-scrollbar sticky top-14 z-20 -mx-4 flex gap-1 overflow-x-auto border-b border-line bg-bg/85 px-4 backdrop-blur-xl sm:mx-0 sm:px-0">
-        {visible.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`relative shrink-0 px-3 py-3 text-sm font-semibold uppercase tracking-wide transition-colors ${
-              tab === t.id ? "text-fg" : "text-muted hover:text-fg"
-            }`}
-          >
-            {t.label}
-            {tab === t.id ? (
-              <motion.span layoutId="game-tab" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-live" />
-            ) : null}
-          </button>
-        ))}
-      </nav>
+      <div className="sticky top-14 z-20 -mx-4 border-b border-line bg-bg/85 backdrop-blur-xl sm:mx-0">
+        <AnimatePresence initial={false}>
+          {compact ? (
+            <motion.div
+              key="compact"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative overflow-hidden"
+            >
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-home/25 via-transparent to-away/25" aria-hidden />
+              <div className="relative flex items-center gap-3 px-4 py-2">
+                <Link href={day === pragueDate() ? "/" : `/?date=${day}`} aria-label="Zpět na zápasy" className="text-muted hover:text-fg">
+                  ←
+                </Link>
+                <div className="flex flex-1 items-center justify-center gap-2.5">
+                  <span className="display text-lg">{game.home.abbrev}</span>
+                  <TeamLogo team={game.home} size={28} />
+                  <span className={`display min-w-16 text-center text-2xl tabular ${isLive(game) ? "text-live" : ""}`}>
+                    {game.homeScore !== null ? `${game.homeScore}:${game.awayScore}` : formatTime(game.startAt)}
+                  </span>
+                  <TeamLogo team={game.away} size={28} />
+                  <span className="display text-lg">{game.away.abbrev}</span>
+                </div>
+                <span className="w-4" aria-hidden />
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+        <nav className="no-scrollbar flex gap-1 overflow-x-auto px-4 sm:px-0">
+          {visible.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`relative shrink-0 px-3 py-3 text-sm font-semibold uppercase tracking-wide transition-colors ${
+                tab === t.id ? "text-fg" : "text-muted hover:text-fg"
+              }`}
+            >
+              {t.label}
+              {tab === t.id ? <motion.span layoutId="game-tab" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-live" /> : null}
+            </button>
+          ))}
+        </nav>
+      </div>
 
       <AnimatePresence initial={false}>
         <motion.div key={tab} initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
@@ -124,24 +191,34 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
                 box={data.box}
                 shots={data.shots}
                 rowsByPeriod={data.nhl?.periods?.rows ?? null}
-                extraRows={data.nhl?.rail?.teamStats.filter((r) => r.key === "powerPlay").map((r) => ({
-                  label: r.label,
-                  home: r.home,
-                  away: r.away,
-                  homeText: r.homeText,
-                  awayText: r.awayText,
-                  lowerIsBetter: r.key === "pim" || r.key === "giveaways",
-                }))}
+                extraRows={data.nhl?.rail?.teamStats
+                  .filter((r) => r.key === "powerPlay")
+                  .map((r) => ({
+                    label: r.label,
+                    home: r.home,
+                    away: r.away,
+                    homeText: r.homeText,
+                    awayText: r.awayText,
+                    lowerIsBetter: r.key === "pim" || r.key === "giveaways",
+                  }))}
               />
             </Card>
           ) : null}
           {tab === "statistiky" && (data.faceoffZones || data.playerStats) ? (
             <Card title="Buly" icon={CircleDot} className="mt-4">
-              <Faceoffs game={game} zones={data.faceoffZones} stats={data.playerStats} periodStats={data.periodStats} box={data.box} photos={data.photos} />
+              <Faceoffs
+                game={game}
+                zones={data.faceoffZones}
+                stats={data.playerStats}
+                periodStats={data.periodStats}
+                box={data.box}
+                photos={data.photos}
+              />
             </Card>
           ) : null}
           {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} box={data.box} photos={data.photos} /> : null}
           {tab === "strely" && data.shots ? <ShotsTab data={data} /> : null}
+          {tab === "vyvoj" ? <DevelopmentTab data={data} /> : null}
           {tab === "hraci" ? (
             data.nhl?.box ? (
               <Card title="Statistiky hráčů" icon={Users}>
@@ -189,9 +266,19 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
           </Card>
         ) : null}
         {game.status === "scheduled" && data.preview ? (
-          <Card title="Před zápasem" icon={ClipboardList}>
-            <ElhPreviewPanel game={game} preview={data.preview} />
-          </Card>
+          <>
+            <Card title="H2H týmy" icon={ClipboardList}>
+              <PreviewTeams game={game} preview={data.preview} />
+            </Card>
+            <Card title="H2H hráči" icon={Users}>
+              <PreviewPlayers preview={data.preview} />
+            </Card>
+            {data.preview.home.goalie && data.preview.away.goalie ? (
+              <Card title="H2H brankáři" icon={Shield}>
+                <PreviewGoalies preview={data.preview} />
+              </Card>
+            ) : null}
+          </>
         ) : null}
         {game.status === "scheduled" && data.nhl?.extras.matchup ? (
           <Card title="Před zápasem" icon={ClipboardList}>
@@ -224,6 +311,28 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
             <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} />
           </Card>
         ) : null}
+        {data.box && game.status !== "scheduled" && data.box.goalies.home.length && data.box.goalies.away.length ? (
+          <Card
+            title="Statistiky brankářů"
+            icon={Shield}
+            action={
+              <InfoButton title="Góly chycené nad očekávání">
+                <p>
+                  Součet xG všech neblokovaných střel, které brankář dostal, minus góly, které inkasoval. Kladné číslo znamená, že chytil víc, než by
+                  podle kvality střel chytil průměrný brankář.
+                </p>
+                <p>Střely se brankářům přiřazují podle času stráveného v brance.</p>
+              </InfoButton>
+            }
+          >
+            <GoalieDuel game={game} box={data.box} shots={data.shots} photos={data.photos} />
+          </Card>
+        ) : null}
+        {data.box && game.status === "final" ? (
+          <Card title="Nejlepší hráči zápasu" icon={Award}>
+            <BestPlayers box={data.box} photos={data.photos} />
+          </Card>
+        ) : null}
       </div>
       <div className="space-y-4">
         {xg ? (
@@ -233,9 +342,12 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
               <span className="pb-2 text-xs text-muted">vs</span>
               <BigNumber value={xg[1]!} side="away" label={game.away.shortName} />
             </div>
-            <p className="mt-2 text-[11px] text-muted">
-              Součet pravděpodobností gólu všech střel podle místa, úhlu a herní situace.
-            </p>
+            <p className="mt-2 text-[11px] text-muted">Součet pravděpodobností gólu všech střel podle místa, úhlu a herní situace.</p>
+          </Card>
+        ) : null}
+        {data.prediction && game.status === "scheduled" ? (
+          <Card title="Výhrometr" icon={Gauge} action={<WinInfo />}>
+            <WinGauge game={game} homeWin={data.prediction.homeWin} />
           </Card>
         ) : null}
         {data.prediction ? (
@@ -245,12 +357,22 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
         ) : null}
         {data.prediction && game.status === "scheduled" ? (
           <Card title="Nejpravděpodobnější výsledky" icon={Grid3x3}>
-            <ScoreGrid expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.abbrev} awayLabel={game.away.abbrev} />
+            <ScoreGrid
+              expHome={data.prediction.expHome}
+              expAway={data.prediction.expAway}
+              homeLabel={game.home.abbrev}
+              awayLabel={game.away.abbrev}
+            />
           </Card>
         ) : null}
         {data.nhl?.rail?.seasonSeries.length ? (
           <Card title="Vzájemné zápasy v sezóně" icon={Swords}>
             <SeasonSeries rail={data.nhl.rail} game={game} />
+          </Card>
+        ) : null}
+        {data.box && (data.box.attendance || data.box.referees.length) ? (
+          <Card title="Zápasové info" icon={Info}>
+            <MatchInfo box={data.box} />
           </Card>
         ) : null}
         {game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} /> : null}
@@ -268,7 +390,12 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
                 <dd>{game.series}</dd>
               </>
             ) : null}
-            {data.box ? <HokejczInfo box={data.box} /> : null}
+            {data.box?.round ? (
+              <>
+                <dt className="text-muted">Kolo</dt>
+                <dd>{data.box.round}</dd>
+              </>
+            ) : null}
             {data.nhl ? <NhlInfoRows rail={data.nhl.rail} extras={data.nhl.extras} game={game} /> : null}
           </dl>
         </Card>
@@ -303,11 +430,7 @@ function elapsedNow(data: GameDetailResponse) {
 function BigNumber({ value, side, label }: { value: number; side: "home" | "away"; label: string }) {
   return (
     <div className={side === "away" ? "text-right" : ""}>
-      <motion.div
-        className="text-3xl font-bold tabular"
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
+      <motion.div className="text-3xl font-bold tabular" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
         {value.toFixed(2)}
       </motion.div>
       <div className="flex items-center gap-1.5 text-xs text-muted">
@@ -315,6 +438,81 @@ function BigNumber({ value, side, label }: { value: number; side: "home" | "away
         {label}
         {side === "away" ? <span className="size-2 rounded-full bg-away" /> : null}
       </div>
+    </div>
+  );
+}
+
+function WinInfo() {
+  return (
+    <InfoButton title="Výhrometr">
+      <p>
+        Pravděpodobnost výhry včetně prodloužení a nájezdů podle našeho modelu: Elo síla obou týmů z celé historie extraligy, převedená na očekávané
+        góly a Poissonovo rozdělení.
+      </p>
+    </InfoButton>
+  );
+}
+
+/** Penalties that put the other team on a power play, as elapsed-time windows. */
+function momentumPenalties(data: GameDetailResponse): MomentumPenalty[] {
+  const len = (m: number | null) => (m === 2 ? 120 : m === 4 ? 240 : m === 5 ? 300 : 0);
+  if (data.box) {
+    return data.box.penalties
+      .map((p) => ({
+        start: clockSeconds(p.time) ?? -1,
+        length: len(p.minutes),
+        side: p.team === data.box!.home.abbrev ? ("home" as const) : ("away" as const),
+      }))
+      .filter((p) => p.start >= 0 && p.length > 0);
+  }
+  return (data.nhl?.extras.penalties ?? [])
+    .map((p) => ({
+      start: (p.period - 1) * 1200 + (clockSeconds(p.time) ?? 0),
+      length: len(p.minutes),
+      side: p.team === data.game.home.abbrev ? ("home" as const) : ("away" as const),
+    }))
+    .filter((p) => p.length > 0);
+}
+
+function DevelopmentTab({ data }: { data: GameDetailResponse }) {
+  const { game } = data;
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="space-y-4">
+        {data.prediction ? (
+          <Card title="Výhrometr" icon={Gauge} action={<WinInfo />}>
+            <WinGauge game={game} homeWin={data.prediction.homeWin} />
+          </Card>
+        ) : null}
+        {data.prediction && game.status !== "scheduled" ? (
+          <Card title="Šance na výhru během zápasu" icon={Activity}>
+            <WinProbability
+              game={game}
+              goals={goalMoments(data)}
+              expHome={data.prediction.expHome}
+              expAway={data.prediction.expAway}
+              elapsedNow={game.status === "final" ? 3600 : elapsedNow(data)}
+            />
+          </Card>
+        ) : null}
+      </div>
+      {data.shots?.length && game.status !== "scheduled" ? (
+        <Card
+          title="Vývoj zápasu"
+          icon={Waves}
+          action={
+            <InfoButton title="Vývoj zápasu">
+              <p>
+                Graf ukazuje, který tým měl v každé minutě střeleckou převahu a jak výraznou. Každý pokus se váží podle nebezpečnosti (xG) a vyhlazuje
+                přes okolní minuty.
+              </p>
+              <p>Písmeno G označuje góly, šedé pásy vyloučení – proužek na kraji ukazuje, který tým byl v oslabení.</p>
+            </InfoButton>
+          }
+        >
+          <Momentum game={game} shots={data.shots} goals={goalMoments(data)} penalties={momentumPenalties(data)} />
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -347,6 +545,23 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <div className="space-y-4">
+        {hasXg ? (
+          <Card
+            title="Střely a nebezpečnost"
+            icon={Crosshair}
+            action={
+              <InfoButton title="Nebezpečnost střel">
+                <p>Všechny střelecké pokusy (na branku, mimo i zblokované) a součet jejich xG, tedy kolik gólů by z nich průměrně padlo.</p>
+                <p>
+                  Nebezpečnost podle šance jednotlivé střely: vysoká od 12 % (dorážky, střely z brankoviště), střední 4–12 % (slot, kruhy), nízká pod
+                  4 % (střely od modré a z ostrých úhlů). Zblokované střely do pásem nepočítáme.
+                </p>
+              </InfoButton>
+            }
+          >
+            <ShotDanger game={game} shots={shots} />
+          </Card>
+        ) : null}
         <Card title="Mapa střel">
           <ShotMap shots={shots} homeId={game.home.id} players={data.players} homeAbbrev={game.home.abbrev} awayAbbrev={game.away.abbrev} />
         </Card>
@@ -375,7 +590,10 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
                   </span>
                   <span className="shrink-0 tabular">
                     <span className="font-semibold">{p.xg.toFixed(2)}</span>
-                    <span className="text-xs text-muted"> · {p.shots} stř. · {p.goals} G</span>
+                    <span className="text-xs text-muted">
+                      {" "}
+                      · {p.shots} stř. · {p.goals} G
+                    </span>
                   </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
@@ -394,7 +612,6 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
     </div>
   );
 }
-
 
 function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse; day: string }) {
   const flash = useGoalFlash(game.homeScore, game.awayScore);
@@ -420,7 +637,9 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
         </Link>
         <span className="flex shrink-0 items-center gap-3 text-xs text-board-muted">
           <span className="hidden tabular sm:inline">
-            {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "numeric", month: "numeric", year: "numeric" }).format(new Date(game.startAt))}{" "}
+            {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "numeric", month: "numeric", year: "numeric" }).format(
+              new Date(game.startAt),
+            )}{" "}
             {formatTime(game.startAt)}
           </span>
           <ShareButton
@@ -437,7 +656,10 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
         <div className="flex flex-col items-center">
           <div className="relative">
             {/* Faceoff: the puck drops on the centre dot, then the board lights up. */}
-            <span className="faceoff-dot pointer-events-none absolute left-1/2 top-1/2 -ml-3 -mt-3 size-6 rounded-full border-2 border-live" aria-hidden />
+            <span
+              className="faceoff-dot pointer-events-none absolute left-1/2 top-1/2 -ml-3 -mt-3 size-6 rounded-full border-2 border-live"
+              aria-hidden
+            />
             <span
               className="faceoff-puck pointer-events-none absolute left-1/2 top-1/2 z-10 -ml-3 -mt-1.5 h-3 w-6 rounded-[50%] bg-black ring-1 ring-board-line"
               aria-hidden
@@ -466,7 +688,10 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
             {live ? <span className="live-dot size-2 rounded-full bg-live" /> : null}
             {game.statusLabel}
             {live ? (
-              <span className="led text-xl" style={{ color: "var(--live)", textShadow: "0 0 12px color-mix(in oklab, var(--live) 45%, transparent)" }}>
+              <span
+                className="led text-xl"
+                style={{ color: "var(--live)", textShadow: "0 0 12px color-mix(in oklab, var(--live) 45%, transparent)" }}
+              >
                 <LiveClock anchor={game.status === "live" ? data.clock : null} fallback={game.clock} />
               </span>
             ) : null}
@@ -648,7 +873,10 @@ function TeamCardInfo({ card, side }: { card: TeamCard; side: "home" | "away" })
       {card.form?.length ? (
         <div className={`flex gap-0.5 ${side === "home" ? "" : ""}`} title="Forma, poslední zápas vlevo">
           {card.form.map((f, i) => (
-            <span key={i} className={`grid h-4 min-w-4 place-items-center px-0.5 text-[8px] font-bold sm:h-5 sm:min-w-5 sm:text-[9px] ${FORM_CHIP[f]}`}>
+            <span
+              key={i}
+              className={`grid h-4 min-w-4 place-items-center px-0.5 text-[8px] font-bold sm:h-5 sm:min-w-5 sm:text-[9px] ${FORM_CHIP[f]}`}
+            >
               {FORM_LETTER[f]}
             </span>
           ))}
@@ -662,7 +890,6 @@ function TeamCardInfo({ card, side }: { card: TeamCard; side: "home" | "away" })
     </motion.div>
   );
 }
-
 
 function OddsCard({ pre, live, game }: { pre: Odds1x2 | null; live: Odds1x2 | null; game: Game }) {
   if (!pre && !live) return null;
@@ -685,17 +912,12 @@ function OddsCard({ pre, live, game }: { pre: Odds1x2 | null; live: Odds1x2 | nu
               <div className="flex items-center justify-between text-sm">
                 <span>{label}</span>
                 <span className="flex items-center gap-2 tabular">
-                  {live && before && before !== now ? (
-                    <span className="text-xs text-muted line-through">{formatOdds(before)}</span>
-                  ) : null}
+                  {live && before && before !== now ? <span className="text-xs text-muted line-through">{formatOdds(before)}</span> : null}
                   <span className="font-semibold">{formatOdds(now)}</span>
                 </span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-700"
-                  style={{ width: `${p * 100}%` }}
-                />
+                <div className="h-full rounded-full bg-accent transition-[width] duration-700" style={{ width: `${p * 100}%` }} />
               </div>
               <div className="mt-0.5 text-right text-[11px] text-muted tabular">{formatPct(p)} implikovaně</div>
             </div>
