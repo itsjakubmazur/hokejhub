@@ -453,6 +453,15 @@ function TipRow({ game, initial, split }: { game: TipGame; initial: MyTip | null
         </span>
         <span className="min-w-0 truncate font-semibold">{game.away.name}</span>
       </div>
+      {game.tips?.length ? (
+        <ul className="col-span-3 flex flex-wrap justify-center gap-1 text-[11px] text-muted" aria-label="Tipy modelu">
+          {game.tips.map((t) => (
+            <li key={t.label} className="border border-line px-1.5 py-0.5">
+              {t.label} <span className="tabular">{Math.round(t.p * 100)} %</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </li>
   );
 }

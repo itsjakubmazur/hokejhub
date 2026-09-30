@@ -19,6 +19,7 @@ export * from "./model/elo.ts";
 export * from "./notify/engine.ts";
 export * from "./model/recap.ts";
 export * from "./model/tips.ts";
+export * from "./model/markets.ts";
 export * from "./sources/hokejcz-history.ts";
 export * from "./sources/hokejcz-national-modern.ts";
 export * from "./sources/nhl-gamecenter.ts";

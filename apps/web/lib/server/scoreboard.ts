@@ -62,6 +62,8 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
     }
   }
 
+  // The main feed lists neighbouring days too; a Czech game belongs to its own Prague date only.
+  esGames = esGames.filter((g) => pragueDate(new Date(g.startAt)) === date);
   const games = combineScoreboard(esGames, nhl.data).sort(
     (a, b) => a.startAt.localeCompare(b.startAt) || a.id.localeCompare(b.id),
   );

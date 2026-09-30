@@ -5,6 +5,7 @@ import {
   addDays,
   buildPlayoffBracket,
   computeStandings,
+  gameTips,
   modelTip,
   nhlGamecenterUrls,
   nhlUrls,
@@ -123,17 +124,30 @@ export interface TipGame {
   home: { name: string; logo: string | null };
   away: { name: string; logo: string | null };
   model: { home: number; away: number } | null;
+  /** The model's few confident side markets (handicap, goals, first goal). */
+  tips: { label: string; p: number; side: "home" | "away" | "none" }[];
   odds: Game["preOdds"];
 }
 
-async function modelFor(g: Game, pred?: { expHome?: number; expAway?: number }) {
-  if (pred?.expHome && pred.expAway) return modelTip(pred.expHome, pred.expAway);
+async function expectedFor(g: Game, pred?: { expHome?: number; expAway?: number }) {
+  if (pred?.expHome && pred.expAway) return { expHome: pred.expHome, expAway: pred.expAway };
   if (g.leagueKey === "nhl" && g.external.nhlId) {
     const rail = await fetchJson(nhlGamecenterUrls.rightRail(g.external.nhlId), parseNhlRightRail, { revalidate: 3600, notFoundIsEmpty: true });
     const p = nhlPrediction(rail.data);
-    if (p) return modelTip(p.expHome, p.expAway);
+    if (p) return { expHome: p.expHome, expAway: p.expAway };
   }
   return null;
+}
+
+async function modelFor(g: Game, pred?: { expHome?: number; expAway?: number }) {
+  const e = await expectedFor(g, pred);
+  return e ? modelTip(e.expHome, e.expAway) : null;
+}
+
+async function tipsFor(g: Game, pred?: { expHome?: number; expAway?: number }) {
+  const e = await expectedFor(g, pred);
+  if (!e) return [];
+  return gameTips(e.expHome, e.expAway, g.home.shortName, g.away.shortName).map((m) => ({ label: m.label, p: m.p, side: m.side }));
 }
 
 /** Tippable games: extraliga and NHL, today and the next `days` days. */
@@ -160,6 +174,7 @@ export async function upcomingGames(days = 7): Promise<TipGame[]> {
             home: { name: g.home.shortName, logo: g.home.logoUrl },
             away: { name: g.away.shortName, logo: g.away.logoUrl },
             model: await modelFor(g, b?.predictions?.[g.id]).catch(() => null),
+            tips: await tipsFor(g, b?.predictions?.[g.id]).catch(() => []),
             odds: g.preOdds,
           });
         }),

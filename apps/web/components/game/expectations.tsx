@@ -4,6 +4,9 @@ import { ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { ScoreGrid } from "./score-grid";
+import { Markets } from "./markets";
+import { ModelTips } from "./model-tips";
+import { gameTips } from "@hokejhub/core";
 
 function poisson(k: number, l: number) {
   let p = Math.exp(-l);
@@ -50,6 +53,7 @@ export function Expectations({ expHome, expAway, homeLabel, awayLabel }: { expHo
     };
   }, [expHome, expAway]);
 
+  const tips = useMemo(() => gameTips(expHome, expAway, homeLabel, awayLabel), [expHome, expAway, homeLabel, awayLabel]);
   const rows: { label: string; p: number; hint?: string }[] = [
     { label: "Padne 6 a víc gólů", p: f.over55, hint: `průměr ${f.total.toFixed(1)} · 5+ gólů ${pct(f.over45)} · 7+ gólů ${pct(f.over65)}` },
     { label: "Oba týmy dají gól", p: f.btts },
@@ -62,6 +66,7 @@ export function Expectations({ expHome, expAway, homeLabel, awayLabel }: { expHo
 
   return (
     <div>
+      <ModelTips tips={tips} className="mb-3" />
       <ul className="divide-y divide-line">
         {rows.map((r, i) => (
           <li key={r.label} className="flex items-center gap-3 py-1.5">
@@ -95,6 +100,10 @@ export function Expectations({ expHome, expAway, homeLabel, awayLabel }: { expHo
       <p className="mt-1.5 text-[11px] text-muted">
         Přesných výsledků je přes třicet možných, proto ani ten nejčastější nemá víc než pár procent. Užitečnější jsou otázky nahoře.
       </p>
+      <h4 className="label mt-4 text-fg">Sázkové trhy podle modelu</h4>
+      <div className="mt-2">
+        <Markets expHome={expHome} expAway={expAway} homeLabel={homeLabel} awayLabel={awayLabel} />
+      </div>
       <button
         type="button"
         onClick={() => setMatrix((v) => !v)}

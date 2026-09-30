@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { CalendarDays, ChartNoAxesColumnIncreasing, FlaskConical, Target } from "lucide-react";
 import { PageHero } from "@/components/ui/page-hero";
 import Link from "next/link";
-import { addDays, esportsUrls, impliedProbs, modelTip, parseScoreboardAlt, pragueDate, predict } from "@hokejhub/core";
+import { addDays, esportsUrls, gameTips, impliedProbs, modelTip, parseScoreboardAlt, pragueDate, predict } from "@hokejhub/core";
+import { ModelTips } from "@/components/game/model-tips";
 import { ClubLogo } from "@/components/club-logo";
 import { GamblingNotice } from "@/components/gambling-notice";
 import { TipInput } from "@/components/tip-input";
@@ -46,7 +47,8 @@ export default async function PredictionsPage() {
       const edges = m
         ? (["home", "draw", "away"] as const).map((k) => ({ k, edge: p[k] - m[k], odds: g.preOdds![k] })).filter((e) => e.edge > 0.04)
         : [];
-      return { g, h, a, p, m, edges };
+      const tips = gameTips(p.expHome, p.expAway, g.home.shortName, g.away.shortName);
+      return { g, h, a, p, m, edges, tips };
     });
   const ranking = [...elo.state.ratings.entries()]
     .map(([id, r]) => ({
@@ -72,7 +74,7 @@ export default async function PredictionsPage() {
           <Empty>V příštích 7 dnech nejsou naplánované zápasy.</Empty>
         ) : (
           <ol className="divide-y divide-line">
-            {upcoming.map(({ g, h, a, p, m, edges }) => (
+            {upcoming.map(({ g, h, a, p, m, edges, tips }) => (
               <li key={g.id} className="grid gap-2 py-3 sm:grid-cols-[1fr_320px] sm:items-center">
                 <Link href={`/zapas/${g.id}?d=${pragueDate(new Date(g.startAt))}`} className="flex items-center gap-2 hover:text-accent">
                   <span className="w-20 shrink-0 text-xs text-muted tabular">
@@ -102,6 +104,7 @@ export default async function PredictionsPage() {
                     }}
                     model={modelTip(p.expHome, p.expAway)}
                   />
+                  <ModelTips tips={tips} className="mt-2" />
                 </div>
                 <div className="grid grid-cols-3 gap-1 text-center text-xs tabular">
                   {(["home", "draw", "away"] as const).map((k) => {

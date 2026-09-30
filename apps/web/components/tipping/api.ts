@@ -17,6 +17,7 @@ export interface TipGame {
   home: { name: string; logo: string | null };
   away: { name: string; logo: string | null };
   model: { home: number; away: number } | null;
+  tips: { label: string; p: number; side: "home" | "away" | "none" }[];
   odds: { home: number | null; draw: number | null; away: number | null } | null;
 }
 

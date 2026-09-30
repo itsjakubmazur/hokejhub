@@ -1,4 +1,5 @@
 /** Score-tipping game: points for a tip vs. the final result, and the model's own tip. */
+import { likelyScore } from "./markets.ts";
 
 export interface Tip {
   home: number;
@@ -31,10 +32,11 @@ function poisson(k: number, l: number) {
 }
 
 /**
- * The tip maximising expected points under independent Poisson goals (with a draw boost),
- * not just the modal score — that is how the model plays the same game as the user.
+ * The tip maximising expected points under independent Poisson goals (with a draw boost). Under
+ * the 5/3/2 scale this is almost always 3:2 or 2:3 — the model playing safe — so it stays here
+ * as the reference "bot" strategy while `modelTip` shows the most likely score.
  */
-export function modelTip(expHome: number, expAway: number, drawInflation = 1.35, maxGoals = 9): Tip {
+export function modelTipEv(expHome: number, expAway: number, drawInflation = 1.35, maxGoals = 9): Tip {
   const grid: { h: number; a: number; p: number }[] = [];
   let sum = 0;
   for (let h = 0; h <= maxGoals; h++)
@@ -55,4 +57,13 @@ export function modelTip(expHome: number, expAway: number, drawInflation = 1.35,
       }
     }
   return best;
+}
+
+/**
+ * The model's tip: the most likely final score (overtime games resolved to the stronger side),
+ * so tips differ from game to game — 2:1 for a tight one, 4:1 for a mismatch — instead of the
+ * point-optimal 3:2 everywhere.
+ */
+export function modelTip(expHome: number, expAway: number, drawInflation = 1.35): Tip {
+  return likelyScore(expHome, expAway, drawInflation);
 }
