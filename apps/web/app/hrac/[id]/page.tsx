@@ -12,14 +12,7 @@ import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
 import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
-import {
-  getPlayer,
-  getPlayerGameLog,
-  getPlayerGoalieSeasons,
-  getPlayerMilestones,
-  getPlayerSeasons,
-  getPlayerShots,
-} from "@/lib/server/queries";
+import { getPlayer, getPlayerGameLog, getPlayerGoalieSeasons, getPlayerMilestones, getPlayerSeasons, getPlayerShots } from "@/lib/server/queries";
 
 export const revalidate = 300;
 
@@ -39,7 +32,14 @@ const MILESTONE: Record<string, (v: number) => string> = {
   club_pts: (v) => `${v}. bod za klub`,
 };
 
-const POS: Record<string, string> = { D: "obránce", F: "útočník", G: "brankář", O: "obránce", Ú: "útočník", B: "brankář" };
+const POS: Record<string, string> = {
+  D: "obránce",
+  F: "útočník",
+  G: "brankář",
+  O: "obránce",
+  Ú: "útočník",
+  B: "brankář",
+};
 
 function age(birth: string) {
   const b = new Date(birth);
@@ -67,7 +67,14 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
 
   const reg = seasons.filter((s) => s.phase === "regular");
   const totals = reg.reduce(
-    (a, s) => ({ gp: a.gp + s.gp, g: a.g + s.g, a: a.a + s.a, pts: a.pts + s.pts, xg: a.xg + (s.xg ?? 0), pm: a.pm + s.pm }),
+    (a, s) => ({
+      gp: a.gp + s.gp,
+      g: a.g + s.g,
+      a: a.a + s.a,
+      pts: a.pts + s.pts,
+      xg: a.xg + (s.xg ?? 0),
+      pm: a.pm + s.pm,
+    }),
     { gp: 0, g: 0, a: 0, pts: 0, xg: 0, pm: 0 },
   );
   const currentTeam = seasons[0];
@@ -87,9 +94,12 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
           <Portrait src={player.headshot} alt={player.name} width={150} />
           <div className="min-w-0 flex-1">
             <p className="label flex flex-wrap items-center gap-2 text-board-muted">
-              {player.position ? POS[player.position] ?? player.position : isGoalie ? "brankář" : "hráč"}
+              {player.position ? (POS[player.position] ?? player.position) : isGoalie ? "brankář" : "hráč"}
               {player.current_team_id || currentTeam ? (
-                <Link href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`} className="flex items-center gap-2 text-board-text hover:text-led">
+                <Link
+                  href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`}
+                  className="flex items-center gap-2 text-board-text hover:text-led"
+                >
                   {player.current_team_logo ? (
                     <span className="grid size-7 place-items-center bg-white p-0.5">
                       <img src={player.current_team_logo} alt="" className="size-full object-contain" />
@@ -104,7 +114,11 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
             </h1>
             <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
               {[
-                ["Věk", player.birth_date ? `${age(player.birth_date)} let` : null, player.birth_date ? new Date(player.birth_date).toLocaleDateString("cs-CZ") : null],
+                [
+                  "Věk",
+                  player.birth_date ? `${age(player.birth_date)} let` : null,
+                  player.birth_date ? new Date(player.birth_date).toLocaleDateString("cs-CZ") : null,
+                ],
                 ["Výška", player.height_cm ? `${player.height_cm} cm` : null, null],
                 ["Váha", player.weight_kg ? `${player.weight_kg} kg` : null, null],
                 ["Hůl", player.shoots ? (player.shoots === "L" ? "levá" : "pravá") : null, null],
@@ -129,7 +143,11 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
             <Stat label="Góly" value={totals.g} />
             <Stat label="Asistence" value={totals.a} />
             <Stat label="Body" value={totals.pts} sub={`${(totals.pts / totals.gp).toFixed(2)} na zápas`} />
-            <Stat label="xG" value={totals.xg.toFixed(1)} sub={`G−xG ${totals.g - totals.xg >= 0 ? "+" : ""}${(totals.g - totals.xg).toFixed(1)} (sezóny se střelami)`} />
+            <Stat
+              label="xG"
+              value={totals.xg.toFixed(1)}
+              sub={`G−xG ${totals.g - totals.xg >= 0 ? "+" : ""}${(totals.g - totals.xg).toFixed(1)} (sezóny se střelami)`}
+            />
           </div>
         ) : null}
       </div>
@@ -206,7 +224,12 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
                   {goalie.map((s) => (
                     <tr key={`${s.season}-${s.phase}`}>
                       <td className="py-1.5">{seasonLabel(s.season)}</td>
-                      <td><span className="flex items-center gap-1.5"><ClubLogo src={s.team_logo} alt={s.team_abbrev} size={22} />{s.team_abbrev}</span></td>
+                      <td>
+                        <span className="flex items-center gap-1.5">
+                          <ClubLogo src={s.team_logo} alt={s.team_abbrev} size={22} />
+                          {s.team_abbrev}
+                        </span>
+                      </td>
                       <td className="text-xs text-muted">{s.phase === "playoff" ? "play-off" : "ZČ"}</td>
                       <td className="text-right">{s.gp}</td>
                       <td className="text-right">{s.saves}</td>
@@ -255,7 +278,12 @@ async function GameLog({ id, season }: { id: string; season: number }) {
               const won = r.gf > r.ga;
               return (
                 <tr key={r.game_id} className="hover:bg-surface-2">
-                  <td className="py-1.5 text-muted">{new Date(r.start_at).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric" })}</td>
+                  <td className="py-1.5 text-muted">
+                    {new Date(r.start_at).toLocaleDateString("cs-CZ", {
+                      day: "numeric",
+                      month: "numeric",
+                    })}
+                  </td>
                   <td>
                     <span className="text-xs text-muted">{r.home ? "vs" : "@"}</span> {r.opp_name}
                   </td>
@@ -281,7 +309,12 @@ async function GameLog({ id, season }: { id: string; season: number }) {
   );
 }
 
-const RESULT_TYPE: Record<string, ShotEvent["type"]> = { goal: "goal", saved: "shot-on-goal", missed: "missed-shot", blocked: "blocked-shot" };
+const RESULT_TYPE: Record<string, ShotEvent["type"]> = {
+  goal: "goal",
+  saved: "shot-on-goal",
+  missed: "missed-shot",
+  blocked: "blocked-shot",
+};
 
 async function Shots({ id, season }: { id: string; season: number }) {
   const rows = await getPlayerShots(id, season);

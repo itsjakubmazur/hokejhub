@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Crosshair, Goal, ListOrdered, Shield, Shirt, TrendingUp, Trophy, Users } from "lucide-react";
+import { PageHero } from "@/components/ui/page-hero";
 import { ClubLogo } from "@/components/club-logo";
 import { notFound } from "next/navigation";
 import { getLeague } from "@hokejhub/core";
@@ -56,11 +58,8 @@ export default async function LeaguePage(props: PageProps<"/liga/[league]">) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted">Česko</p>
-          <h1 className="text-3xl font-black tracking-tight">{info.name}</h1>
-        </div>
+      <PageHero kicker={league === "nhl" ? "Severní Amerika" : "Česko"} title={info.name} icon={Trophy} />
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <PhaseSwitch phase={phase} league={league} season={season} tab={tab} />
           <SeasonSelect seasons={seasons} value={season} />
@@ -109,7 +108,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
     return <OfficialTable rows={official} />;
   }
   return (
-    <Card title={`Tabulka ${seasonLabel(season)} · ${games.length} zápasů`}>
+    <Card title={`Tabulka ${seasonLabel(season)} · ${games.length} zápasů`} icon={ListOrdered}>
       <Standings games={games} season={season} logos={logos} liveGames={live} />
     </Card>
   );
@@ -117,7 +116,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
 
 function OfficialTable({ rows }: { rows: Awaited<ReturnType<typeof getOfficialStandings>> }) {
   return (
-    <Card title="Oficiální konečná tabulka (hokej.cz)">
+    <Card title="Oficiální konečná tabulka (hokej.cz)" icon={ListOrdered}>
       <table className="w-full text-sm tabular">
         <thead>
           <tr className="border-b border-line text-xs text-muted">
@@ -160,7 +159,10 @@ async function SkatersTab({ league, season, phase, sort }: { league: string; sea
   const rows = await getLeagueSkaters(league, season, phase, 400);
   if (rows.length === 0) return <Empty>Statistiky hráčů zatím nejsou.</Empty>;
   return (
-    <Card title={sort === "xg" ? "Očekávané góly a efektivita zakončení" : sort === "g" ? "Tabulka střelců" : "Kanadské bodování"}>
+    <Card
+      icon={sort === "xg" ? Crosshair : sort === "g" ? Goal : TrendingUp}
+      title={sort === "xg" ? "Očekávané góly a efektivita zakončení" : sort === "g" ? "Tabulka střelců" : "Kanadské bodování"}
+    >
       <Leaders rows={rows} initialSort={sort} />
       {sort === "xg" ? (
         <p className="mt-2 text-[11px] text-muted">
@@ -175,7 +177,7 @@ async function GoaliesTab({ league, season, phase }: { league: string; season: n
   const rows = await getLeagueGoalies(league, season, phase);
   if (rows.length === 0) return <Empty>Statistiky brankářů zatím nejsou.</Empty>;
   return (
-    <Card title="Brankáři">
+    <Card title="Brankáři" icon={Shield}>
       <table className="w-full text-sm tabular">
         <thead>
           <tr className="border-b border-line text-xs text-muted">
@@ -193,12 +195,17 @@ async function GoaliesTab({ league, season, phase }: { league: string; season: n
           {rows.map((r) => (
             <tr key={r.player_id} className="hover:bg-surface-2">
               <td className="py-1.5 font-medium">
-                <PlayerPhoto src={r.headshot} alt={r.name} size={34} className="mr-2 align-middle" />
+                <PlayerPhoto src={r.headshot} alt={r.name} size={40} className="mr-2 align-middle" />
                 <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
                   {r.name}
                 </Link>
               </td>
-              <td className="text-muted"><span className="flex items-center gap-1.5"><ClubLogo src={r.team_logo} alt={r.team_abbrev} size={22} />{r.team_abbrev}</span></td>
+              <td className="text-muted">
+                <span className="flex items-center gap-1.5">
+                  <ClubLogo src={r.team_logo} alt={r.team_abbrev} size={22} />
+                  {r.team_abbrev}
+                </span>
+              </td>
               <td className="text-right">{r.gp}</td>
               <td className="text-right">{r.saves}</td>
               <td className="text-right">{r.ga}</td>
@@ -228,7 +235,7 @@ async function AttendanceTab({ league, season }: { league: string; season: numbe
         <Stat label="Vyprodáno" value={(cur?.sold_out ?? 0) + (po?.sold_out ?? 0)} sub={cur?.fill_pct ? `zaplněnost ${cur.fill_pct} %` : undefined} />
       </div>
       {reg.length > 1 ? (
-        <Card title="Průměrná návštěvnost základní části podle sezón">
+        <Card title="Průměrná návštěvnost základní části podle sezón" icon={Users}>
           <BarChart
             bars={reg.map((h) => ({
               key: String(h.season),
@@ -240,7 +247,7 @@ async function AttendanceTab({ league, season }: { league: string; season: numbe
           />
         </Card>
       ) : null}
-      <Card title={`Týmy ${seasonLabel(season)}`}>
+      <Card title={`Týmy ${seasonLabel(season)}`} icon={Shirt}>
         <div className="-mx-4 overflow-x-auto px-4">
           <table className="w-full min-w-[560px] text-sm tabular">
             <thead>
@@ -252,7 +259,9 @@ async function AttendanceTab({ league, season }: { league: string; season: numbe
                 <th className="text-right">Maximum</th>
                 <th className="text-right">Vyprodáno</th>
                 <th className="text-right">Zaplněnost</th>
-                <th className="text-right" title="Kolik lidí chodí na tým venku">Ø venku</th>
+                <th className="text-right" title="Kolik lidí chodí na tým venku">
+                  Ø venku
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

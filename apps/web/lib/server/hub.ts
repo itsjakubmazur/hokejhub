@@ -74,7 +74,17 @@ export async function birthdaysOnThisDay(month: number, day: number) {
 
 /** Individual big games on this day: hat-tricks and 4+ point nights. */
 export async function bigNightsOnThisDay(month: number, day: number) {
-  return sql<{ player_id: string; name: string; headshot: string | null; game_id: string; start_at: string; goals: number; assists: number; team_name: string; opp_name: string }>(
+  return sql<{
+    player_id: string;
+    name: string;
+    headshot: string | null;
+    game_id: string;
+    start_at: string;
+    goals: number;
+    assists: number;
+    team_name: string;
+    opp_name: string;
+  }>(
     `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.g as goals, b.a as assists,
             case when b.team_id = g.home_team_id then g.home_name else g.away_name end as team_name,
             case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name
@@ -129,28 +139,64 @@ export async function recordGames(league: string) {
 
 export async function recordPlayers(league: string) {
   const [gameGoals, gamePoints, seasonPoints, seasonGoals, careerPoints, careerGames] = await Promise.all([
-    sql<{ player_id: string; name: string; headshot: string | null; game_id: string; start_at: string; value: number; opp_name: string }>(
+    sql<{
+      player_id: string;
+      name: string;
+      headshot: string | null;
+      game_id: string;
+      start_at: string;
+      value: number;
+      opp_name: string;
+      team_logo: string | null;
+    }>(
       `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.g as value,
-              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name
-       from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id
+              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name, t.logo_url as team_logo
+       from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id left join team t on t.id = b.team_id
        where g.league_id = $1 order by b.g desc, g.start_at limit 10`,
       [league],
     ),
-    sql<{ player_id: string; name: string; headshot: string | null; game_id: string; start_at: string; value: number; opp_name: string }>(
+    sql<{
+      player_id: string;
+      name: string;
+      headshot: string | null;
+      game_id: string;
+      start_at: string;
+      value: number;
+      opp_name: string;
+      team_logo: string | null;
+    }>(
       `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.pts as value,
-              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name
-       from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id
+              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name, t.logo_url as team_logo
+       from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id left join team t on t.id = b.team_id
        where g.league_id = $1 order by b.pts desc, b.g desc, g.start_at limit 10`,
       [league],
     ),
-    sql<{ player_id: string; name: string; headshot: string | null; season: number; value: number; gp: number; team_abbrev: string }>(
-      `select s.player_id, p.name, p.headshot, s.season, s.pts::int as value, s.gp::int, t.abbrev as team_abbrev
+    sql<{
+      player_id: string;
+      name: string;
+      headshot: string | null;
+      season: number;
+      value: number;
+      gp: number;
+      team_abbrev: string;
+      team_logo: string | null;
+    }>(
+      `select s.player_id, p.name, p.headshot, s.season, s.pts::int as value, s.gp::int, t.abbrev as team_abbrev, t.logo_url as team_logo
        from skater_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
        where s.league_id = $1 and s.phase = 'regular' order by s.pts desc limit 10`,
       [league],
     ),
-    sql<{ player_id: string; name: string; headshot: string | null; season: number; value: number; gp: number; team_abbrev: string }>(
-      `select s.player_id, p.name, p.headshot, s.season, s.g::int as value, s.gp::int, t.abbrev as team_abbrev
+    sql<{
+      player_id: string;
+      name: string;
+      headshot: string | null;
+      season: number;
+      value: number;
+      gp: number;
+      team_abbrev: string;
+      team_logo: string | null;
+    }>(
+      `select s.player_id, p.name, p.headshot, s.season, s.g::int as value, s.gp::int, t.abbrev as team_abbrev, t.logo_url as team_logo
        from skater_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
        where s.league_id = $1 and s.phase = 'regular' order by s.g desc limit 10`,
       [league],
@@ -174,8 +220,20 @@ export async function recordPlayers(league: string) {
 /** Career totals for the comparison page. */
 export async function careerTotals(id: string) {
   const [row] = await sql<{
-    gp: number; goals: number; assists: number; points: number; pim: number; plus_minus: number; shots: number;
-    hits: number; blocks: number; fo_w: number; fo_taken: number; seasons: number; toi_avg: number | null; xg: number | null;
+    gp: number;
+    goals: number;
+    assists: number;
+    points: number;
+    pim: number;
+    plus_minus: number;
+    shots: number;
+    hits: number;
+    blocks: number;
+    fo_w: number;
+    fo_taken: number;
+    seasons: number;
+    toi_avg: number | null;
+    xg: number | null;
   }>(
     `select coalesce(sum(s.gp),0)::int as gp, coalesce(sum(s.g),0)::int as goals, coalesce(sum(s.a),0)::int as assists,
             coalesce(sum(s.pts),0)::int as points, coalesce(sum(s.pim),0)::int as pim, coalesce(sum(s.pm),0)::int as plus_minus,

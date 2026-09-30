@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Medal } from "lucide-react";
+import { PageHero } from "@/components/ui/page-hero";
 import Link from "next/link";
 import type { NationalTournament } from "@hokejhub/core";
 import { HistoryTabs } from "@/components/history-tabs";
@@ -23,18 +25,26 @@ export default async function NationalPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
-      <header className="rise">
-        <p className="label text-muted">1920 – 1999</p>
-        <h1>Reprezentace na mistrovství světa</h1>
-        <p className="mt-2 max-w-prose text-sm text-muted">
+      <PageHero kicker="1920 – 1999" title="Reprezentace na mistrovství světa" icon={Medal}>
+        <p>
           Československo a od roku 1993 Česká republika na MS, včetně olympijských turnajů, které se do roku 1968 počítaly i jako mistrovství světa.
         </p>
-      </header>
+      </PageHero>
       <HistoryTabs active="repre" />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {medals.map((list, i) => (
-          <Stat key={i} label={MEDAL_NAME[i]!} value={list.length} sub={list.slice(-3).map((t) => t.year).join(", ") + (list.length > 3 ? " …" : "")} />
+          <Stat
+            key={i}
+            label={MEDAL_NAME[i]!}
+            value={list.length}
+            sub={
+              list
+                .slice(-3)
+                .map((t) => t.year)
+                .join(", ") + (list.length > 3 ? " …" : "")
+            }
+          />
         ))}
         <Stat label="Turnajů" value={played.length} sub={`${home.length}× doma`} />
       </div>

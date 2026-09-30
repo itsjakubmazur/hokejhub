@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Landmark } from "lucide-react";
+import { PageHero } from "@/components/ui/page-hero";
 import Link from "next/link";
 import { HistoryTabs } from "@/components/history-tabs";
 import { Card, Empty } from "@/components/ui/card";
@@ -21,21 +23,19 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   }
   const ranking = [...titles.entries()].sort((a, b) => b[1].length - a[1].length || a[1][0]! - b[1][0]!);
   const maxTitles = ranking[0]?.[1].length ?? 1;
-  const scorers = seasons.filter((x) => x.topScorer?.goals).sort((a, b) => b.topScorer!.goals! - a.topScorer!.goals!).slice(0, 8);
+  const scorers = seasons
+    .filter((x) => x.topScorer?.goals)
+    .sort((a, b) => b.topScorer!.goals! - a.topScorer!.goals!)
+    .slice(0, 8);
 
   return (
     <div className="space-y-4">
-      <header className="rise">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted">1936 – 1993</p>
-        <h1 className="text-3xl font-black tracking-tight">Československá liga</h1>
-        <p className="mt-1 text-sm text-muted">
-          {seasons.length} ročníků nejvyšší soutěže – konečné tabulky, mistrovské sestavy a nejlepší střelci. Samostatná česká extraliga od 1993/94 je v{" "}
-          <Link href="/liga/cz-elh?tab=historie" className="text-accent">
-            historii extraligy
-          </Link>
-          .
+      <PageHero kicker="1936 – 1993" title="Československá liga" icon={Landmark}>
+        <p>
+          {seasons.length} ročníků nejvyšší soutěže – konečné tabulky, mistrovské sestavy a nejlepší střelci. Samostatná česká extraliga od 1993/94 je
+          v <Link href="/liga/cz-elh?tab=historie">historii extraligy</Link>.
         </p>
-      </header>
+      </PageHero>
       <HistoryTabs active="liga" />
 
       {selected ? <SeasonDetail season={selected} /> : null}
@@ -48,7 +48,6 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                 href={`/historie?s=${x.season}`}
                 scroll={false}
                 className={`rise block rounded-xl border px-2.5 py-2 transition-colors hover:border-accent ${selected?.season === x.season ? "border-accent bg-accent-soft" : "border-line bg-surface-2"}`}
-               
               >
                 <span className="block text-[11px] text-muted tabular">{x.label}</span>
                 <span className="block truncate text-sm font-semibold">{x.champion ?? "nedohráno"}</span>
@@ -67,7 +66,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                 <div className="min-w-0">
                   <div className="truncate font-medium">{club}</div>
                   <div className="mt-1 h-1.5 rounded-full bg-surface-2">
-                    <div className="grow-x h-full rounded-full bg-gold" style={{ width: `${(years.length / maxTitles) * 100}%`, animationDelay: `${i * 60}ms` }} />
+                    <div
+                      className="grow-x h-full rounded-full bg-gold"
+                      style={{
+                        width: `${(years.length / maxTitles) * 100}%`,
+                        animationDelay: `${i * 60}ms`,
+                      }}
+                    />
                   </div>
                   <div className="mt-0.5 truncate text-[11px] text-muted">{years.map((y) => `${y}/${String(y + 1).slice(2)}`).join(", ")}</div>
                 </div>
@@ -82,7 +87,10 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
               <li key={x.season} className="flex items-center gap-2 text-sm">
                 <span className="w-5 text-right text-muted tabular">{i + 1}.</span>
                 <span className="min-w-0 flex-1 truncate">
-                  <span className="font-medium">{x.topScorer!.name}</span> <span className="text-muted">({x.topScorer!.team}, {x.label})</span>
+                  <span className="font-medium">{x.topScorer!.name}</span>{" "}
+                  <span className="text-muted">
+                    ({x.topScorer!.team}, {x.label})
+                  </span>
                 </span>
                 <span className="font-black tabular">{x.topScorer!.goals}</span>
               </li>
@@ -97,7 +105,14 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
 
 function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechoslovakHistory>>[number] }) {
   return (
-    <Card title={`Sezóna ${season.label}`} action={<Link href="/historie" scroll={false} className="text-xs text-muted hover:text-fg">zavřít ✕</Link>}>
+    <Card
+      title={`Sezóna ${season.label}`}
+      action={
+        <Link href="/historie" scroll={false} className="text-xs text-muted hover:text-fg">
+          zavřít ✕
+        </Link>
+      }
+    >
       <div className="space-y-4">
         {season.champion ? (
           <div className="flex items-center gap-3 border-l-4 border-gold bg-surface-2 p-3">
@@ -169,7 +184,10 @@ function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechos
             <ul className="space-y-2 text-sm">
               {season.rosters.map((r, i) => (
                 <li key={i}>
-                  <span className="font-semibold">{i + 1}. {r.team}:</span> <span className="text-fg/80">{r.players}</span>
+                  <span className="font-semibold">
+                    {i + 1}. {r.team}:
+                  </span>{" "}
+                  <span className="text-fg/80">{r.players}</span>
                 </li>
               ))}
             </ul>

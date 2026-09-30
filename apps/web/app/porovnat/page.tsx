@@ -1,7 +1,11 @@
+/* eslint-disable @next/next/no-img-element -- remote club logo watermark */
 import type { Metadata } from "next";
+import { ChartColumn, GitCompareArrows, ListChecks, UserRound } from "lucide-react";
+import { PageHero } from "@/components/ui/page-hero";
 import Link from "next/link";
 import { Suspense } from "react";
-import { PlayerPhoto } from "@/components/player-photo";
+import { ClubLogo } from "@/components/club-logo";
+import { Portrait } from "@/components/portrait";
 import { PlayerPicker } from "@/components/player-picker";
 import { Card, Empty } from "@/components/ui/card";
 import { seasonLabel } from "@/lib/format";
@@ -14,22 +18,55 @@ export const metadata: Metadata = { title: "Porovnání hráčů" };
 
 type Totals = NonNullable<Awaited<ReturnType<typeof careerTotals>>>;
 
-const ROWS: { label: string; get: (t: Totals) => number | null; fmt?: (v: number) => string; lowerBetter?: boolean }[] = [
+const ROWS: {
+  label: string;
+  get: (t: Totals) => number | null;
+  fmt?: (v: number) => string;
+  lowerBetter?: boolean;
+}[] = [
   { label: "Zápasy", get: (t) => t.gp },
   { label: "Góly", get: (t) => t.goals },
   { label: "Asistence", get: (t) => t.assists },
   { label: "Body", get: (t) => t.points },
-  { label: "Body na zápas", get: (t) => (t.gp ? t.points / t.gp : null), fmt: (v) => v.toFixed(2) },
-  { label: "Góly na zápas", get: (t) => (t.gp ? t.goals / t.gp : null), fmt: (v) => v.toFixed(2) },
-  { label: "+/−", get: (t) => t.plus_minus, fmt: (v) => (v > 0 ? `+${v}` : String(v)) },
+  {
+    label: "Body na zápas",
+    get: (t) => (t.gp ? t.points / t.gp : null),
+    fmt: (v) => v.toFixed(2),
+  },
+  {
+    label: "Góly na zápas",
+    get: (t) => (t.gp ? t.goals / t.gp : null),
+    fmt: (v) => v.toFixed(2),
+  },
+  {
+    label: "+/−",
+    get: (t) => t.plus_minus,
+    fmt: (v) => (v > 0 ? `+${v}` : String(v)),
+  },
   { label: "Střely na branku", get: (t) => t.shots },
-  { label: "Úspěšnost střelby", get: (t) => (t.shots ? t.goals / t.shots : null), fmt: (v) => `${(v * 100).toFixed(1)} %` },
+  {
+    label: "Úspěšnost střelby",
+    get: (t) => (t.shots ? t.goals / t.shots : null),
+    fmt: (v) => `${(v * 100).toFixed(1)} %`,
+  },
   { label: "xG", get: (t) => t.xg, fmt: (v) => v.toFixed(1) },
-  { label: "Góly − xG", get: (t) => (t.xg != null ? t.goals - t.xg : null), fmt: (v) => (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)) },
+  {
+    label: "Góly − xG",
+    get: (t) => (t.xg != null ? t.goals - t.xg : null),
+    fmt: (v) => (v > 0 ? `+${v.toFixed(1)}` : v.toFixed(1)),
+  },
   { label: "Hity", get: (t) => t.hits },
   { label: "Blokované střely", get: (t) => t.blocks },
-  { label: "Vhazování %", get: (t) => (t.fo_taken >= 50 ? t.fo_w / t.fo_taken : null), fmt: (v) => `${(v * 100).toFixed(1)} %` },
-  { label: "Průměrný čas na ledě", get: (t) => t.toi_avg, fmt: (v) => fmtToi(v) },
+  {
+    label: "Vhazování %",
+    get: (t) => (t.fo_taken >= 50 ? t.fo_w / t.fo_taken : null),
+    fmt: (v) => `${(v * 100).toFixed(1)} %`,
+  },
+  {
+    label: "Průměrný čas na ledě",
+    get: (t) => t.toi_avg,
+    fmt: (v) => fmtToi(v),
+  },
   { label: "Trestné minuty", get: (t) => t.pim, lowerBetter: true },
   { label: "Sezóny", get: (t) => t.seasons },
 ];
@@ -58,24 +95,43 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-4">
-      <h1 className="rise text-3xl font-black tracking-tight">Porovnání hráčů</h1>
+      <PageHero kicker="Kariéra v extralize" title="Porovnání hráčů" icon={GitCompareArrows}>
+        <p>Dva hráči vedle sebe – body, góly, xG a vývoj kariéry rok po roku.</p>
+      </PageHero>
       <div className="grid grid-cols-2 gap-3">
         {sides.map((s, i) => (
-          <div key={i} className="rise space-y-3 rounded-2xl border border-line bg-surface p-4 text-center">
-            <Suspense>
-              <PlayerPicker param={i === 0 ? "a" : "b"} placeholder={i === 0 ? "První hráč…" : "Druhý hráč…"} />
-            </Suspense>
+          <div key={i} className="rise flex flex-col border border-line bg-surface">
+            <div className="p-3">
+              <Suspense>
+                <PlayerPicker param={i === 0 ? "a" : "b"} placeholder={i === 0 ? "První hráč…" : "Druhý hráč…"} />
+              </Suspense>
+            </div>
             {s ? (
-              <Link href={`/hrac/${s.player.id}`} className="block">
-                <PlayerPhoto src={s.player.headshot} alt={s.player.name} size={96} ring={i === 0 ? "home" : "away"} className="mx-auto" />
-                <div className="mt-2 text-lg font-bold">{s.player.name}</div>
-                <div className="text-xs text-muted">
+              <Link
+                href={`/hrac/${s.player.id}`}
+                className="group relative flex flex-1 flex-col items-center overflow-hidden bg-board px-3 pb-4 pt-5 text-center text-board-text"
+              >
+                {s.player.current_team_logo ? (
+                  <img
+                    src={s.player.current_team_logo}
+                    alt=""
+                    aria-hidden
+                    className="pointer-events-none absolute -right-8 -top-8 size-44 object-contain opacity-[0.08]"
+                  />
+                ) : null}
+                <Portrait src={s.player.headshot} alt={s.player.name} width={132} side={i === 0 ? "home" : "away"} />
+                <div className="display relative mt-3 text-lg group-hover:text-led sm:text-2xl">{s.player.name}</div>
+                <div className="relative mt-1 flex items-center justify-center gap-1.5 text-xs text-board-muted">
+                  {s.player.current_team_logo ? <ClubLogo src={s.player.current_team_logo} alt="" size={18} /> : null}
                   {s.player.current_team_name ?? ""}
                   {s.player.birth_date ? ` · nar. ${s.player.birth_date.slice(0, 4)}` : ""}
                 </div>
               </Link>
             ) : (
-              <div className="py-10 text-sm text-muted">Vyber hráče</div>
+              <div className="grid flex-1 place-items-center gap-2 bg-surface-2 py-14 text-sm text-muted">
+                <UserRound className="size-10 opacity-40" strokeWidth={1.5} aria-hidden />
+                Vyber hráče
+              </div>
             )}
           </div>
         ))}
@@ -83,7 +139,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
 
       {A && B ? (
         <>
-          <Card title="Kariéra v extralize">
+          <Card title="Kariéra v extralize" icon={ListChecks}>
             <table className="w-full text-sm tabular">
               <tbody className="divide-y divide-line">
                 {ROWS.map((r) => {
@@ -100,7 +156,13 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                       <td className="py-2">
                         <div className="text-center text-xs text-muted">{r.label}</div>
                         <div className="mt-1 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
-                          <div className="rounded-l-full bg-home transition-all" style={{ width: `${share * 100}%`, opacity: aWins ? 1 : 0.35 }} />
+                          <div
+                            className="rounded-l-full bg-home transition-all"
+                            style={{
+                              width: `${share * 100}%`,
+                              opacity: aWins ? 1 : 0.35,
+                            }}
+                          />
                           <div className="flex-1 rounded-r-full bg-away" style={{ opacity: bWins ? 1 : 0.35 }} />
                         </div>
                       </td>
@@ -111,7 +173,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
               </tbody>
             </table>
           </Card>
-          <Card title="Body v základní části podle roku kariéry">
+          <Card title="Body v základní části podle roku kariéry" icon={ChartColumn}>
             <div className="flex h-44 items-end gap-1.5">
               {Array.from({ length: maxLen }, (_, k) => (
                 <div key={k} className="flex h-full flex-1 flex-col justify-end">
@@ -123,7 +185,10 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                           key={i}
                           title={e ? `${sides[i]!.player.name}: ${seasonLabel(e[0])} – ${e[1]} b.` : ""}
                           className={`grow-bar w-full max-w-4 rounded-t ${i === 0 ? "bg-home" : "bg-away"}`}
-                          style={{ height: e ? `${(e[1] / maxPts) * 100}%` : 0, animationDelay: `${k * 40}ms` }}
+                          style={{
+                            height: e ? `${(e[1] / maxPts) * 100}%` : 0,
+                            animationDelay: `${k * 40}ms`,
+                          }}
                         />
                       );
                     })}

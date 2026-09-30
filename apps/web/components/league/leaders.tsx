@@ -1,10 +1,12 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- remote club logo watermark */
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { fmtToi } from "@/lib/names";
 import { ClubLogo } from "../club-logo";
 import { PlayerPhoto } from "../player-photo";
+import { Portrait } from "../portrait";
 import type { SkaterSeasonRow } from "@/lib/server/queries";
 
 type Key = "pts" | "g" | "a" | "pm" | "sog" | "xg" | "gax" | "hits" | "blk" | "pim" | "toi_avg" | "fo";
@@ -16,13 +18,66 @@ const COLS: { key: Key; label: string; title: string }[] = [
   { key: "pm", label: "+/−", title: "Plus/minus" },
   { key: "sog", label: "S", title: "Střely na branku" },
   { key: "xg", label: "xG", title: "Očekávané góly" },
-  { key: "gax", label: "G−xG", title: "Góly nad očekávání (efektivita zakončení)" },
+  {
+    key: "gax",
+    label: "G−xG",
+    title: "Góly nad očekávání (efektivita zakončení)",
+  },
   { key: "hits", label: "H", title: "Hity" },
   { key: "blk", label: "BL", title: "Bloky" },
   { key: "pim", label: "TM", title: "Trestné minuty" },
   { key: "fo", label: "Buly %", title: "Úspěšnost vhazování (min. 20)" },
   { key: "toi_avg", label: "TOI", title: "Průměrný čas na ledě" },
 ];
+
+function display(r: SkaterSeasonRow, k: Key): string {
+  const v = val(r, k);
+  if (k === "toi_avg") return fmtToi(r.toi_avg);
+  if (k === "xg") return r.xg != null ? r.xg.toFixed(1) : "–";
+  if (k === "gax") return r.xg != null ? `${v > 0 ? "+" : ""}${v.toFixed(1)}` : "–";
+  if (k === "fo") return v >= 0 ? `${Math.round(v * 100)} %` : "–";
+  if (k === "pm") return `${v > 0 ? "+" : ""}${v}`;
+  return String(v);
+}
+
+/** The top three of the current sort as photo cards — the leaderboard's headline. */
+function Spotlight({ rows, sort }: { rows: SkaterSeasonRow[]; sort: Key }) {
+  const title = sort === "pts" ? "Kanadské body" : COLS.find((c) => c.key === sort)!.title;
+  return (
+    <div className="mb-4 grid grid-cols-3 gap-2 sm:gap-3">
+      {rows.slice(0, 3).map((r, i) => (
+        <Link
+          key={r.player_id}
+          href={`/hrac/${r.player_id}`}
+          className="group relative flex flex-col overflow-hidden bg-board text-board-text sm:flex-row sm:items-end"
+        >
+          {r.team_logo ? (
+            <img
+              src={r.team_logo}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute -right-4 -top-4 size-28 object-contain opacity-[0.09]"
+            />
+          ) : null}
+          <Portrait src={r.headshot} alt={r.name} width={96} className="!w-full sm:!w-24" />
+          <div className="relative min-w-0 flex-1 p-2 sm:p-3">
+            <div className="flex items-center gap-1.5">
+              <span className={`display text-sm tabular ${i === 0 ? "text-gold" : "text-board-muted"}`}>{i + 1}.</span>
+              {r.team_logo ? <ClubLogo src={r.team_logo} alt={r.team_abbrev} size={16} /> : null}
+              <span className="truncate text-[11px] text-board-muted">{r.team_abbrev}</span>
+            </div>
+            <div className="display mt-0.5 truncate text-xs group-hover:text-led sm:text-base">
+              <span className="sm:hidden">{r.name.split(" ").slice(-1)[0]}</span>
+              <span className="hidden sm:inline">{r.name}</span>
+            </div>
+            <div className="display mt-1 text-3xl leading-none tabular text-led sm:text-4xl">{display(r, sort)}</div>
+            <div className="label mt-1 hidden truncate text-[10px] text-board-muted sm:block">{title}</div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function val(r: SkaterSeasonRow, k: Key): number {
   if (k === "gax") return r.xg != null ? r.g - r.xg : -99;
@@ -34,67 +89,74 @@ export function Leaders({ rows, initialSort = "pts", showTeam = true }: { rows: 
   const [sort, setSort] = useState<Key>(initialSort);
   const sorted = useMemo(() => [...rows].sort((a, b) => val(b, sort) - val(a, sort) || b.pts - a.pts), [rows, sort]);
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
-      <table className="w-full min-w-[760px] text-sm tabular">
-        <thead>
-          <tr className="border-b border-line text-xs text-muted">
-            <th className="py-2 pr-2 text-left font-medium">#</th>
-            <th className="py-2 pr-2 text-left font-medium">Hráč</th>
-            {showTeam ? <th className="px-1.5 text-left font-medium">Tým</th> : null}
-            <th className="px-1.5 text-right font-medium">Z</th>
-            {COLS.map((c) => (
-              <th key={c.key} className="px-1.5 text-right font-medium">
-                <button title={c.title} onClick={() => setSort(c.key)} className={sort === c.key ? "text-accent" : "hover:text-fg"}>
-                  {c.label}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {sorted.map((r, i) => (
-            <tr key={r.player_id} className="hover:bg-surface-2">
-              <td className="py-1.5 pr-2 text-muted">{i + 1}.</td>
-              <td className="whitespace-nowrap py-1.5 pr-2 font-medium">
-                <PlayerPhoto src={r.headshot} alt={r.name} size={36} className="mr-2 align-middle" />
-                <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
-                  {r.name}
-                </Link>
-                {r.position ? <span className="ml-1 text-xs text-muted">{r.position}</span> : null}
-              </td>
-              {showTeam ? (
-                <td className="px-1.5">
-                  <Link href={`/tym/${r.team_id}`} className="flex items-center gap-1.5 text-muted hover:text-accent">
-                    <ClubLogo src={r.team_logo} alt={r.team_abbrev} size={24} />
-                    {r.team_abbrev}
-                  </Link>
-                </td>
-              ) : null}
-              <td className="px-1.5 text-right">{r.gp}</td>
-              {COLS.map((c) => {
-                const v = val(r, c.key);
-                let text: string;
-                if (c.key === "toi_avg") text = fmtToi(r.toi_avg);
-                else if (c.key === "xg") text = r.xg != null ? r.xg.toFixed(2) : "–";
-                else if (c.key === "gax") text = r.xg != null ? `${v > 0 ? "+" : ""}${v.toFixed(2)}` : "–";
-                else if (c.key === "fo") text = v >= 0 ? `${Math.round(v * 100)} %` : "–";
-                else if (c.key === "pm") text = `${v > 0 ? "+" : ""}${v}`;
-                else text = String(v);
-                return (
-                  <td
-                    key={c.key}
-                    className={`px-1.5 text-right ${sort === c.key ? "font-bold" : ""} ${
-                      (c.key === "pm" || c.key === "gax") && v > 0 && v !== -99 ? "text-win" : (c.key === "pm" || c.key === "gax") && v < 0 && v !== -99 ? "text-live" : ""
-                    }`}
-                  >
-                    {text}
-                  </td>
-                );
-              })}
+    <>
+      <Spotlight rows={sorted} sort={sort} />
+      <div className="-mx-4 overflow-x-auto px-4">
+        <table className="w-full min-w-[760px] text-sm tabular">
+          <thead>
+            <tr className="border-b border-line text-xs text-muted">
+              <th className="py-2 pr-2 text-left font-medium">#</th>
+              <th className="py-2 pr-2 text-left font-medium">Hráč</th>
+              {showTeam ? <th className="px-1.5 text-left font-medium">Tým</th> : null}
+              <th className="px-1.5 text-right font-medium">Z</th>
+              {COLS.map((c) => (
+                <th key={c.key} className="px-1.5 text-right font-medium">
+                  <button title={c.title} onClick={() => setSort(c.key)} className={sort === c.key ? "text-accent" : "hover:text-fg"}>
+                    {c.label}
+                  </button>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {sorted.map((r, i) => (
+              <tr key={r.player_id} className="hover:bg-surface-2">
+                <td className="py-1.5 pr-2 text-muted">{i + 1}.</td>
+                <td className="whitespace-nowrap py-1.5 pr-2 font-medium">
+                  <PlayerPhoto src={r.headshot} alt={r.name} size={36} className="mr-2 align-middle" />
+                  <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
+                    {r.name}
+                  </Link>
+                  {r.position ? <span className="ml-1 text-xs text-muted">{r.position}</span> : null}
+                </td>
+                {showTeam ? (
+                  <td className="px-1.5">
+                    <Link href={`/tym/${r.team_id}`} className="flex items-center gap-1.5 text-muted hover:text-accent">
+                      <ClubLogo src={r.team_logo} alt={r.team_abbrev} size={24} />
+                      {r.team_abbrev}
+                    </Link>
+                  </td>
+                ) : null}
+                <td className="px-1.5 text-right">{r.gp}</td>
+                {COLS.map((c) => {
+                  const v = val(r, c.key);
+                  let text: string;
+                  if (c.key === "toi_avg") text = fmtToi(r.toi_avg);
+                  else if (c.key === "xg") text = r.xg != null ? r.xg.toFixed(2) : "–";
+                  else if (c.key === "gax") text = r.xg != null ? `${v > 0 ? "+" : ""}${v.toFixed(2)}` : "–";
+                  else if (c.key === "fo") text = v >= 0 ? `${Math.round(v * 100)} %` : "–";
+                  else if (c.key === "pm") text = `${v > 0 ? "+" : ""}${v}`;
+                  else text = String(v);
+                  return (
+                    <td
+                      key={c.key}
+                      className={`px-1.5 text-right ${sort === c.key ? "font-bold" : ""} ${
+                        (c.key === "pm" || c.key === "gax") && v > 0 && v !== -99
+                          ? "text-win"
+                          : (c.key === "pm" || c.key === "gax") && v < 0 && v !== -99
+                            ? "text-live"
+                            : ""
+                      }`}
+                    >
+                      {text}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

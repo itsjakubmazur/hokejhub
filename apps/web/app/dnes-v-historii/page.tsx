@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DbGameLine } from "@/components/db-game-line";
-import { PlayerPhoto } from "@/components/player-photo";
+import { Cake, CalendarClock, ChevronLeft, ChevronRight, Flame, History } from "lucide-react";
+import { Portrait } from "@/components/portrait";
+import { PageHero } from "@/components/ui/page-hero";
 import { Card, Empty } from "@/components/ui/card";
 import { dbAvailable } from "@/lib/server/db";
 import { bigNightsOnThisDay, birthdaysOnThisDay, gamesOnThisDay } from "@/lib/server/hub";
@@ -33,37 +35,49 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
 
   return (
     <div className="space-y-4">
-      <header className="rise flex items-center gap-3">
-        <Link href={shift(-1)} className="border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Předchozí den">
-          ←
-        </Link>
-        <div className="flex-1 text-center">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted">Tento den v historii</p>
-          <h1 className="text-3xl font-black tracking-tight">
-            {day}. {MONTHS[month - 1]}
-          </h1>
-        </div>
-        <Link href={shift(1)} className="border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Další den">
-          →
-        </Link>
-      </header>
+      <PageHero
+        kicker="Tento den v historii"
+        title={`${day}. ${MONTHS[month - 1]}`}
+        icon={CalendarClock}
+        aside={
+          <div className="flex gap-2">
+            <Link
+              href={shift(-1)}
+              className="grid size-10 place-items-center border border-board-line text-board-muted hover:text-led"
+              aria-label="Předchozí den"
+            >
+              <ChevronLeft className="size-5" aria-hidden />
+            </Link>
+            <Link
+              href={shift(1)}
+              className="grid size-10 place-items-center border border-board-line text-board-muted hover:text-led"
+              aria-label="Další den"
+            >
+              <ChevronRight className="size-5" aria-hidden />
+            </Link>
+          </div>
+        }
+      />
 
       {nights.length ? (
-        <Card title="Velké individuální večery (hattricky a 4+ body)">
+        <Card title="Velké individuální večery (hattricky a 4+ body)" icon={Flame}>
           <ul className="grid gap-2 sm:grid-cols-2">
             {nights.map((n) => (
-              <li key={`${n.game_id}-${n.player_id}`} className="flex items-center gap-3 rounded-xl bg-surface-2 p-2">
-                <PlayerPhoto src={n.headshot} alt={n.name} size={60} />
+              <li key={`${n.game_id}-${n.player_id}`} className="flex items-center gap-3 bg-surface-2 pr-3">
+                <Portrait src={n.headshot} alt={n.name} width={64} />
                 <div className="min-w-0 flex-1">
                   <Link href={`/hrac/${n.player_id}`} className="font-semibold hover:text-accent">
                     {n.name}
                   </Link>
                   <div className="truncate text-xs text-muted">
-                    {n.team_name} vs. {n.opp_name} · <Link href={`/zapas/${n.game_id}`} className="hover:text-fg">{new Date(n.start_at).getFullYear()}</Link>
+                    {n.team_name} vs. {n.opp_name} ·{" "}
+                    <Link href={`/zapas/${n.game_id}`} className="hover:text-fg">
+                      {new Date(n.start_at).getFullYear()}
+                    </Link>
                   </div>
                 </div>
                 <div className="text-right tabular">
-                  <div className="text-lg font-black">
+                  <div className="display text-2xl">
                     {n.goals}+{n.assists}
                   </div>
                   {n.goals >= 3 ? <div className="text-[10px] font-bold uppercase text-gold">hattrick</div> : null}
@@ -75,7 +89,7 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card title={`Zápasy extraligy v tento den (${games.length})`}>
+        <Card title={`Zápasy extraligy v tento den (${games.length})`} icon={History}>
           {games.length === 0 ? (
             <Empty>V tento den se v extralize nehrálo (nebo ještě nemáme data).</Empty>
           ) : (
@@ -93,14 +107,14 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
             </div>
           )}
         </Card>
-        <Card title="Narozeniny">
+        <Card title="Narozeniny" icon={Cake}>
           {births.length === 0 ? (
             <Empty>Nikdo z extraligy.</Empty>
           ) : (
             <ul className="space-y-2">
               {births.map((b) => (
                 <li key={b.id} className="flex items-center gap-2.5">
-                  <PlayerPhoto src={b.headshot} alt={b.name} size={48} />
+                  <Portrait src={b.headshot} alt={b.name} width={40} />
                   <div className="min-w-0 flex-1">
                     <Link href={`/hrac/${b.id}`} className="block truncate font-medium hover:text-accent">
                       {b.name}
