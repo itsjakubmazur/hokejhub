@@ -48,29 +48,44 @@ export interface PreviewLeader {
 
 /** Shots and special teams per team from box-score team stats ([home, away] pairs). */
 async function teamStats(season: number, before: string, ids: string[]) {
-  const rows = await sql<{ team: string; games: number; sf: number; sa: number; ppg: number; ppo: number; ppga: number; pkt: number }>(
+  const rows = await sql<{ team: string; games: number; sf: number; sa: number; ppg: number; ppo: number; ppga: number; pko: number }>(
     `with g as (
-       select home_team_id, away_team_id, team_stats as ts from game
+       select id, home_team_id, away_team_id, team_stats as ts from game
        where league_id = 'cz-elh' and season = $1 and phase = 'regular' and status = 'final' and start_at < $2
          and team_stats ? 'Střely na branku' and (home_team_id = any($3) or away_team_id = any($3))
-     ), s as (
-       select home_team_id as team, (ts->'Střely na branku'->>0)::int as sf, (ts->'Střely na branku'->>1)::int as sa,
-              (ts->'Využití'->>0)::int as ppg, (ts->'Vyloučení'->>1)::int as ppo, (ts->'Využití'->>1)::int as ppga, (ts->'Vyloučení'->>0)::int as pkt
-       from g
+     ),
+     -- Power-play chances: minor/major penalties grouped by moment; offsetting ones cancel,
+     -- several at once by one team count as a single power play.
+     pen as (
+       select e.game_id, e.payload->>'time' as t,
+              count(*) filter (where e.team_id = g.home_team_id) as h,
+              count(*) filter (where e.team_id = g.away_team_id) as a
+       from game_event e join g on g.id = e.game_id
+       where e.type = 'penalty' and (e.payload->>'minutes')::int in (2, 4, 5)
+       group by 1, 2
+     ),
+     opp as (
+       select game_id, count(*) filter (where a > h)::int as home_pp, count(*) filter (where h > a)::int as away_pp
+       from pen group by game_id
+     ),
+     s as (
+       select g.home_team_id as team, (ts->'Střely na branku'->>0)::int as sf, (ts->'Střely na branku'->>1)::int as sa,
+              (ts->'Využití'->>0)::int as ppg, coalesce(o.home_pp, 0) as ppo, (ts->'Využití'->>1)::int as ppga, coalesce(o.away_pp, 0) as pko
+       from g left join opp o on o.game_id = g.id
        union all
-       select away_team_id, (ts->'Střely na branku'->>1)::int, (ts->'Střely na branku'->>0)::int,
-              (ts->'Využití'->>1)::int, (ts->'Vyloučení'->>0)::int, (ts->'Využití'->>0)::int, (ts->'Vyloučení'->>1)::int
-       from g
+       select g.away_team_id, (ts->'Střely na branku'->>1)::int, (ts->'Střely na branku'->>0)::int,
+              (ts->'Využití'->>1)::int, coalesce(o.away_pp, 0), (ts->'Využití'->>0)::int, coalesce(o.home_pp, 0)
+       from g left join opp o on o.game_id = g.id
      )
      select team, count(*)::int as games, avg(sf)::float as sf, avg(sa)::float as sa,
-            coalesce(sum(ppg), 0)::int as ppg, coalesce(sum(ppo), 0)::int as ppo, coalesce(sum(ppga), 0)::int as ppga, coalesce(sum(pkt), 0)::int as pkt
+            coalesce(sum(ppg), 0)::int as ppg, coalesce(sum(ppo), 0)::int as ppo, coalesce(sum(ppga), 0)::int as ppga, coalesce(sum(pko), 0)::int as pko
      from s where team = any($3) group by team`,
     [season, before, ids],
   );
   return new Map(
     rows.map((r) => [
       r.team,
-      { games: r.games, sfPg: r.sf, saPg: r.sa, ppPct: r.ppo ? r.ppg / r.ppo : null, pkPct: r.pkt ? 1 - r.ppga / r.pkt : null },
+      { games: r.games, sfPg: r.sf, saPg: r.sa, ppPct: r.ppo ? r.ppg / r.ppo : null, pkPct: r.pko ? 1 - r.ppga / r.pko : null },
     ]),
   );
 }
@@ -80,7 +95,7 @@ async function goalieWins(playerId: string, season: number) {
   const [r] = await sql<{ wins: number }>(
     `select count(*)::int as wins from box_goalie b join game g on g.id = b.game_id
      where b.player_id = $1 and g.league_id = 'cz-elh' and g.season = $2 and g.phase = 'regular' and g.status = 'final'
-       and b.toi_s >= 1800
+       and coalesce(b.toi_s, 0) >= all (select coalesce(b2.toi_s, 0) from box_goalie b2 where b2.game_id = b.game_id and b2.team_id = b.team_id)
        and ((b.team_id = g.home_team_id and g.home_score > g.away_score) or (b.team_id = g.away_team_id and g.away_score > g.home_score))`,
     [playerId, season],
   );
