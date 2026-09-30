@@ -1,4 +1,5 @@
 import type { ResultGame } from "@hokejhub/core";
+import { CS, csCount } from "@hokejhub/core";
 import { sql } from "./db";
 
 export { sql };
@@ -519,7 +520,7 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
      ),
      log as (
        select l.*, row_number() over (partition by l.player_id order by l.start_at desc) as rn
-       from skater_career_log l join roster r on r.player_id = l.player_id
+       from skater_career_log_for(array(select player_id from roster)) l
        where l.start_at < $2
      ),
      streaks as (
@@ -543,7 +544,7 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
   const next = (v: number, step: number) => (Math.floor(v / step) + 1) * step;
   for (const r of rows) {
     const base = { player_id: r.player_id, name: r.name, headshot: r.headshot, team_id: r.team_id };
-    if (r.streak >= 3) notes.push({ ...base, text: `boduje ${r.streak} zápasů v řadě`, weight: r.streak * 2 });
+    if (r.streak >= 3) notes.push({ ...base, text: `boduje ${csCount(r.streak, CS.zapas)} v řadě`, weight: r.streak * 2 });
     if (r.goal_streak >= 2) notes.push({ ...base, text: `skóroval ${r.goal_streak}× v řadě`, weight: r.goal_streak * 3 });
     const checks: [number, number, string, number][] = [
       [r.career_gp, 100, "zápas v extralize", 5],
@@ -560,7 +561,7 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
           ...base,
           text: label.startsWith("zápas")
             ? `v zápase odehraje ${target}. ${label}`
-            : `potřebuje ${need} ${need === 1 ? (label.startsWith("gól") ? "gól" : "bod") : label.startsWith("gól") ? "góly" : "body"} k ${target}. ${label.replace(/^(gól|bod)/, "$1u")}`,
+            : `potřebuje ${csCount(need, label.startsWith("gól") ? CS.gol : CS.bod)} k ${target}. ${label.replace(/^(gól|bod)/, "$1u")}`,
           weight: w + (target >= 500 ? 5 : target >= 200 ? 3 : 0),
         });
       }
