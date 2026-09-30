@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowDown, ArrowUp } from "lucide-react";
 import Link from "next/link";
 import { impliedProbs, type Game, type Odds1x2 } from "@hokejhub/core";
 import { formatOdds, formatTime } from "@/lib/format";
@@ -66,12 +67,12 @@ export function GameRow({
       }`}
     >
       <StatusCell game={game} />
-      <div className="min-w-0 space-y-0.5">
+      <div className="min-w-0 space-y-1">
         {(["home", "away"] as const).map((side) => (
           <div key={side} className="flex items-center gap-2">
-            <TeamLogo team={game[side]} size={24} />
+            <TeamLogo team={game[side]} size={30} />
             <span
-              className={`truncate text-[14px] ${winner === side ? "font-bold" : winner ? "text-muted" : "font-medium"}`}
+              className={`truncate text-[15px] ${winner === side ? "font-bold" : winner ? "text-muted" : "font-medium"}`}
             >
               {game[side].shortName}
             </span>
@@ -79,13 +80,13 @@ export function GameRow({
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <div className="space-y-0.5 text-right">
+        <div className="space-y-1 text-right">
           {(["home", "away"] as const).map((side) => {
             const score = side === "home" ? game.homeScore : game.awayScore;
             return (
               <div
                 key={`${side}${flash[side]}`}
-                className={`text-[14px] font-bold tabular ${live ? "text-live" : ""} ${flash[side] ? "goal-pop" : ""} ${
+                className={`display text-[19px] leading-[30px] tabular ${live ? "text-live" : ""} ${flash[side] ? "goal-pop" : ""} ${
                   winner && winner !== side ? "font-medium text-muted" : ""
                 }`}
               >
@@ -97,7 +98,7 @@ export function GameRow({
         {periods.length > 0 ? (
           <div className="hidden gap-2 text-[12px] text-muted tabular sm:flex">
             {periods.map(([h, a], i) => (
-              <div key={i} className="w-4 space-y-0.5 text-center">
+              <div key={i} className="w-4 space-y-0.5 text-center leading-[30px]">
                 <div>{h}</div>
                 <div>{a}</div>
               </div>
@@ -118,7 +119,7 @@ export function GameRow({
                   title={prediction ? `model ${Math.round(prediction[k] * 100)} %${market ? ` · trh ${Math.round(market[k] * 100)} %` : ""}` : undefined}
                   className={`rounded bg-surface-2 px-1 py-1 text-center text-[11px] font-medium tabular ${value ? "ring-1 ring-win" : ""}`}
                 >
-                  {move ? <span className={move === "▼" ? "text-win" : "text-live"}>{move}</span> : null}
+                  {move === "▼" ? <ArrowDown className="mr-0.5 inline size-3 text-win" aria-hidden /> : move === "▲" ? <ArrowUp className="mr-0.5 inline size-3 text-live" aria-hidden /> : null}
                   {formatOdds(v)}
                 </span>
               );

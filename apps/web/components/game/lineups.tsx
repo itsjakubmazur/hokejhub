@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import type { Game, HokejczMatch, LineupPlayer, MatchLineups, PlayerMatchStats, TeamLineup } from "@hokejhub/core";
 import Link from "next/link";
-import { PlayerPhoto } from "../player-photo";
+import { Portrait } from "../portrait";
 import { fmtToi } from "@/lib/names";
 import { Segmented } from "./segmented";
 
@@ -48,25 +48,16 @@ function Chip({
       initial={{ opacity: 0, y: 10, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay, type: "spring", stiffness: 380, damping: 26 }}
-      className="group flex w-20 flex-col items-center text-center sm:w-24"
+      className="group flex w-[76px] flex-col items-center text-center sm:w-24"
       title={title}
     >
-      <div className="relative transition-transform group-hover:scale-110">
-        <PlayerPhoto src={link?.photo} alt={`${p.name} ${p.surname}`} size={56} ring={side} />
-        <span
-          className={`absolute -bottom-1 -left-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-surface ${
-            side === "home" ? "bg-home" : "bg-away"
-          }`}
-        >
-          {p.jersey ?? "–"}
-        </span>
+      <div className="relative transition-transform group-hover:-translate-y-0.5">
+        <Portrait src={link?.photo} alt={`${p.name} ${p.surname}`} width={68} side={side} number={p.jersey ?? null} />
         {p.role ? (
-          <span className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-gold text-[9px] font-black text-black">
-            {p.role.toUpperCase()}
-          </span>
+          <span className="display absolute right-1 top-1 grid size-5 place-items-center bg-gold text-[11px] text-black">{p.role.toUpperCase()}</span>
         ) : null}
       </div>
-      <span className="mt-1 w-full truncate text-[11px] font-semibold leading-tight">{p.surname}</span>
+      <span className="mt-1.5 w-full truncate text-xs font-semibold leading-tight">{p.surname}</span>
       {stats ? (
         <span className="text-[10px] text-muted tabular">
           {fmtToi(stats.toi)}
