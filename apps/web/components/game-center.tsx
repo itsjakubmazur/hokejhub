@@ -351,6 +351,12 @@ function XgCard({ data }: { data: GameDetailResponse }) {
         <span className="pb-2 text-xs text-muted">vs</span>
         <BigNumber value={xg[1]} side="away" label={game.away.shortName} />
       </div>
+      {data.shots?.length ? (
+        <div className="mt-3 border-t border-line pt-3">
+          <div className="label mb-1 text-[10px] text-muted">Vývoj zápasu</div>
+          <Momentum game={game} shots={data.shots} goals={goalMoments(data)} penalties={momentumPenalties(data)} compact />
+        </div>
+      ) : null}
     </Card>
   );
 }

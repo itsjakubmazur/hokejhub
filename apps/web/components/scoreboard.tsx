@@ -88,22 +88,23 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
   const liveCount = data.games.filter(isLive).length;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <DateStrip date={date} today={today} />
 
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="first-letter:uppercase">{formatDayLong(date)}</h1>
-          <p className="mt-2 text-sm text-muted">
-            {csCount(data.games.length, CS.zapas)}
-            {liveCount > 0 ? (
-              <span className="ml-2 inline-flex items-center gap-1.5 text-live">
-                <span className="live-dot size-1.5 rounded-full bg-live" /> {liveCount} živě
-              </span>
-            ) : null}
-            {isFetching ? <span className="ml-2 opacity-60">aktualizuji…</span> : null}
-          </p>
-        </div>
+      {/* The strip already names the day; only the count line stays (h1 kept for screen readers). */}
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="sr-only first-letter:uppercase">{formatDayLong(date)}</h1>
+        <p className="text-sm text-muted">
+          <span className="font-semibold text-fg first-letter:uppercase">{formatDayLong(date)}</span>
+          <span className="mx-1.5">·</span>
+          {csCount(data.games.length, CS.zapas)}
+          {liveCount > 0 ? (
+            <span className="ml-2 inline-flex items-center gap-1.5 text-live">
+              <span className="live-dot size-1.5 rounded-full bg-live" /> {liveCount} živě
+            </span>
+          ) : null}
+          {isFetching ? <span className="ml-2 opacity-60">aktualizuji…</span> : null}
+        </p>
       </div>
 
       <LeagueChips groups={groups} selected={selected} onChange={setSelected} showAll={showAll} />

@@ -14,7 +14,8 @@ export interface MomentumPenalty {
   side: "home" | "away";
 }
 
-const ROW = 12;
+const ROW_FULL = 12;
+const ROW_COMPACT = 5;
 const SIGMA = 1.4; // minutes
 
 /**
@@ -27,12 +28,16 @@ export function Momentum({
   shots,
   goals,
   penalties,
+  compact = false,
 }: {
   game: Game;
   shots: ShotEvent[];
   goals: [number, "home" | "away"][];
   penalties: MomentumPenalty[];
+  /** Thin rows without the crest header — fills a sidebar card next to the xG figures. */
+  compact?: boolean;
 }) {
+  const ROW = compact ? ROW_COMPACT : ROW_FULL;
   const minutes = Math.max(60, Math.ceil(Math.max(...shots.map((s) => (s.period - 1) * 1200 + s.periodSeconds), 0) / 60));
   const rows = useMemo(() => {
     const out = Array.from({ length: minutes }, () => 0);
@@ -52,25 +57,31 @@ export function Momentum({
 
   return (
     <div>
-      <div className="flex items-center justify-between border-b border-line pb-3">
-        <span className="h-8 w-1.5 bg-home" aria-hidden />
-        <div className="flex items-center gap-3">
-          <TeamLogo team={game.home} size={30} />
-          <span className="text-muted">×</span>
-          <TeamLogo team={game.away} size={30} />
+      {compact ? null : (
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <span className="h-8 w-1.5 bg-home" aria-hidden />
+          <div className="flex items-center gap-3">
+            <TeamLogo team={game.home} size={30} />
+            <span className="text-muted">×</span>
+            <TeamLogo team={game.away} size={30} />
+          </div>
+          <span className="h-8 w-1.5 bg-away" aria-hidden />
         </div>
-        <span className="h-8 w-1.5 bg-away" aria-hidden />
-      </div>
-      <div className="relative mt-3" style={{ height }}>
+      )}
+      <div className={`relative ${compact ? "mt-2" : "mt-3"}`} style={{ height }}>
         {/* penalty bands with a stripe on the side of the team that took them */}
         {penalties.map((p, i) => (
           <div key={i} className="absolute inset-x-0 bg-surface-2/70" style={{ top: (p.start / 60) * ROW, height: (p.length / 60) * ROW }}>
             <span className={`absolute inset-y-0 w-1 ${p.side === "home" ? "left-0 bg-home" : "right-0 bg-away"}`} />
           </div>
         ))}
-        {Array.from({ length: Math.floor(minutes / 5) + 1 }, (_, i) => (
-          <span key={i} className="absolute left-2 -translate-y-1/2 text-[10px] text-muted tabular" style={{ top: i * 5 * ROW }}>
-            {String(i * 5).padStart(2, "0")}:00
+        {Array.from({ length: Math.floor(minutes / (compact ? 20 : 5)) + 1 }, (_, i) => (
+          <span
+            key={i}
+            className="absolute left-0 -translate-y-1/2 text-[9px] text-muted tabular sm:left-2 sm:text-[10px]"
+            style={{ top: i * (compact ? 20 : 5) * ROW }}
+          >
+            {compact ? `${i * 20}'` : `${String(i * 5).padStart(2, "0")}:00`}
           </span>
         ))}
         {[20, 40, 60]
@@ -87,8 +98,8 @@ export function Momentum({
               key={m}
               className={`absolute rounded-full ${home ? "bg-home" : "bg-away"}`}
               style={{
-                top: m * ROW + 1,
-                height: ROW - 2,
+                top: m * ROW + (compact ? 0.5 : 1),
+                height: ROW - (compact ? 1 : 2),
                 width: `${w}%`,
                 ...(home ? { right: "50%", transformOrigin: "right" } : { left: "50%", transformOrigin: "left" }),
               }}
@@ -110,7 +121,7 @@ export function Momentum({
             <motion.span
               key={i}
               title={`Gól ${side === "home" ? game.home.shortName : game.away.shortName} ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`}
-              className={`absolute z-10 grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[9px] font-black text-white ring-2 ring-surface ${
+              className={`absolute z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full font-black text-white ring-2 ring-surface ${compact ? "size-3.5 text-[7px]" : "size-5 text-[9px]"} ${
                 side === "home" ? "bg-home" : "bg-away"
               }`}
               style={{ top: (t / 60) * ROW, left: `${x}%` }}
