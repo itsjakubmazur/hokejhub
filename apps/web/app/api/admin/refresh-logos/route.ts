@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
 const PAGES = ["historie", "tipsport-extraliga/table", "tipsport-extraliga/zapasy", "klub/hc-dynamo-pardubice/12"];
-const LINK = /<a href="\/klub\/[^/"]+\/(\d+)"[^>]*>\s*<img[^>]*?srcset="[^"]*?min\.php\?file=([^&"\s]+)/g;
+const LINK = /<a href="\/klub\/[^/"]+\/(\d+)(?:\?[^"]*)?"[^>]*>\s*<img[^>]*?srcset="[^"]*?min\.php\?file=([^&"\s]+)/g;
 
 async function page(path: string) {
   const res = await fetch(new URL(path, ORIGIN), {
@@ -26,10 +26,8 @@ export async function POST(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
   const found = new Map<string, string>();
   const pages: Record<string, { bytes: number; clubs: number }> = {};
-  const debug: string[] = [];
   for (const path of PAGES) {
     const html = await page(path);
-    if (new URL(req.url).searchParams.has("debug")) for (const m of html.matchAll(/files(%2F|\/)logos/g)) debug.push(`${path}: ${html.slice(Math.max(0, m.index! - 300), m.index! + 120)}`);
     let clubs = 0;
     for (const m of html.matchAll(LINK)) {
       const file = decodeURIComponent(m[2]!);
@@ -51,5 +49,5 @@ export async function POST(req: Request) {
       changed.push({ id, from: rows[0]!.logo_url, to: url });
     }
   }
-  return Response.json({ found: found.size, updated, changed, pages, debug });
+  return Response.json({ found: found.size, updated, changed, pages });
 }
