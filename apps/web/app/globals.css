@@ -367,3 +367,123 @@ body {
 @keyframes champion-spin {
   to { transform: rotate(1turn); }
 }
+
+/* ---------- hockey motion ---------- */
+
+/* Game rows: a puck slides along the bottom edge on hover. */
+.puck-rail {
+  position: relative;
+}
+.puck-rail::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 12px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .puck-rail:hover::after {
+    animation: puck-rail 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  }
+}
+@keyframes puck-rail {
+  0% { left: 0; opacity: 0; }
+  15% { opacity: 1; }
+  100% { left: calc(100% - 12px); opacity: 0.9; }
+}
+
+/* Mastheads: arena spotlights sweep once, then the watermark drifts like a banner in the rafters. */
+.arena-lights::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, color-mix(in oklab, var(--led) 16%, transparent) 48%, transparent 60%);
+  background-size: 260% 100%;
+  animation: arena-sweep 1.4s 0.1s ease-out both;
+}
+@keyframes arena-sweep {
+  from { background-position: 140% 0; }
+  to { background-position: -60% 0; }
+}
+.hero-float {
+  animation: hero-float 9s ease-in-out infinite alternate;
+}
+@keyframes hero-float {
+  from { transform: rotate(-4deg) translateY(0); }
+  to { transform: rotate(4deg) translateY(10px); }
+}
+
+/* Line change: player cards vault over the boards. */
+.line-change {
+  animation: line-change 0.55s cubic-bezier(0.25, 1.4, 0.4, 1) both;
+}
+@keyframes line-change {
+  0% { opacity: 0; transform: translateY(26px) rotate(-1.5deg); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+/* LED digits power on with a flicker, and flip like a split-flap board when they change. */
+.led-on {
+  animation: led-on 0.7s steps(1, end) both;
+}
+@keyframes led-on {
+  0% { opacity: 0; }
+  20% { opacity: 0.8; }
+  30% { opacity: 0.15; }
+  45% { opacity: 1; }
+  55% { opacity: 0.4; }
+  70%, 100% { opacity: 1; }
+}
+.led-flip {
+  animation: led-flip 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+  transform-origin: 50% 50%;
+}
+@keyframes led-flip {
+  from { transform: perspective(300px) rotateX(-90deg); opacity: 0.3; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Faceoff: the puck drops onto the centre dot and bounces before the clock starts. */
+.faceoff-puck {
+  animation: faceoff-drop 0.75s cubic-bezier(0.5, 0, 0.75, 0) both, faceoff-away 0.3s 0.95s ease-in forwards;
+}
+@keyframes faceoff-drop {
+  0% { transform: translateY(-70px) scale(0.7); opacity: 0; }
+  55% { transform: translateY(0) scale(1); opacity: 1; }
+  70% { transform: translateY(-10px) scale(1, 0.9); }
+  85% { transform: translateY(0) scale(1.1, 0.85); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes faceoff-away {
+  to { transform: translateX(60px) scale(0.6); opacity: 0; }
+}
+.faceoff-dot {
+  animation: faceoff-dot 1.2s ease-out both;
+}
+@keyframes faceoff-dot {
+  0%, 50% { transform: scale(0.4); opacity: 0; }
+  70% { transform: scale(1.6); opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puck-rail::after,
+  .arena-lights::after,
+  .hero-float,
+  .line-change,
+  .led-on,
+  .led-flip,
+  .faceoff-puck,
+  .faceoff-dot,
+  .champion::before,
+  .ice-sweep {
+    animation: none !important;
+  }
+}

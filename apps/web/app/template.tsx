@@ -3,10 +3,14 @@
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
-/** Page transition: each navigation glides in like a puck across the ice. */
+/** Page transition: a hockey stop — the page skates in from the side and digs its edges in. */
 export default function Template({ children }: { children: ReactNode }) {
   return (
-    <motion.div initial={{ opacity: 0.6 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
+    <motion.div
+      initial={{ opacity: 0.4, x: 18, skewX: -2 }}
+      animate={{ opacity: 1, x: 0, skewX: 0 }}
+      transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.6 }}
+    >
       {children}
     </motion.div>
   );

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, ChartBar, ChartNoAxesColumnIncreasing, CircleDot, ClipboardList, Crosshair, FileText, Grid3x3, Info, ListOrdered, MessageSquareText, Sparkles, Star, Swords, Users } from "lucide-react";
 
 import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { impliedProbs, pragueDate, type BetDistribution, type Game, type Odds1x2 } from "@hokejhub/core";
@@ -431,21 +432,32 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
       <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-2 px-3 pb-5 pt-6 sm:px-8">
         <TeamBlock game={game} side="home" href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
         <div className="flex flex-col items-center">
-          {started ? (
-            <div className="flex items-stretch gap-1.5">
-              {(["home", "away"] as const).map((side) => (
-                <span
-                  key={`${side}${flash[side]}`}
-                  className={`led grid min-w-[1.35em] place-items-center bg-board-2 px-2 text-6xl leading-none sm:text-7xl ${flash[side] ? "goal-pop" : ""}`}
-                  style={{ paddingBlock: "0.12em" }}
-                >
-                  {side === "home" ? game.homeScore : game.awayScore}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="led bg-board-2 px-3 py-1 text-5xl">{formatTime(game.startAt)}</span>
-          )}
+          <div className="relative">
+            {/* Faceoff: the puck drops on the centre dot, then the board lights up. */}
+            <span className="faceoff-dot pointer-events-none absolute left-1/2 top-1/2 -ml-3 -mt-3 size-6 rounded-full border-2 border-live" aria-hidden />
+            <span
+              className="faceoff-puck pointer-events-none absolute left-1/2 top-1/2 z-10 -ml-3 -mt-1.5 h-3 w-6 rounded-[50%] bg-black ring-1 ring-board-line"
+              aria-hidden
+            />
+            {started ? (
+              <div className="led-on flex items-stretch gap-1.5" style={{ animationDelay: "0.55s" }}>
+                {(["home", "away"] as const).map((side) => (
+                  <span
+                    key={`${side}${flash[side]}`}
+                    className={`led grid min-w-[1.35em] place-items-center bg-board-2 px-2 text-6xl leading-none sm:text-7xl ${flash[side] ? "goal-pop led-flip" : ""}`}
+                    style={{ paddingBlock: "0.12em" }}
+                  >
+                    {side === "home" ? game.homeScore : game.awayScore}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="led-on led block bg-board-2 px-3 py-1 text-5xl" style={{ animationDelay: "0.55s" }}>
+                {formatTime(game.startAt)}
+              </span>
+            )}
+          </div>
+          {!started && game.status === "scheduled" ? <FaceoffCountdown startAt={game.startAt} /> : null}
           <div className={`label mt-3 flex items-center gap-2 ${live ? "text-live" : "text-board-muted"}`}>
             {live ? <span className="live-dot size-2 rounded-full bg-live" /> : null}
             {game.statusLabel}
@@ -493,14 +505,35 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
   );
 }
 
+/** LED countdown to the opening faceoff (shown within 48 hours of it). */
+function FaceoffCountdown({ startAt }: { startAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const left = Math.max(0, Date.parse(startAt) - now);
+  if (left === 0 || left > 48 * 3600_000) return null;
+  const s = Math.floor(left / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <div className="mt-3 flex flex-col items-center">
+      <span className="label text-[10px] text-board-muted">do vhazování</span>
+      <span className="led mt-1 text-2xl tabular" style={{ color: "var(--led)" }}>
+        {pad(Math.floor(s / 3600))}:{pad(Math.floor((s % 3600) / 60))}:{pad(s % 60)}
+      </span>
+    </div>
+  );
+}
+
 function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; href?: string }) {
   const team = game[side];
   const inner = (
     <motion.div
       className="flex flex-col items-center gap-2.5 text-center"
-      initial={{ opacity: 0, x: side === "home" ? -20 : 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 24 }}
+      initial={{ opacity: 0, x: side === "home" ? -60 : 60, rotate: side === "home" ? -6 : 6 }}
+      animate={{ opacity: 1, x: 0, rotate: 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.15 }}
     >
       <div className="grid size-20 place-items-center bg-white p-2 sm:size-32 sm:p-3">
         <TeamLogo team={team} size={104} className="!size-full" />

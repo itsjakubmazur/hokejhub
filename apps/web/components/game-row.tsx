@@ -62,7 +62,7 @@ export function GameRow({
     <Link
       href={gameHref(game, date)}
       key={flash.home + flash.away}
-      className={`group grid grid-cols-[64px_1fr_auto] items-center gap-2 border-b border-line px-2 py-1.5 transition-colors last:border-b-0 hover:bg-surface-2 sm:grid-cols-[72px_1fr_auto_auto] ${
+      className={`puck-rail group grid grid-cols-[64px_1fr_auto] items-center gap-2 border-b border-line px-2 py-1.5 transition-colors last:border-b-0 hover:bg-surface-2 sm:grid-cols-[72px_1fr_auto_auto] ${
         flash.home + flash.away > 0 ? "goal-sweep" : ""
       }`}
     >

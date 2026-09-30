@@ -32,7 +32,7 @@ function Podium({ rows, unit }: { rows: PodiumRow[]; unit: CsForms }) {
   const [top, ...rest] = rows;
   return (
     <div>
-      <Link href={`/hrac/${top!.id}`} className="group relative flex items-end gap-4 overflow-hidden bg-board p-3 text-board-text">
+      <Link href={`/hrac/${top!.id}`} className="line-change group relative flex items-end gap-4 overflow-hidden bg-board p-3 text-board-text">
         {top!.logo ? (
           <img src={top!.logo} alt="" aria-hidden className="pointer-events-none absolute -right-6 -top-6 size-40 object-contain opacity-[0.08]" />
         ) : null}

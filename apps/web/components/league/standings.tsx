@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { computeOverUnder, computeStandings, rulesForSeason, type FormResult, type ResultGame, type Split } from "@hokejhub/core";
 import { Segmented } from "../game/segmented";
@@ -146,7 +147,12 @@ export function Standings({
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
-                <tr key={r.teamId} className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}>
+                <motion.tr
+                  key={r.teamId}
+                  layout="position"
+                  transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                  className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}
+                >
                   <td className="py-2 pr-2">
                     <span className="flex items-center gap-1">
                     <span
@@ -193,7 +199,7 @@ export function Standings({
                   <td className="pl-3">
                     <FormBadges form={r.form} />
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>

@@ -49,7 +49,8 @@ function Spotlight({ rows, sort }: { rows: SkaterSeasonRow[]; sort: Key }) {
         <Link
           key={r.player_id}
           href={`/hrac/${r.player_id}`}
-          className="group relative flex flex-col overflow-hidden bg-board text-board-text sm:flex-row sm:items-end"
+          className="line-change group relative flex flex-col overflow-hidden bg-board text-board-text sm:flex-row sm:items-end"
+          style={{ animationDelay: `${i * 90}ms` }}
         >
           {r.team_logo ? (
             <img
