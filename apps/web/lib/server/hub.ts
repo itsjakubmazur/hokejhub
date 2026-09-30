@@ -240,7 +240,7 @@ export async function careerTotals(id: string) {
             coalesce(sum(s.sog),0)::int as shots, coalesce(sum(s.hits),0)::int as hits, coalesce(sum(s.blk),0)::int as blocks,
             coalesce(sum(s.fo_w),0)::int as fo_w, coalesce(sum(s.fo_taken),0)::int as fo_taken, count(distinct s.season)::int as seasons,
             (sum(s.toi_avg * s.gp) / nullif(sum(s.gp) filter (where s.toi_avg is not null), 0))::float as toi_avg,
-            (select sum(x.xg)::float from player_xg_season x where x.player_id = $1) as xg
+            (select sum(x.xg)::float from player_xg_players(array[$1]) x) as xg
      from skater_season s where s.player_id = $1`,
     [id],
   );

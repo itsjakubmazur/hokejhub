@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { GameCenter } from "@/components/game-center";
+import { cache } from "react";
 import { getGameDetail } from "@/lib/server/game";
+
+// generateMetadata and the page share one fetch per request.
+const detailFor = cache((id: string, date: string | undefined) => getGameDetail(id, date));
 
 async function load(props: PageProps<"/zapas/[id]">) {
   const { id } = await props.params;
   const { d } = await props.searchParams;
   const date = typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
-  return { id, date, detail: await getGameDetail(id, date) };
+  return { id, date, detail: await detailFor(id, date) };
 }
 
 export async function generateMetadata(props: PageProps<"/zapas/[id]">): Promise<Metadata> {

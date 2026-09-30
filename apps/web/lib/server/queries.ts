@@ -175,7 +175,7 @@ export async function getLeagueSkaters(league: string, season: number, phase = "
            group by player_id, league_id, season, phase) s
      join player p on p.id = s.player_id
      join team t on t.id = s.team_id
-     left join player_xg_season x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
+     left join player_xg_league($1, $2, $3) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
      order by s.pts desc, s.g desc limit $4`,
     [league, season, phase, limit],
   );
@@ -187,7 +187,7 @@ export async function getTeamSkaters(teamId: string, season: number, phase = "re
      from skater_season s
      join player p on p.id = s.player_id
      join team t on t.id = s.team_id
-     left join player_xg_season x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
+     left join player_xg_players(array(select s2.player_id from skater_season s2 where s2.team_id = $1 and s2.season = $2)) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
      where s.team_id = $1 and s.season = $2 and s.phase = $3
      order by s.pts desc, s.g desc`,
     [teamId, season, phase],
@@ -249,7 +249,7 @@ export async function getPlayerSeasons(id: string) {
      from skater_season s
      join player p on p.id = s.player_id
      join team t on t.id = s.team_id
-     left join player_xg_season x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
+     left join player_xg_players(array[$1]) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
      where s.player_id = $1
      order by s.season desc, s.phase desc`,
     [id],
