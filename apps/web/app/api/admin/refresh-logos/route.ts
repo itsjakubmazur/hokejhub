@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const debug: string[] = [];
   for (const path of PAGES) {
     const html = await page(path);
-    if (new URL(req.url).searchParams.has("debug")) for (const m of html.matchAll(/\/klub\/[^/"]+\/12"/g)) debug.push(html.slice(m.index!, m.index! + 500));
+    if (new URL(req.url).searchParams.has("debug")) for (const m of html.matchAll(/files(%2F|\/)logos/g)) debug.push(`${path}: ${html.slice(Math.max(0, m.index! - 300), m.index! + 120)}`);
     let clubs = 0;
     for (const m of html.matchAll(LINK)) {
       const file = decodeURIComponent(m[2]!);
