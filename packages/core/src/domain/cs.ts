@@ -42,4 +42,7 @@ export const CS = {
   clen: ["člen", "členové", "členů", "člena"],
   utkani: ["utkání", "utkání", "utkání", "utkání"],
   kolo: ["kolo", "kola", "kol", "kola"],
+  rocnik: ["ročník", "ročníky", "ročníků", "ročníku"],
+  /** Instrumental: "s 1 zákrokem", "se 3 zákroky", "s 30 zákroky". */
+  zakrokem: ["zákrokem", "zákroky", "zákroky", "zákroku"],
 } as const satisfies Record<string, CsForms>;

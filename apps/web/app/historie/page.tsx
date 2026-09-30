@@ -5,6 +5,7 @@ import Link from "next/link";
 import { HistoryTabs } from "@/components/history-tabs";
 import { Card, Empty } from "@/components/ui/card";
 import { franchiseOf, getCzechoslovakHistory } from "@/lib/server/history";
+import { CS, csCount } from "@hokejhub/core";
 
 export const metadata: Metadata = { title: "Historie československé ligy" };
 export const dynamic = "force-dynamic";
@@ -32,8 +33,8 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     <div className="space-y-4">
       <PageHero kicker="1936 – 1993" title="Československá liga" icon={Landmark}>
         <p>
-          {seasons.length} ročníků nejvyšší soutěže – konečné tabulky, mistrovské sestavy a nejlepší střelci. Samostatná česká extraliga od 1993/94 je
-          v <Link href="/liga/cz-elh?tab=historie">historii extraligy</Link>.
+          {csCount(seasons.length, CS.rocnik)} nejvyšší soutěže – konečné tabulky, mistrovské sestavy a nejlepší střelci. Samostatná česká extraliga
+          od 1993/94 je v <Link href="/liga/cz-elh?tab=historie">historii extraligy</Link>.
         </p>
       </PageHero>
       <HistoryTabs active="liga" />

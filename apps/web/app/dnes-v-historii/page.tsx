@@ -97,7 +97,10 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
               {[...byYear.entries()].map(([y, list]) => (
                 <section key={y}>
                   <h3 className="mb-1 flex items-baseline gap-2 text-sm font-bold">
-                    {y} <span className="text-xs font-normal text-muted">před {year - y} lety</span>
+                    {y}{" "}
+                    <span className="text-xs font-normal text-muted">
+                      {year - y === 0 ? "letos" : year - y === 1 ? "před rokem" : `před ${year - y} lety`}
+                    </span>
                   </h3>
                   {list.map((g) => (
                     <DbGameLine key={g.id} g={g} showSeason={false} />

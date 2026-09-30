@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Portrait } from "../portrait";
 import { fmtToi } from "@/lib/names";
 import { Segmented } from "./segmented";
+import { CS, csCount } from "@hokejhub/core";
 
 type Side = "home" | "away";
 
@@ -21,26 +22,10 @@ function age(birth: string | null) {
 
 type PlayerLink = { id: string; photo: string | null };
 
-function Chip({
-  p,
-  side,
-  stats,
-  delay,
-  link,
-}: {
-  p: LineupPlayer | null;
-  side: Side;
-  stats?: PlayerMatchStats;
-  delay: number;
-  link?: PlayerLink;
-}) {
+function Chip({ p, side, stats, delay, link }: { p: LineupPlayer | null; side: Side; stats?: PlayerMatchStats; delay: number; link?: PlayerLink }) {
   if (!p) return <div className="w-20" />;
   const a = age(p.birthDate);
-  const title = [
-    `${p.name} ${p.surname}`,
-    a !== null ? `${a} let` : null,
-    p.stick ? `hůl ${p.stick === "L" ? "levá" : "pravá"}` : null,
-  ]
+  const title = [`${p.name} ${p.surname}`, a !== null ? `${a} let` : null, p.stick ? `hůl ${p.stick === "L" ? "levá" : "pravá"}` : null]
     .filter(Boolean)
     .join(" · ");
   const body = (
@@ -64,7 +49,7 @@ function Chip({
           {stats.points ? ` · ${stats.goals}+${stats.assists}` : ""}
         </span>
       ) : p.position === "GK" && p.saves != null ? (
-        <span className="text-[10px] text-muted tabular">{p.saves} zákroků</span>
+        <span className="text-[10px] text-muted tabular">{csCount(p.saves, CS.zakrok)}</span>
       ) : null}
     </motion.div>
   );
@@ -97,7 +82,14 @@ function TeamFormation({
             <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">{i + 1}. útok</div>
             <div className="flex justify-center gap-1 sm:gap-3">
               {line.map((p, j) => (
-                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} link={p ? links.get(p.jersey) : undefined} delay={(i * 3 + j) * 0.025} />
+                <Chip
+                  key={j}
+                  p={p}
+                  side={side}
+                  stats={p ? byJersey.get(p.jersey) : undefined}
+                  link={p ? links.get(p.jersey) : undefined}
+                  delay={(i * 3 + j) * 0.025}
+                />
               ))}
             </div>
           </div>
@@ -108,7 +100,14 @@ function TeamFormation({
             <div className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted">{i + 1}. obrana</div>
             <div className="flex justify-center gap-6 sm:gap-10">
               {pair.map((p, j) => (
-                <Chip key={j} p={p} side={side} stats={p ? byJersey.get(p.jersey) : undefined} link={p ? links.get(p.jersey) : undefined} delay={(12 + i * 2 + j) * 0.025} />
+                <Chip
+                  key={j}
+                  p={p}
+                  side={side}
+                  stats={p ? byJersey.get(p.jersey) : undefined}
+                  link={p ? links.get(p.jersey) : undefined}
+                  delay={(12 + i * 2 + j) * 0.025}
+                />
               ))}
             </div>
           </div>
@@ -184,10 +183,16 @@ export function Lineups({
       {lineups.referees.length > 0 ? (
         <p className="mt-4 text-xs text-muted">
           <span className="font-semibold text-fg">Rozhodčí:</span>{" "}
-          {lineups.referees.filter((r) => r.role === "referee").map((r) => r.name).join(", ")}
+          {lineups.referees
+            .filter((r) => r.role === "referee")
+            .map((r) => r.name)
+            .join(", ")}
           {" · "}
           <span className="font-semibold text-fg">Čároví:</span>{" "}
-          {lineups.referees.filter((r) => r.role === "linesman").map((r) => r.name).join(", ")}
+          {lineups.referees
+            .filter((r) => r.role === "linesman")
+            .map((r) => r.name)
+            .join(", ")}
         </p>
       ) : null}
     </div>

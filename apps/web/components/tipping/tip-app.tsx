@@ -8,6 +8,7 @@ import { saveTip as saveLocalTip, useTips } from "@/lib/tips";
 import { ClubLogo } from "../club-logo";
 import { Segmented } from "../game/segmented";
 import { Card, Empty } from "../ui/card";
+import { CS, csCount } from "@hokejhub/core";
 
 // ---------- API ----------
 
@@ -117,13 +118,20 @@ function UserBar({ user }: { user: User }) {
   return (
     <div className="mt-5 flex items-center gap-3 border-t border-board-line pt-4">
       <span className="grid size-12 place-items-center bg-white p-1.5">
-        {user.club_logo ? <ClubLogo src={user.club_logo} alt={user.club_name ?? ""} size={40} /> : <Trophy className="size-6 text-black/50" aria-hidden />}
+        {user.club_logo ? (
+          <ClubLogo src={user.club_logo} alt={user.club_name ?? ""} size={40} />
+        ) : (
+          <Trophy className="size-6 text-black/50" aria-hidden />
+        )}
       </span>
       <div className="min-w-0 flex-1">
         <div className="display truncate text-2xl">{user.nickname}</div>
         <div className="text-xs text-board-muted">{user.club_name ? `fanoušek: ${user.club_name}` : "bez oblíbeného klubu"}</div>
       </div>
-      <button onClick={() => out.mutate()} className="flex items-center gap-1.5 border border-board-line px-3 py-1.5 text-xs font-semibold text-board-muted hover:text-board-text">
+      <button
+        onClick={() => out.mutate()}
+        className="flex items-center gap-1.5 border border-board-line px-3 py-1.5 text-xs font-semibold text-board-muted hover:text-board-text"
+      >
         <LogOut className="size-3.5" aria-hidden /> Odhlásit
       </button>
     </div>
@@ -217,7 +225,8 @@ function ImportLocalTips() {
   const [now] = useState(() => Date.now());
   const pending = Object.values(local).filter((t) => Date.parse(t.startAt) > now);
   const imp = useMutation({
-    mutationFn: () => api<{ saved: number }>("tips", { method: "POST", body: { tips: pending.map((t) => ({ gameId: t.gameId, playDate: t.date, ...t.tip })) } }),
+    mutationFn: () =>
+      api<{ saved: number }>("tips", { method: "POST", body: { tips: pending.map((t) => ({ gameId: t.gameId, playDate: t.date, ...t.tip })) } }),
     onSuccess: () => {
       for (const t of pending) saveLocalTip({ gameId: t.gameId, remove: true });
       qc.invalidateQueries({ queryKey: ["tip"] });
@@ -226,7 +235,7 @@ function ImportLocalTips() {
   if (pending.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-3 border border-accent/40 bg-accent-soft p-3 text-sm">
-      <span className="flex-1">V tomhle prohlížeči máš {pending.length} tipů z doby před účty.</span>
+      <span className="flex-1">V tomhle prohlížeči máš {csCount(pending.length, CS.tip)} z doby před účty.</span>
       <button onClick={() => imp.mutate()} disabled={imp.isPending} className="bg-accent px-3 py-1.5 font-semibold text-white">
         Přenést do účtu
       </button>
@@ -237,7 +246,10 @@ function ImportLocalTips() {
 // ---------- tipping ----------
 
 function TipGames() {
-  const { data, isLoading } = useQuery({ queryKey: ["tip", "games"], queryFn: () => api<{ games: TipGame[]; tips: Record<string, { home: number; away: number }> }>("games") });
+  const { data, isLoading } = useQuery({
+    queryKey: ["tip", "games"],
+    queryFn: () => api<{ games: TipGame[]; tips: Record<string, { home: number; away: number }> }>("games"),
+  });
   const [league, setLeague] = useState<"all" | "cz-elh" | "nhl">("all");
   const days = useMemo(() => {
     const map = new Map<string, TipGame[]>();
@@ -248,7 +260,12 @@ function TipGames() {
     }
     return [...map.entries()];
   }, [data, league]);
-  if (isLoading) return <Card><Empty>Načítám zápasy…</Empty></Card>;
+  if (isLoading)
+    return (
+      <Card>
+        <Empty>Načítám zápasy…</Empty>
+      </Card>
+    );
   return (
     <div className="space-y-4">
       <Segmented
@@ -260,7 +277,11 @@ function TipGames() {
           { value: "nhl", label: "NHL" },
         ]}
       />
-      {days.length === 0 ? <Card><Empty>V příštích dnech nejsou zápasy k tipování.</Empty></Card> : null}
+      {days.length === 0 ? (
+        <Card>
+          <Empty>V příštích dnech nejsou zápasy k tipování.</Empty>
+        </Card>
+      ) : null}
       {days.map(([day, games]) => (
         <section key={day} className="border border-line bg-surface">
           <h2 className="label border-b border-line px-4 pb-2 pt-3 first-letter:uppercase">{day}</h2>
@@ -278,11 +299,21 @@ function TipGames() {
 function Stepper({ value, onChange, label }: { value: number | null; onChange: (v: number) => void; label: string }) {
   return (
     <div className="flex flex-col items-center">
-      <button type="button" aria-label={`${label} +1`} onClick={() => onChange(Math.min(20, (value ?? 0) + 1))} className="grid h-7 w-12 place-items-center border border-line text-muted hover:text-fg">
+      <button
+        type="button"
+        aria-label={`${label} +1`}
+        onClick={() => onChange(Math.min(20, (value ?? 0) + 1))}
+        className="grid h-7 w-12 place-items-center border border-line text-muted hover:text-fg"
+      >
         +
       </button>
       <span className={`display grid h-12 w-12 place-items-center text-4xl tabular ${value === null ? "text-muted/40" : ""}`}>{value ?? "–"}</span>
-      <button type="button" aria-label={`${label} −1`} onClick={() => onChange(Math.max(0, (value ?? 0) - 1))} className="grid h-7 w-12 place-items-center border border-line text-muted hover:text-fg">
+      <button
+        type="button"
+        aria-label={`${label} −1`}
+        onClick={() => onChange(Math.max(0, (value ?? 0) - 1))}
+        className="grid h-7 w-12 place-items-center border border-line text-muted hover:text-fg"
+      >
         −
       </button>
     </div>
@@ -385,7 +416,12 @@ function Leaderboard({ me }: { me: User }) {
   return (
     <Card title="Žebříček" icon={Crown}>
       {groups.data?.groups.length ? (
-        <select id="tip-group" value={group} onChange={(e) => setGroup(e.target.value)} className="mb-4 border border-line bg-surface-2 px-2.5 py-1.5 text-sm">
+        <select
+          id="tip-group"
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+          className="mb-4 border border-line bg-surface-2 px-2.5 py-1.5 text-sm"
+        >
           <option value="">Všichni hráči</option>
           {groups.data.groups.map((g) => (
             <option key={g.id} value={g.id}>
@@ -403,15 +439,28 @@ function Leaderboard({ me }: { me: User }) {
                 <th className="w-10 py-2 text-left font-medium">#</th>
                 <th className="py-2 text-left font-medium">Hráč</th>
                 <th className="text-right font-medium">Body</th>
-                <th className="text-right font-medium" title="Vyhodnocené tipy">Tipů</th>
-                <th className="text-right font-medium" title="Přesné výsledky">Přesně</th>
-                <th className="text-right font-medium" title="Uhodnutý vítěz">Vítěz</th>
-                <th className="pr-1 text-right font-medium" title="Body za posledních 7 dní">7 dní</th>
+                <th className="text-right font-medium" title="Vyhodnocené tipy">
+                  Tipů
+                </th>
+                <th className="text-right font-medium" title="Přesné výsledky">
+                  Přesně
+                </th>
+                <th className="text-right font-medium" title="Uhodnutý vítěz">
+                  Vítěz
+                </th>
+                <th className="pr-1 text-right font-medium" title="Body za posledních 7 dní">
+                  7 dní
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((r, i) => (
-                <motion.tr key={r.user_id} initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} className={r.user_id === me.id ? "bg-accent-soft" : ""}>
+                <motion.tr
+                  key={r.user_id}
+                  initial={{ opacity: 0.5 }}
+                  animate={{ opacity: 1 }}
+                  className={r.user_id === me.id ? "bg-accent-soft" : ""}
+                >
                   <td className={`display py-2 text-xl ${i === 0 ? "text-gold" : "text-muted"}`}>{i + 1}.</td>
                   <td className="py-2">
                     <span className="flex items-center gap-2.5">
@@ -452,7 +501,15 @@ function Leaderboard({ me }: { me: User }) {
 // ---------- history ----------
 
 const pointsCls = (p: number | null) =>
-  p === null ? "border border-line text-muted" : p === 5 ? "bg-gold text-black" : p >= 3 ? "bg-win text-white" : p > 0 ? "bg-win/40" : "bg-surface-2 text-muted";
+  p === null
+    ? "border border-line text-muted"
+    : p === 5
+      ? "bg-gold text-black"
+      : p >= 3
+        ? "bg-win text-white"
+        : p > 0
+          ? "bg-win/40"
+          : "bg-surface-2 text-muted";
 
 function MyHistory() {
   const { data, isLoading } = useQuery({
@@ -503,7 +560,9 @@ function MyHistory() {
                   <ClubLogo src={r.away_logo} alt="" size={26} />
                 </span>
                 <span className="display text-right text-xl tabular">
-                  {r.home_score !== null ? `${r.home_score}:${r.away_score}${r.decided_in === "OT" ? " pp" : r.decided_in === "SO" ? " sn" : ""}` : "–"}
+                  {r.home_score !== null
+                    ? `${r.home_score}:${r.away_score}${r.decided_in === "OT" ? " pp" : r.decided_in === "SO" ? " sn" : ""}`
+                    : "–"}
                 </span>
                 <span className={`px-2 py-0.5 text-center text-xs font-semibold tabular ${pointsCls(r.points)}`} title="Tvůj tip">
                   {r.home}:{r.away}
@@ -559,7 +618,7 @@ function Groups() {
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{g.name}</span>
                   <span className="text-xs text-muted">
-                    {g.members} {g.members === 1 ? "hráč" : g.members < 5 ? "hráči" : "hráčů"}
+                    {csCount(g.members, CS.hrac)}
                     {g.owner ? " · zakladatel" : ""}
                   </span>
                 </span>
@@ -580,7 +639,13 @@ function Groups() {
               create.mutate();
             }}
           >
-            <input id="tip-group-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Název, třeba Kancelář" className="min-w-0 flex-1 border border-line bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent" />
+            <input
+              id="tip-group-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Název, třeba Kancelář"
+              className="min-w-0 flex-1 border border-line bg-surface-2 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
             <button className="bg-fg px-4 text-sm font-semibold text-bg">Založit</button>
           </form>
         </Card>
@@ -592,7 +657,13 @@ function Groups() {
               join.mutate();
             }}
           >
-            <input id="tip-group-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Kód skupiny" className="min-w-0 flex-1 border border-line bg-surface-2 px-3 py-2 text-sm uppercase tracking-widest outline-none focus:border-accent" />
+            <input
+              id="tip-group-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="Kód skupiny"
+              className="min-w-0 flex-1 border border-line bg-surface-2 px-3 py-2 text-sm uppercase tracking-widest outline-none focus:border-accent"
+            />
             <button className="bg-fg px-4 text-sm font-semibold text-bg">Přidat se</button>
           </form>
         </Card>

@@ -7,6 +7,7 @@ import type { Game } from "@hokejhub/core";
 import type { GameRowDb } from "@/lib/server/queries";
 import { Segmented } from "./segmented";
 import { ClubLogo } from "../club-logo";
+import { CS, csCount } from "@hokejhub/core";
 
 export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRowDb[]; teamIds: { home: string; away: string } }) {
   const [where, setWhere] = useState<"all" | "home">("all");
@@ -47,7 +48,7 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
             <div className="text-xs text-muted">výher {game.home.shortName}</div>
           </div>
           <div className="text-center text-xs text-muted tabular">
-            {list.length} zápasů · {s.ot}× po prodl./SN
+            {csCount(list.length, CS.zapas)} · {s.ot}× po prodl./SN
             <br />Ø {s.avg.toFixed(1)} gólu na zápas
           </div>
           <div className="text-right">
@@ -56,8 +57,18 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
           </div>
         </div>
         <div className="mt-3 flex h-2.5 gap-0.5 overflow-hidden rounded-full">
-          <motion.div className="rounded-l-full bg-home" initial={{ width: 0 }} animate={{ width: `${(s.hw / total) * 100}%` }} transition={{ duration: 0.8 }} />
-          <motion.div className="rounded-r-full bg-away" initial={{ width: 0 }} animate={{ width: `${(s.aw / total) * 100}%` }} transition={{ duration: 0.8 }} />
+          <motion.div
+            className="rounded-l-full bg-home"
+            initial={{ width: 0 }}
+            animate={{ width: `${(s.hw / total) * 100}%` }}
+            transition={{ duration: 0.8 }}
+          />
+          <motion.div
+            className="rounded-r-full bg-away"
+            initial={{ width: 0 }}
+            animate={{ width: `${(s.aw / total) * 100}%` }}
+            transition={{ duration: 0.8 }}
+          />
         </div>
       </div>
       <ol className="divide-y divide-line">
@@ -73,7 +84,9 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
                 </span>
                 <span className="rounded-md bg-surface-2 px-2 py-0.5 font-bold tabular">
                   {g.home_score}:{g.away_score}
-                  {g.decided_in && g.decided_in !== "REG" ? <span className="ml-1 text-[10px] text-muted">{g.decided_in === "OT" ? "PP" : "SN"}</span> : null}
+                  {g.decided_in && g.decided_in !== "REG" ? (
+                    <span className="ml-1 text-[10px] text-muted">{g.decided_in === "OT" ? "PP" : "SN"}</span>
+                  ) : null}
                 </span>
                 <span className={`flex items-center gap-2 truncate ${!homeWon ? "font-bold" : "text-muted"}`}>
                   <ClubLogo src={g.away_logo} alt="" size={26} />

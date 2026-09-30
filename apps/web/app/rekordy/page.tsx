@@ -11,6 +11,7 @@ import { Card, Empty } from "@/components/ui/card";
 import { seasonLabel } from "@/lib/format";
 import { dbAvailable } from "@/lib/server/db";
 import { recordGames, recordPlayers } from "@/lib/server/hub";
+import { CS, csCount, csPlural, type CsForms } from "@hokejhub/core";
 
 export const metadata: Metadata = { title: "Rekordy extraligy" };
 export const revalidate = 3600;
@@ -26,7 +27,7 @@ type PodiumRow = {
 };
 
 /** Record holder as a big card, the chasers as a compact list with photos and club logos. */
-function Podium({ rows, unit }: { rows: PodiumRow[]; unit: string }) {
+function Podium({ rows, unit }: { rows: PodiumRow[]; unit: CsForms }) {
   if (rows.length === 0) return <Empty>Zatím bez dat.</Empty>;
   const [top, ...rest] = rows;
   return (
@@ -48,7 +49,7 @@ function Podium({ rows, unit }: { rows: PodiumRow[]; unit: string }) {
         </div>
         <div className="relative pb-1 text-right">
           <div className="display text-5xl leading-none tabular text-led">{top!.value}</div>
-          <div className="label mt-1 text-board-muted">{unit}</div>
+          <div className="label mt-1 text-board-muted">{typeof top!.value === "number" ? csPlural(top!.value, unit) : unit[2]}</div>
         </div>
       </Link>
       <ol className="mt-2 divide-y divide-line">
@@ -93,33 +94,33 @@ export default async function RecordsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Nejvíc bodů v kariéře (ELH)" icon={Trophy}>
           <Podium
-            unit="bodů"
+            unit={CS.bod}
             rows={p.careerPoints.map((r) => ({
               key: r.player_id,
               id: r.player_id,
               name: r.name,
               photo: r.headshot,
               value: r.value,
-              sub: `${r.gp} záp. · ${r.goals} gólů`,
+              sub: `${r.gp} záp. · ${csCount(r.goals, CS.gol)}`,
             }))}
           />
         </Card>
         <Card title="Nejvíc odehraných zápasů" icon={Timer}>
           <Podium
-            unit="zápasů"
+            unit={CS.zapas}
             rows={p.careerGames.map((r) => ({
               key: r.player_id,
               id: r.player_id,
               name: r.name,
               photo: r.headshot,
               value: r.value,
-              sub: `${r.seasons} sezón`,
+              sub: csCount(r.seasons, CS.sezona),
             }))}
           />
         </Card>
         <Card title="Nejvíc bodů v základní části" icon={TrendingUp}>
           <Podium
-            unit="bodů"
+            unit={CS.bod}
             rows={p.seasonPoints.map((r) => ({
               key: `${r.player_id}-${r.season}`,
               id: r.player_id,
@@ -133,7 +134,7 @@ export default async function RecordsPage() {
         </Card>
         <Card title="Nejvíc gólů v základní části" icon={Goal}>
           <Podium
-            unit="gólů"
+            unit={CS.gol}
             rows={p.seasonGoals.map((r) => ({
               key: `${r.player_id}-${r.season}`,
               id: r.player_id,
@@ -147,7 +148,7 @@ export default async function RecordsPage() {
         </Card>
         <Card title="Nejvíc gólů v jednom zápase" icon={Flame}>
           <Podium
-            unit="gólů"
+            unit={CS.gol}
             rows={p.gameGoals.map((r) => ({
               key: r.game_id + r.player_id,
               id: r.player_id,
@@ -161,7 +162,7 @@ export default async function RecordsPage() {
         </Card>
         <Card title="Nejvíc bodů v jednom zápase" icon={Sparkles}>
           <Podium
-            unit="bodů"
+            unit={CS.bod}
             rows={p.gamePoints.map((r) => ({
               key: r.game_id + r.player_id,
               id: r.player_id,
@@ -183,7 +184,7 @@ export default async function RecordsPage() {
         </Card>
         <Card title="Nejvíc gólů v zápase" icon={Goal}>
           {g.highestScoring.map((x) => (
-            <DbGameLine key={x.id} g={x} note={`${(x.home_score ?? 0) + (x.away_score ?? 0) - (x.decided_in === "SO" ? 1 : 0)} gólů`} />
+            <DbGameLine key={x.id} g={x} note={csCount((x.home_score ?? 0) + (x.away_score ?? 0) - (x.decided_in === "SO" ? 1 : 0), CS.gol)} />
           ))}
         </Card>
         <Card title="Největší obraty (otočené ztráty 3+ gólů)" icon={Repeat}>
@@ -191,7 +192,7 @@ export default async function RecordsPage() {
         </Card>
         <Card title="Rekordní návštěvy" icon={Users}>
           {g.attendance.map((x) => (
-            <DbGameLine key={x.id} g={x} note={`${x.attendance?.toLocaleString("cs-CZ")} diváků`} />
+            <DbGameLine key={x.id} g={x} note={csCount(x.attendance ?? 0, CS.divak)} />
           ))}
         </Card>
       </div>

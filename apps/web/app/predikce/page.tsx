@@ -12,6 +12,7 @@ import { dbAvailable } from "@/lib/server/db";
 import { fetchJson } from "@/lib/server/fetcher";
 import { getBacktest, getEloState } from "@/lib/server/model";
 import { getTeamLogos } from "@/lib/server/queries";
+import { CS, csCount } from "@hokejhub/core";
 
 export const metadata: Metadata = { title: "Predikce" };
 export const revalidate = 300;
@@ -162,7 +163,7 @@ export default async function PredictionsPage() {
 
         <Card title="Jak přesný je model (backtest)" icon={FlaskConical}>
           <div className="grid grid-cols-2 gap-2">
-            <Stat label="Trefa tipu (1/0/2)" value={pct(bt.accuracy)} sub={`${bt.games.toLocaleString("cs-CZ")} zápasů`} />
+            <Stat label="Trefa tipu (1/0/2)" value={pct(bt.accuracy)} sub={csCount(bt.games, CS.zapas)} />
             <Stat label="Posledních 3 sezóny" value={pct(btRecent.accuracy)} sub={`log-loss ${btRecent.logLoss.toFixed(3)}`} />
             <Stat label="Log-loss" value={bt.logLoss.toFixed(3)} sub="náhodný tip ≈ 1,099" />
             <Stat label="Brier skóre" value={bt.brier.toFixed(3)} sub="nižší = lepší" />

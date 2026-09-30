@@ -29,6 +29,7 @@ import {
   getTeamLogos,
   toResultGames,
 } from "@/lib/server/queries";
+import { CS, csCount } from "@hokejhub/core";
 
 export const revalidate = 300;
 
@@ -69,13 +70,13 @@ export default async function LeaguePage(props: PageProps<"/liga/[league]">) {
       </div>
       <UrlTabs tabs={TABS} active={tab} layoutId="league-tab" />
       <Suspense key={`${tab}-${season}-${phase}`} fallback={<CardSkeleton rows={14} />}>
-      {tab === "tabulka" ? <TableTab league={league} season={season} phase={phase} /> : null}
-      {tab === "bodovani" ? <SkatersTab league={league} season={season} phase={phase} sort="pts" /> : null}
-      {tab === "strelci" ? <SkatersTab league={league} season={season} phase={phase} sort="g" /> : null}
-      {tab === "xg" ? <SkatersTab league={league} season={season} phase={phase} sort="xg" /> : null}
-      {tab === "brankari" ? <GoaliesTab league={league} season={season} phase={phase} /> : null}
-      {tab === "navstevnost" ? <AttendanceTab league={league} season={season} /> : null}
-      {tab === "historie" ? <HistoryTab league={league} season={season} /> : null}
+        {tab === "tabulka" ? <TableTab league={league} season={season} phase={phase} /> : null}
+        {tab === "bodovani" ? <SkatersTab league={league} season={season} phase={phase} sort="pts" /> : null}
+        {tab === "strelci" ? <SkatersTab league={league} season={season} phase={phase} sort="g" /> : null}
+        {tab === "xg" ? <SkatersTab league={league} season={season} phase={phase} sort="xg" /> : null}
+        {tab === "brankari" ? <GoaliesTab league={league} season={season} phase={phase} /> : null}
+        {tab === "navstevnost" ? <AttendanceTab league={league} season={season} /> : null}
+        {tab === "historie" ? <HistoryTab league={league} season={season} /> : null}
       </Suspense>
     </div>
   );
@@ -112,7 +113,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
     return <OfficialTable rows={official} />;
   }
   return (
-    <Card title={`Tabulka ${seasonLabel(season)} · ${games.length} zápasů`} icon={ListOrdered}>
+    <Card title={`Tabulka ${seasonLabel(season)} · ${csCount(games.length, CS.zapas)}`} icon={ListOrdered}>
       <Standings games={games} season={season} logos={logos} liveGames={live} />
     </Card>
   );
@@ -233,8 +234,8 @@ async function AttendanceTab({ league, season }: { league: string; season: numbe
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Stat label="Průměr – základní část" value={cur?.avg.toLocaleString("cs-CZ") ?? "–"} sub={cur ? `${cur.games} zápasů` : undefined} />
-        <Stat label="Průměr – play-off" value={po?.avg.toLocaleString("cs-CZ") ?? "–"} sub={po ? `${po.games} zápasů` : undefined} />
+        <Stat label="Průměr – základní část" value={cur?.avg.toLocaleString("cs-CZ") ?? "–"} sub={cur ? csCount(cur.games, CS.zapas) : undefined} />
+        <Stat label="Průměr – play-off" value={po?.avg.toLocaleString("cs-CZ") ?? "–"} sub={po ? csCount(po.games, CS.zapas) : undefined} />
         <Stat label="Celkem diváků" value={((cur?.total ?? 0) + (po?.total ?? 0)).toLocaleString("cs-CZ")} />
         <Stat label="Vyprodáno" value={(cur?.sold_out ?? 0) + (po?.sold_out ?? 0)} sub={cur?.fill_pct ? `zaplněnost ${cur.fill_pct} %` : undefined} />
       </div>

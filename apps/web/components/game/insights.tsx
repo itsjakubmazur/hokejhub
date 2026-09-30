@@ -7,6 +7,7 @@ import type { GameDetailResponse } from "@/lib/types";
 import { FormBadges } from "../league/standings";
 import { Portrait } from "../portrait";
 import { TeamLogo } from "../team-logo";
+import { CS, csCount } from "@hokejhub/core";
 
 const MILESTONE: Record<string, (v: number) => string> = {
   career_gp: (v) => `${v}. zápas v extralize`,
@@ -21,8 +22,8 @@ type Streaks = NonNullable<GameDetailResponse["insights"]>["home"];
 
 function streakItems(s: Streaks): { icon: LucideIcon; text: string; tone: "good" | "bad" }[] {
   const out: { icon: LucideIcon; text: string; tone: "good" | "bad" }[] = [];
-  if (s.wins >= 2) out.push({ icon: TrendingUp, text: `${s.wins} výhry v řadě`, tone: "good" });
-  if (s.losses >= 2) out.push({ icon: TrendingDown, text: `${s.losses} prohry v řadě`, tone: "bad" });
+  if (s.wins >= 2) out.push({ icon: TrendingUp, text: `${csCount(s.wins, CS.vyhra)} v řadě`, tone: "good" });
+  if (s.losses >= 2) out.push({ icon: TrendingDown, text: `${csCount(s.losses, CS.prohra)} v řadě`, tone: "bad" });
   if (s.points >= 3 && s.wins < s.points) out.push({ icon: CircleCheck, text: `bodoval ${s.points}× v řadě`, tone: "good" });
   if (s.homeWins >= 3) out.push({ icon: House, text: `doma vyhrál ${s.homeWins}× v řadě`, tone: "good" });
   if (s.awayWins >= 3) out.push({ icon: MapPin, text: `venku vyhrál ${s.awayWins}× v řadě`, tone: "good" });

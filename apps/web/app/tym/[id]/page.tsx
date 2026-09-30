@@ -30,6 +30,7 @@ import {
   toResultGames,
   type GameRowDb,
 } from "@/lib/server/queries";
+import { CS, csCount } from "@hokejhub/core";
 
 export const revalidate = 300;
 
@@ -63,11 +64,20 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
     <div className="space-y-4">
       <header className="rise relative overflow-hidden bg-board text-board-text">
         {team.logo_url ? (
-          <img src={team.logo_url} alt="" aria-hidden className="pointer-events-none absolute -right-12 top-1/2 size-80 -translate-y-1/2 object-contain opacity-[0.07] sm:size-[28rem]" />
+          <img
+            src={team.logo_url}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute -right-12 top-1/2 size-80 -translate-y-1/2 object-contain opacity-[0.07] sm:size-[28rem]"
+          />
         ) : null}
         <div className="relative flex flex-wrap items-center gap-5 p-4 sm:p-6">
           <div className="grid size-24 shrink-0 place-items-center bg-white p-2.5 sm:size-36 sm:p-4">
-            {team.logo_url ? <img src={team.logo_url} alt="" className="size-full object-contain" /> : <span className="display text-3xl text-black">{team.abbrev}</span>}
+            {team.logo_url ? (
+              <img src={team.logo_url} alt="" className="size-full object-contain" />
+            ) : (
+              <span className="display text-3xl text-black">{team.abbrev}</span>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <Link href="/liga/cz-elh" className="label text-board-muted hover:text-board-text">
@@ -85,15 +95,15 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
       </header>
       <UrlTabs tabs={TABS} active={tab} layoutId="team-tab" />
       <Suspense key={`${tab}-${season}`} fallback={<CardSkeleton rows={10} photos />}>
-      {tab === "prehled" ? <Overview teamId={id} games={games} season={season} /> : null}
-      {tab === "vysledky" ? (
-        <Card title={`Zápasy ${seasonLabel(season)}`}>
-          {games.length ? <TeamResults teamId={id} games={games} /> : <Empty>Žádné zápasy.</Empty>}
-        </Card>
-      ) : null}
-      {tab === "hraci" ? <Players teamId={id} season={season} /> : null}
-      {tab === "navstevnost" ? <Attendance teamId={id} season={season} /> : null}
-      {tab === "historie" ? <History teamId={id} /> : null}
+        {tab === "prehled" ? <Overview teamId={id} games={games} season={season} /> : null}
+        {tab === "vysledky" ? (
+          <Card title={`Zápasy ${seasonLabel(season)}`}>
+            {games.length ? <TeamResults teamId={id} games={games} /> : <Empty>Žádné zápasy.</Empty>}
+          </Card>
+        ) : null}
+        {tab === "hraci" ? <Players teamId={id} season={season} /> : null}
+        {tab === "navstevnost" ? <Attendance teamId={id} season={season} /> : null}
+        {tab === "historie" ? <History teamId={id} /> : null}
       </Suspense>
     </div>
   );
@@ -132,7 +142,7 @@ async function Overview({ teamId, games, season }: { teamId: string; games: Game
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Stat label="Body" value={me.pts} sub={`${me.gp} zápasů · ${(me.pts / me.gp).toFixed(2)} na zápas`} />
+        <Stat label="Body" value={me.pts} sub={`${csCount(me.gp, CS.zapas)} · ${(me.pts / me.gp).toFixed(2)} na zápas`} />
         <Stat
           label={me.t ? "Bilance V-VP-R-PP-P" : "Bilance V-VP-PP-P"}
           value={me.t ? `${me.w}-${me.otw}-${me.t}-${me.otl}-${me.l}` : `${me.w}-${me.otw}-${me.otl}-${me.l}`}
@@ -141,7 +151,7 @@ async function Overview({ teamId, games, season }: { teamId: string; games: Game
         <Stat
           label="xG pro : proti"
           value={xg.n ? `${xg.f.toFixed(1)} : ${xg.a.toFixed(1)}` : "–"}
-          sub={xg.n ? `xG% ${Math.round((xg.f / (xg.f + xg.a)) * 100)} % · ${xg.n} zápasů` : "bez dat o střelách"}
+          sub={xg.n ? `xG% ${Math.round((xg.f / (xg.f + xg.a)) * 100)} % · ${csCount(xg.n, CS.zapas)}` : "bez dat o střelách"}
         />
         <Stat label="Průměrná návštěva" value={avgAtt?.toLocaleString("cs-CZ") ?? "–"} sub={`${att.length} domácích zápasů`} />
       </div>
@@ -190,7 +200,11 @@ async function Overview({ teamId, games, season }: { teamId: string; games: Game
           </ol>
           {biggest && biggest.diff > 0 ? (
             <p className="mt-3 text-xs text-muted">
-              Nejvyšší výhra: <span className="font-semibold text-fg">{biggest.g.home_score}:{biggest.g.away_score}</span> ({biggest.g.home_name} – {biggest.g.away_name})
+              Nejvyšší výhra:{" "}
+              <span className="font-semibold text-fg">
+                {biggest.g.home_score}:{biggest.g.away_score}
+              </span>{" "}
+              ({biggest.g.home_name} – {biggest.g.away_name})
             </p>
           ) : null}
         </Card>
@@ -222,10 +236,22 @@ async function Attendance({ teamId, season }: { teamId: string; season: number }
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Stat label="Průměr – základní část" value={cur?.avg.toLocaleString("cs-CZ") ?? "–"} sub={cur ? `max ${cur.max.toLocaleString("cs-CZ")} · min ${cur.min.toLocaleString("cs-CZ")}` : undefined} />
-        <Stat label="Průměr – play-off" value={po?.avg.toLocaleString("cs-CZ") ?? "–"} sub={po ? `${po.games} zápasů` : "nehráli"} />
-        <Stat label="Vyprodáno" value={`${(cur?.sold_out ?? 0) + (po?.sold_out ?? 0)}×`} sub={cur?.avg_capacity ? `kapacita ${cur.avg_capacity.toLocaleString("cs-CZ")}` : undefined} />
-        <Stat label="Zaplněnost" value={cur?.fill_pct != null ? `${cur.fill_pct} %` : "–"} sub={best ? `rekordní sezóna ${seasonLabel(best.season)}` : undefined} />
+        <Stat
+          label="Průměr – základní část"
+          value={cur?.avg.toLocaleString("cs-CZ") ?? "–"}
+          sub={cur ? `max ${cur.max.toLocaleString("cs-CZ")} · min ${cur.min.toLocaleString("cs-CZ")}` : undefined}
+        />
+        <Stat label="Průměr – play-off" value={po?.avg.toLocaleString("cs-CZ") ?? "–"} sub={po ? csCount(po.games, CS.zapas) : "nehráli"} />
+        <Stat
+          label="Vyprodáno"
+          value={`${(cur?.sold_out ?? 0) + (po?.sold_out ?? 0)}×`}
+          sub={cur?.avg_capacity ? `kapacita ${cur.avg_capacity.toLocaleString("cs-CZ")}` : undefined}
+        />
+        <Stat
+          label="Zaplněnost"
+          value={cur?.fill_pct != null ? `${cur.fill_pct} %` : "–"}
+          sub={best ? `rekordní sezóna ${seasonLabel(best.season)}` : undefined}
+        />
       </div>
       {reg.length > 1 ? (
         <Card title="Průměrná domácí návštěva podle sezón">
@@ -314,45 +340,51 @@ async function History({ teamId }: { teamId: string }) {
           <EloChart points={eloPoints} leagueBest={leagueBest} />
         </Card>
       ) : null}
-    <Card title="Sezóny v extralize">
-      <div className="-mx-4 overflow-x-auto px-4">
-        <table className="w-full min-w-[560px] text-sm tabular">
-          <thead>
-            <tr className="border-b border-line text-xs text-muted">
-              <th className="py-2 text-left">Sezóna</th>
-              <th className="text-right">Pořadí</th>
-              <th className="text-right">Z</th>
-              <th className="text-right">V-VP-(R)-PP-P</th>
-              <th className="text-right">Skóre</th>
-              <th className="text-right font-bold">B</th>
-              <th className="text-left pl-4">Play-off</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {seasons.map((s) => {
-              const reg = record(teamId, games.filter((g) => g.season === s && g.phase === "regular"), s);
-              const po = games.filter((g) => g.season === s && g.phase === "playoff");
-              const lastPo = po.at(-1);
-              return (
-                <tr key={s} className="hover:bg-surface-2">
-                  <td className="py-1.5">
-                    <Link href={`/tym/${teamId}?sezona=${s}`} className="hover:text-accent">
-                      {seasonLabel(s)}
-                    </Link>
-                  </td>
-                  <td className="text-right font-semibold">{rankBy.get(s)?.rank ? `${rankBy.get(s)!.rank}.` : "–"}</td>
-                  <td className="text-right">{reg?.gp ?? "–"}</td>
-                  <td className="text-right">{reg ? (reg.t ? `${reg.w}-${reg.otw}-${reg.t}-${reg.otl}-${reg.l}` : `${reg.w}-${reg.otw}-${reg.otl}-${reg.l}`) : "–"}</td>
-                  <td className="text-right">{reg ? `${reg.gf}:${reg.ga}` : "–"}</td>
-                  <td className="text-right font-bold">{reg?.pts ?? "–"}</td>
-                  <td className="pl-4 text-xs text-muted">{lastPo?.round ?? (po.length ? "play-off" : "")}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+      <Card title="Sezóny v extralize">
+        <div className="-mx-4 overflow-x-auto px-4">
+          <table className="w-full min-w-[560px] text-sm tabular">
+            <thead>
+              <tr className="border-b border-line text-xs text-muted">
+                <th className="py-2 text-left">Sezóna</th>
+                <th className="text-right">Pořadí</th>
+                <th className="text-right">Z</th>
+                <th className="text-right">V-VP-(R)-PP-P</th>
+                <th className="text-right">Skóre</th>
+                <th className="text-right font-bold">B</th>
+                <th className="text-left pl-4">Play-off</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {seasons.map((s) => {
+                const reg = record(
+                  teamId,
+                  games.filter((g) => g.season === s && g.phase === "regular"),
+                  s,
+                );
+                const po = games.filter((g) => g.season === s && g.phase === "playoff");
+                const lastPo = po.at(-1);
+                return (
+                  <tr key={s} className="hover:bg-surface-2">
+                    <td className="py-1.5">
+                      <Link href={`/tym/${teamId}?sezona=${s}`} className="hover:text-accent">
+                        {seasonLabel(s)}
+                      </Link>
+                    </td>
+                    <td className="text-right font-semibold">{rankBy.get(s)?.rank ? `${rankBy.get(s)!.rank}.` : "–"}</td>
+                    <td className="text-right">{reg?.gp ?? "–"}</td>
+                    <td className="text-right">
+                      {reg ? (reg.t ? `${reg.w}-${reg.otw}-${reg.t}-${reg.otl}-${reg.l}` : `${reg.w}-${reg.otw}-${reg.otl}-${reg.l}`) : "–"}
+                    </td>
+                    <td className="text-right">{reg ? `${reg.gf}:${reg.ga}` : "–"}</td>
+                    <td className="text-right font-bold">{reg?.pts ?? "–"}</td>
+                    <td className="pl-4 text-xs text-muted">{lastPo?.round ?? (po.length ? "play-off" : "")}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </div>
   );
 }

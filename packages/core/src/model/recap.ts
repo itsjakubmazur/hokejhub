@@ -4,6 +4,7 @@
  * gender/number agreement on team names (Kometa / Pardubice / Sparta all read correctly).
  */
 import type { HokejczMatch } from "../sources/hokejcz.ts";
+import { CS, csCount } from "../domain/cs.ts";
 
 export interface RecapExtras {
   /** Expected goals [home, away]. */
@@ -62,7 +63,7 @@ export function matchRecap(box: HokejczMatch, extras: RecapExtras = {}): string[
     out.push(`Skóre otevřel ${nice(o.scorer.name)} v ${minute(o.time)}. minutě${o.situation && o.situation !== "5/5" ? (o.situation === "EN" ? " do prázdné branky" : /^5\/[34]|4\/3/.test(o.situation) ? " v přesilovce" : /^[34]\/5|3\/4/.test(o.situation) ? " v oslabení" : "") : ""}.`);
   }
   if (h !== a && worstForWinner <= -2) {
-    out.push(`Vítěz přitom prohrával už o ${-worstForWinner} góly – obrat jako řemen.`);
+    out.push(`Vítěz přitom prohrával už o ${csCount(-worstForWinner, CS.gol)} – obrat jako řemen.`);
   } else if (h !== a && worstForWinner === -1 && goals.length >= 3) {
     out.push("Vítěz musel otáčet nepříznivý stav.");
   }
@@ -91,9 +92,9 @@ export function matchRecap(box: HokejczMatch, extras: RecapExtras = {}): string[
     const team = side === "home" ? box.home : box.away;
     const conceded = side === "home" ? a : h;
     if (list.length === 1 && conceded === 0 && box.decidedIn !== "SO") {
-      out.push(`Čisté konto: ${nice(list[0]!.player.name)} (${team.shortName}) s ${list[0]!.saves} zákroky.`);
+      out.push(`Čisté konto: ${nice(list[0]!.player.name)} (${team.shortName}) s ${csCount(list[0]!.saves, CS.zakrokem)}.`);
     } else if (list.length === 1 && list[0]!.saves >= 38) {
-      out.push(`${nice(list[0]!.player.name)} (${team.shortName}) předvedl ${list[0]!.saves} zákroků${list[0]!.savePct ? ` (${fmt1(list[0]!.savePct)} %)` : ""}.`);
+      out.push(`${nice(list[0]!.player.name)} (${team.shortName}) předvedl ${csCount(list[0]!.saves, CS.zakrok)}${list[0]!.savePct ? ` (${fmt1(list[0]!.savePct)} %)` : ""}.`);
     }
     if (list.length >= 2) out.push(`Střídání v brankovišti (${team.shortName}): ${list.map((g) => nice(g.player.name)).join(" → ")}.`);
   }
@@ -122,7 +123,7 @@ export function matchRecap(box: HokejczMatch, extras: RecapExtras = {}): string[
   // 7) Attendance.
   if (box.attendance) {
     const full = box.capacity && box.attendance >= box.capacity * 0.99;
-    out.push(full ? `Vyprodáno – ${box.attendance.toLocaleString("cs-CZ")} diváků.` : `Na zápas přišlo ${box.attendance.toLocaleString("cs-CZ")} diváků${box.capacity ? ` (${Math.round((box.attendance / box.capacity) * 100)} % kapacity)` : ""}.`);
+    out.push(full ? `Vyprodáno – ${csCount(box.attendance, CS.divak)}.` : `Na zápas přišlo ${csCount(box.attendance, CS.divak)}${box.capacity ? ` (${Math.round((box.attendance / box.capacity) * 100)} % kapacity)` : ""}.`);
   }
   if (box.series) out.push(`Stav série: ${box.series}.`);
   return out;

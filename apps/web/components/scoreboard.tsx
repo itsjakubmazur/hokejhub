@@ -12,6 +12,7 @@ import { formatDayLong, formatDayShort } from "@/lib/format";
 import { GameRow } from "./game-row";
 import { GamblingNotice } from "./gambling-notice";
 import { SourceStatus } from "./source-status";
+import { CS, csCount } from "@hokejhub/core";
 
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
@@ -37,7 +38,9 @@ async function fetchScoreboardFromBrowser(date: string): Promise<ScoreboardRespo
   if (!games) throw new Error(`HTTP ${res.status}`);
   let liveOdds: ScoreboardResponse["liveOdds"] = {};
   if (games.some(isLive)) {
-    const odds = await fetch(esportsUrls.liveOdds()).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const odds = await fetch(esportsUrls.liveOdds())
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
     if (odds) liveOdds = Object.fromEntries(parseLiveOdds(odds));
   }
   return {
@@ -92,7 +95,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
         <div>
           <h1 className="first-letter:uppercase">{formatDayLong(date)}</h1>
           <p className="mt-2 text-sm text-muted">
-            {data.games.length} zápasů
+            {csCount(data.games.length, CS.zapas)}
             {liveCount > 0 ? (
               <span className="ml-2 inline-flex items-center gap-1.5 text-live">
                 <span className="live-dot size-1.5 rounded-full bg-live" /> {liveCount} živě
@@ -137,9 +140,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
           <h2 className="label flex items-baseline gap-2 border-b border-line px-3 pb-2 pt-3">
             {league.name}
             <span className="ml-auto font-sans text-[11px] font-medium normal-case tracking-normal text-muted tabular">
-              {games.filter(isLive).length > 0 ? (
-                <span className="mr-2 text-live">{games.filter(isLive).length} živě</span>
-              ) : null}
+              {games.filter(isLive).length > 0 ? <span className="mr-2 text-live">{games.filter(isLive).length} živě</span> : null}
               {games.length}
             </span>
           </h2>
@@ -159,10 +160,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       ))}
 
       {hidden > 0 || showAll ? (
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="w-full border border-line py-2.5 text-sm text-muted hover:text-fg"
-        >
+        <button onClick={() => setShowAll((v) => !v)} className="w-full border border-line py-2.5 text-sm text-muted hover:text-fg">
           {showAll ? "Jen vybrané soutěže" : `Další soutěže (${hidden})`}
         </button>
       ) : null}
@@ -220,9 +218,7 @@ function LeagueChips({
         return (
           <button
             key={league.key}
-            onClick={() =>
-              onChange(on ? selected.filter((k) => k !== league.key) : [...selected, league.key])
-            }
+            onClick={() => onChange(on ? selected.filter((k) => k !== league.key) : [...selected, league.key])}
             aria-pressed={on}
             className={`flex shrink-0 items-center gap-1.5 border px-3 py-1 text-xs transition ${
               on ? "border-fg text-fg font-semibold" : "border-line text-muted hover:text-fg"
