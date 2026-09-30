@@ -56,9 +56,10 @@ export function BottomNav() {
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:hidden">
       <motion.nav
         aria-label="Hlavní navigace"
-        animate={{ scale: slim ? 0.94 : 1, y: slim ? 4 : 0 }}
+        animate={{ width: slim ? "72%" : "100%", y: slim ? 6 : 0 }}
         transition={{ type: "spring", stiffness: 420, damping: 34 }}
-        className="glass-bar pointer-events-auto w-full max-w-md rounded-[26px]"
+        className="glass-bar pointer-events-auto max-w-md rounded-[26px]"
+        style={{ width: "100%" }}
       >
         <ul className="grid grid-cols-6">
           {ITEMS.map((it) => {
@@ -69,7 +70,7 @@ export function BottomNav() {
                   href={it.href}
                   aria-current={on ? "page" : undefined}
                   className={`relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-[padding] duration-200 ${
-                    slim ? "py-2" : "py-2.5"
+                    slim ? "py-1.5" : "py-2.5"
                   } ${on ? "text-accent" : "text-muted"}`}
                 >
                   {on ? (
@@ -79,7 +80,11 @@ export function BottomNav() {
                       transition={{ type: "spring", stiffness: 500, damping: 38 }}
                     />
                   ) : null}
-                  <it.icon className="relative size-5" strokeWidth={on ? 2.2 : 1.9} aria-hidden />
+                  <it.icon
+                    className={`relative transition-[width,height] duration-200 ${slim ? "size-[18px]" : "size-5"}`}
+                    strokeWidth={on ? 2.2 : 1.9}
+                    aria-hidden
+                  />
                   <motion.span
                     className="relative overflow-hidden whitespace-nowrap leading-tight"
                     animate={{ height: slim ? 0 : 13, opacity: slim ? 0 : 1 }}

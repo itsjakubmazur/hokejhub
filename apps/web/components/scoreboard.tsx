@@ -52,6 +52,19 @@ async function fetchScoreboardFromBrowser(date: string): Promise<ScoreboardRespo
   };
 }
 
+/** North American date of an NHL start (the league's own schedule key). */
+const naDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso));
+
+/** Splits a day's NHL games into the night just played and the night ahead. */
+function nhlNights(games: Game[], date: string) {
+  const past = games.filter((g) => naDate(g.startAt) < date);
+  const next = games.filter((g) => naDate(g.startAt) >= date);
+  const out: { label: string; list: Game[] }[] = [];
+  if (past.length) out.push({ label: "Noc na dnešek", list: past });
+  if (next.length) out.push({ label: "Dnes večer a v noci", list: next });
+  return out;
+}
+
 export function Scoreboard({ date, initial }: { date: string; initial: ScoreboardResponse }) {
   const today = pragueDate();
   const { data, isFetching, isError } = useQuery({
@@ -146,16 +159,37 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
             </span>
           </h2>
           <div>
-            {games.map((g, i) => (
-              <GameRow
-                key={g.id}
-                game={g}
-                date={date}
-                index={i}
-                liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
-                prediction={data.predictions?.[g.id]}
-              />
-            ))}
+            {league.key === "nhl" && nhlNights(games, date).length > 1
+              ? nhlNights(games, date).map(({ label, list }) => (
+                  <div key={label}>
+                    <div className="border-b border-line bg-surface-2/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                      {label}
+                    </div>
+                    {list.map((g, i) => (
+                      <GameRow
+                        key={g.id}
+                        game={g}
+                        date={date}
+                        index={i}
+                        liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
+                        prediction={data.predictions?.[g.id]}
+                      />
+                    ))}
+                  </div>
+                ))
+              : null}
+            {league.key === "nhl" && nhlNights(games, date).length > 1
+              ? null
+              : games.map((g, i) => (
+                  <GameRow
+                    key={g.id}
+                    game={g}
+                    date={date}
+                    index={i}
+                    liveOdds={g.external.onlajnyId ? data.liveOdds[g.external.onlajnyId] : undefined}
+                    prediction={data.predictions?.[g.id]}
+                  />
+                ))}
           </div>
         </section>
       ))}

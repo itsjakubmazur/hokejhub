@@ -8,8 +8,8 @@ export interface LeagueInfo {
 }
 
 const LEAGUES: LeagueInfo[] = [
-  { key: "nhl", name: "NHL", shortName: "NHL", group: "nhl", sort: 1 },
-  { key: "cz-elh", name: "Tipsport extraliga", shortName: "ELH", group: "cz", sort: 2 },
+  { key: "cz-elh", name: "Tipsport extraliga", shortName: "ELH", group: "cz", sort: 1 },
+  { key: "nhl", name: "NHL", shortName: "NHL", group: "nhl", sort: 2 },
   { key: "cz-maxa", name: "Maxa liga", shortName: "Maxa", group: "cz", sort: 3 },
   { key: "cz-2liga", name: "2. liga", shortName: "2. liga", group: "cz", sort: 4 },
   { key: "cz-women", name: "Extraliga žen", shortName: "ELŽ", group: "cz-women", sort: 10 },

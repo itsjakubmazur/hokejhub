@@ -48,7 +48,7 @@ import { Recap } from "./game/recap";
 import { PeriodSiren } from "./game/period-siren";
 import { Faceoffs } from "./game/faceoffs";
 import { NhlInfoRows, NhlMatchup, NhlPlayers, SeasonSeries, ThreeStars } from "./game/nhl";
-import { ScoreGrid } from "./game/score-grid";
+import { Expectations } from "./game/expectations";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
@@ -81,10 +81,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
     refetchInterval: (q) => (q.state.data && isLive(q.state.data.game) ? 15_000 : false),
   });
   const { game } = data;
-  // NHL nights are listed under the following Prague day (see lib/server/scoreboard.ts).
+  // An NHL game is listed under its North American date (tonight) and again the next Prague
+  // day (as a result); the back link goes to whichever fits its state.
   const day =
     game.source === "nhl"
-      ? addDays(new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(game.startAt)), 1)
+      ? addDays(new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(game.startAt)), game.status === "final" ? 1 : 0)
       : pragueDate(new Date(game.startAt));
 
   const live = isLive(game);
@@ -438,8 +439,8 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
         <div className="space-y-3 sm:space-y-4">
           {prediction}
           {data.prediction ? (
-            <Card title="Nejpravděpodobnější výsledky" icon={Grid3x3}>
-              <ScoreGrid expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.abbrev} awayLabel={game.away.abbrev} />
+            <Card title="Co čekat od zápasu" icon={Grid3x3}>
+              <Expectations expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.shortName} awayLabel={game.away.shortName} />
             </Card>
           ) : null}
           {odds}

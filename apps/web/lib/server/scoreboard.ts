@@ -36,13 +36,16 @@ const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
 export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
   const revalidate = revalidateFor(date);
-  // An NHL night (North American date N) is played through the Czech night and is read the
-  // next morning, so it is listed under the Prague date N + 1 — all of it, including the games
-  // that face off before our midnight.
-  const [es, nhl] = await Promise.all([
+  // A Prague day shows two NHL nights: the one just played (North American date D − 1, read in
+  // the morning as results) and the one ahead (date D, faced off tonight from our evening on).
+  const [es, nhlPast, nhlNext] = await Promise.all([
     fetchJson(esportsUrls.scoreboard(date), parseScoreboard, { revalidate, notFoundIsEmpty: true }),
     fetchJson(nhlUrls.score(nhlNightOf(date)), parseNhlScore, { revalidate }),
+    fetchJson(nhlUrls.score(date), parseNhlScore, { revalidate }),
   ]);
+  const seen = new Set<string>();
+  const nhlList = [...(nhlPast.data ?? []), ...(nhlNext.data ?? [])].filter((g) => !seen.has(g.id) && seen.add(g.id));
+  const nhl = { data: nhlPast.data || nhlNext.data ? nhlList : null, state: nhlPast.state === "ok" ? nhlNext.state : nhlPast.state };
 
   // If the main feed fails outright (not a plain 404), fall back to the older ELH-only variant.
   let esGames = es.data ?? [];
