@@ -26,8 +26,10 @@ export async function POST(req: Request) {
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
   const found = new Map<string, string>();
   const pages: Record<string, { bytes: number; clubs: number }> = {};
+  const debug: string[] = [];
   for (const path of PAGES) {
     const html = await page(path);
+    if (new URL(req.url).searchParams.has("debug")) for (const m of html.matchAll(/\/klub\/[^/"]+\/12"/g)) debug.push(html.slice(m.index!, m.index! + 500));
     let clubs = 0;
     for (const m of html.matchAll(LINK)) {
       const file = decodeURIComponent(m[2]!);
@@ -49,5 +51,5 @@ export async function POST(req: Request) {
       changed.push({ id, from: rows[0]!.logo_url, to: url });
     }
   }
-  return Response.json({ found: found.size, updated, changed, pages });
+  return Response.json({ found: found.size, updated, changed, pages, debug });
 }
