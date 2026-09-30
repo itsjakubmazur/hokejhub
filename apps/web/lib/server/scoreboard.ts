@@ -27,12 +27,24 @@ const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
 export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
   const revalidate = revalidateFor(date);
-  // NHL games belong to their North American date, i.e. the "NHL night" that starts on the
-  // Prague evening of `date` — the same convention eSports/hokej.cz use.
-  const [es, nhl] = await Promise.all([
+  // NHL games are listed by the Prague date they start on (a 01:30 face-off belongs to that
+  // morning's day, so last night's results show under "today"). The league API keys its
+  // schedule by North American date, so a Prague day spans two of those.
+  const [es, nhlPrev, nhlSame] = await Promise.all([
     fetchJson(esportsUrls.scoreboard(date), parseScoreboard, { revalidate, notFoundIsEmpty: true }),
+    fetchJson(nhlUrls.score(addDays(date, -1)), parseNhlScore, { revalidate }),
     fetchJson(nhlUrls.score(date), parseNhlScore, { revalidate }),
   ]);
+  const nhlSeen = new Set<string>();
+  const nhlGames =
+    nhlPrev.data || nhlSame.data
+      ? [...(nhlPrev.data ?? []), ...(nhlSame.data ?? [])].filter((g) => {
+          if (nhlSeen.has(g.id) || pragueDate(new Date(g.startAt)) !== date) return false;
+          nhlSeen.add(g.id);
+          return true;
+        })
+      : null;
+  const nhl = { data: nhlGames, state: nhlSame.state === "ok" ? nhlPrev.state : nhlSame.state };
 
   // If the main feed fails outright (not a plain 404), fall back to the older ELH-only variant.
   let esGames = es.data ?? [];

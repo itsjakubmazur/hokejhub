@@ -65,8 +65,6 @@ import { ShareButton } from "./share-button";
 import { Card } from "./ui/card";
 import { useGoalFlash } from "./use-goal-flash";
 
-const easternDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(iso));
-
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
 type Tab = "prehled" | "prubeh" | "statistiky" | "sestavy" | "strely" | "vyvoj" | "hraci" | "h2h" | "kurzy";
@@ -83,7 +81,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
     refetchInterval: (q) => (q.state.data && isLive(q.state.data.game) ? 15_000 : false),
   });
   const { game } = data;
-  const day = game.source === "nhl" ? easternDate(game.startAt) : pragueDate(new Date(game.startAt));
+  const day = pragueDate(new Date(game.startAt));
 
   const live = isLive(game);
   const scheduled = game.status === "scheduled";

@@ -19,6 +19,7 @@ import {
   parseOnlajnyRoster,
   parseOnlajnySummary,
   penaltyWindows,
+  pragueDate,
   seasonOf,
   shotsWithXg,
   clockAnchor,
@@ -168,7 +169,7 @@ export async function getGameDetail(id: string, date?: string, t?: Timings): Pro
     if (!landing.data) return null;
     let game = landing.data.game;
     // Pull Tipsport odds / onlajny id from the combined scoreboard of that day.
-    const board = await getScoreboard(nhlDate(game.startAt));
+    const board = await getScoreboard(pragueDate(new Date(game.startAt)));
     const fromBoard = board.games.find((g) => g.id === id);
     if (fromBoard) game = { ...game, preOdds: fromBoard.preOdds, external: fromBoard.external };
     const [{ liveOdds, bets }, teamCards] = await Promise.all([
