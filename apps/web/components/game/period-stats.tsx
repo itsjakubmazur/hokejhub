@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type { Game, HokejczMatch, MatchPeriodStats, PeriodKey, ShotEvent } from "@hokejhub/core";
 import { Segmented } from "./segmented";
 
-interface Row {
+export interface StatRowData {
   label: string;
   home: number;
   away: number;
@@ -29,12 +29,14 @@ function xgBy(shots: ShotEvent[] | null, homeId: string, period: PeriodKey): [nu
 
 function shotsBy(shots: ShotEvent[] | null, homeId: string, period: PeriodKey, types: ShotEvent["type"][]): [number, number] | null {
   if (!shots) return null;
-  const inPeriod = shots.filter((s) => types.includes(s.type) && (period === "total" || s.period === Number(period)));
+  const inPeriod = shots.filter(
+    (s) => types.includes(s.type) && (period === "total" || (period === "OT" ? s.period >= 4 : s.period === Number(period))),
+  );
   return [inPeriod.filter((s) => s.teamId === homeId).length, inPeriod.filter((s) => s.teamId !== homeId).length];
 }
 
-function rowsFor(stats: MatchPeriodStats | null, box: HokejczMatch | null, shots: ShotEvent[] | null, game: Game, p: PeriodKey): Row[] {
-  const rows: Row[] = [];
+function rowsFor(stats: MatchPeriodStats | null, box: HokejczMatch | null, shots: ShotEvent[] | null, game: Game, p: PeriodKey): StatRowData[] {
+  const rows: StatRowData[] = [];
   const xg = xgBy(shots, game.home.id, p);
   if (xg) rows.push({ label: "Očekávané góly (xG)", home: xg[0], away: xg[1], decimals: 2 });
   const get = (s: MatchPeriodStats[keyof MatchPeriodStats] | undefined) => (s && !Array.isArray(s) ? (s as Record<string, [number, number]>)[p] : undefined);
@@ -71,7 +73,7 @@ function rowsFor(stats: MatchPeriodStats | null, box: HokejczMatch | null, shots
     if (pim) rows.push({ label: "Trestné minuty", home: pim[0], away: pim[1], lowerIsBetter: true });
     const shift = get(stats.avgShift);
     if (shift && shift[0] + shift[1] > 0) rows.push({ label: "Průměrná délka střídání (s)", home: shift[0], away: shift[1], decimals: 0 });
-  } else if (p === "total") {
+  } else {
     const fromShots = shotsBy(shots, game.home.id, p, ["goal", "shot-on-goal"]);
     if (fromShots) rows.push({ label: "Střely na branku", home: fromShots[0], away: fromShots[1] });
   }
@@ -97,7 +99,7 @@ function rowsFor(stats: MatchPeriodStats | null, box: HokejczMatch | null, shots
   return rows;
 }
 
-function StatRow({ r, i }: { r: Row; i: number }) {
+function StatRow({ r, i }: { r: StatRowData; i: number }) {
   const total = Math.abs(r.home) + Math.abs(r.away);
   const hp = total ? Math.abs(r.home) / total : 0.5;
   const ap = total ? Math.abs(r.away) / total : 0.5;
@@ -138,16 +140,26 @@ export function PeriodStats({
   stats,
   box,
   shots,
+  extraRows,
 }: {
   game: Game;
   stats: MatchPeriodStats | null;
   box: HokejczMatch | null;
   shots: ShotEvent[] | null;
+  /** Whole-game rows from another source (e.g. NHL team stats). */
+  extraRows?: StatRowData[];
 }) {
-  const periods: PeriodKey[] = stats?.periods ?? ["total"];
+  const shotPeriods: PeriodKey[] = shots?.length
+    ? (["1", "2", "3", "OT"] as PeriodKey[]).filter((k) => shots.some((x) => (k === "OT" ? x.period >= 4 && x.period < 5 : x.period === Number(k))))
+    : [];
+  const periods: PeriodKey[] = stats?.periods ?? ["total", ...shotPeriods];
   const ordered: PeriodKey[] = ["total", ...periods.filter((p) => p !== "total")];
   const [period, setPeriod] = useState<PeriodKey>("total");
-  const rows = useMemo(() => rowsFor(stats, box, shots, game, period), [stats, box, shots, game, period]);
+  const rows = useMemo(() => {
+    const base = rowsFor(stats, box, shots, game, period);
+    if (period !== "total" || !extraRows) return base;
+    return [...base, ...extraRows.filter((r) => !base.some((b) => b.label === r.label))];
+  }, [stats, box, shots, game, period, extraRows]);
 
   if (rows.length === 0) return <p className="py-8 text-center text-sm text-muted">Statistiky zatím nejsou k dispozici.</p>;
   return (

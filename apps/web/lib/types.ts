@@ -36,7 +36,15 @@ export interface GameDetailResponse {
   playerStats: { home: PlayerMatchStats[]; away: PlayerMatchStats[] } | null;
   faceoffZones: { home: number[]; away: number[] } | null;
   /** Pre-game model prediction (Elo → Poisson). */
-  prediction: (import("@hokejhub/core").MatchProbabilities & { homeElo: number; awayElo: number }) | null;
+  prediction: (import("@hokejhub/core").MatchProbabilities & { homeElo: number | null; awayElo: number | null }) | null;
+  /** Pre-game comparison of both extraliga teams (database). */
+  preview?: import("./server/preview").ElhPreview | null;
+  /** NHL gamecenter extras: player box score, team stats, officials, stars, penalties, matchup. */
+  nhl?: {
+    box: import("@hokejhub/core").NhlBoxscore | null;
+    rail: import("@hokejhub/core").NhlRightRail | null;
+    extras: import("@hokejhub/core").NhlLandingExtras;
+  } | null;
   /** Text commentary, newest first. */
   commentary: import("@hokejhub/core").Comment[] | null;
   /** Anchor for the running game clock (live games). */

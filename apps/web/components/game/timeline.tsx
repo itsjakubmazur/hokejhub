@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
-import type { Game, GoalSummary, HokejczMatch } from "@hokejhub/core";
+import type { Game, GoalSummary, HokejczMatch, NhlPenalty } from "@hokejhub/core";
 import { nice } from "@/lib/names";
 import { PlayerPhoto } from "../player-photo";
 
@@ -69,8 +69,19 @@ function fromHokejcz(box: HokejczMatch): TimelineEvent[] {
   return out.sort((x, y) => x.t - y.t || (x.kind === "goal" ? -1 : 1));
 }
 
-function fromNhl(goals: GoalSummary[], game: Game): TimelineEvent[] {
-  return goals.map((g) => {
+function fromNhl(goals: GoalSummary[], game: Game, penalties: NhlPenalty[]): TimelineEvent[] {
+  const periodName = (n: number) => (n <= 3 ? `${n}. třetina` : n === 4 ? "Prodloužení" : "Nájezdy");
+  const pens: TimelineEvent[] = penalties.map((p) => ({
+    side: p.team === game.home.abbrev ? "home" : "away",
+    kind: "penalty",
+    t: (p.period - 1) * 1200 + elapsed(p.time),
+    clock: p.time,
+    period: periodName(p.period),
+    title: p.player ?? "tým",
+    sub: p.reason,
+    minutes: p.minutes,
+  }));
+  const gl: TimelineEvent[] = goals.map((g) => {
     const periodLabel = g.periodType === "OT" ? "Prodloužení" : g.periodType === "SO" ? "Nájezdy" : `${g.period}. třetina`;
     return {
       side: g.teamAbbrev === game.home.abbrev ? "home" : "away",
@@ -84,6 +95,7 @@ function fromNhl(goals: GoalSummary[], game: Game): TimelineEvent[] {
       score: `${g.homeScore}:${g.awayScore}`,
     };
   });
+  return [...gl, ...pens].sort((x, y) => x.t - y.t || (x.kind === "goal" ? -1 : 1));
 }
 
 function PuckIcon() {
@@ -145,13 +157,15 @@ export function Timeline({
   box,
   goals,
   photos = null,
+  penalties = [],
 }: {
   game: Game;
   box: HokejczMatch | null;
   goals: GoalSummary[] | null;
   photos?: Record<string, string> | null;
+  penalties?: NhlPenalty[];
 }) {
-  const events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game) : [];
+  const events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game, penalties) : [];
   if (events.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">Zatím žádné události.</p>;
   }

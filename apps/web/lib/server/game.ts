@@ -28,12 +28,21 @@ import {
   type BetDistribution,
   type Game,
   type Odds1x2,
+  DEFAULT_ELO,
+  nhlGamecenterUrls,
+  parseNhlBoxscore,
+  parseNhlLandingExtras,
+  parseNhlRightRail,
+  parseScoreboardAlt,
+  poisson1x2,
+  type NhlRightRail,
 } from "@hokejhub/core";
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
 import { predictMatch } from "./model";
 import { fetchJson, type SourceState } from "./fetcher";
 import { getHeadToHead, getPhotos, getPlayerNotes, getTeamStreaks, sql } from "./queries";
+import { getElhPreview } from "./preview";
 import { getScoreboard, revalidateFor } from "./scoreboard";
 
 /**
@@ -129,8 +138,8 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
 
   if (id.startsWith("nhl-")) {
     const nhlId = Number(id.slice(4));
-    const [landing, pbp] = await Promise.all([
-      fetchJson(nhlUrls.landing(nhlId), (j) => ({ game: parseNhlLanding(j), goals: parseNhlGoals(j) }), {
+    const [landing, pbp, boxscore, rail] = await Promise.all([
+      fetchJson(nhlUrls.landing(nhlId), (j) => ({ game: parseNhlLanding(j), goals: parseNhlGoals(j), extras: parseNhlLandingExtras(j) }), {
         revalidate: 15,
       }),
       fetchJson(
@@ -138,6 +147,8 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
         (j) => ({ shots: parseNhlShots(j), players: Object.fromEntries(parseNhlRoster(j)) }),
         { revalidate: 15 },
       ),
+      fetchJson(nhlUrls.boxscore(nhlId), parseNhlBoxscore, { revalidate: 15, notFoundIsEmpty: true }),
+      fetchJson(nhlGamecenterUrls.rightRail(nhlId), parseNhlRightRail, { revalidate: 60, notFoundIsEmpty: true }),
     ]);
     sources.nhl = landing.state;
     if (!landing.data) return null;
@@ -156,7 +167,13 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       h2h: null,
       photos: null,
       insights: null,
-      prediction: null,
+      prediction: nhlPrediction(rail.data),
+      preview: null,
+      nhl: {
+        box: boxscore.data && (boxscore.data.skaters.home.length || boxscore.data.goalies.home.length) ? boxscore.data : null,
+        rail: rail.data,
+        extras: landing.data.extras,
+      },
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
       periodStats: null,
@@ -177,7 +194,8 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
     const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
-    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box, game)]);
+    const clubs = box ? null : await clubIdsFor(game, date).catch(() => null);
+    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box, game, clubs)]);
     return {
       game,
       liveOdds,
@@ -262,19 +280,24 @@ async function gameFromHokejcz(hczId: number, sources: Record<string, SourceStat
 }
 
 /** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
-async function dbLinks(box: HokejczMatch | null, game?: Game) {
-  if (!box || !dbAvailable()) return { teamIds: null, h2h: null, photos: null, insights: null, prediction: null };
-  const ids = [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]
-    .map((p) => p.player.id)
-    .filter((x): x is number => Boolean(x))
-    .map((x) => `hcz-${x}`);
-  const photos = await getPhotos(ids).catch(() => null);
-  if (!box.home.clubId || !box.away.clubId) return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
-  const home = `hcz-${box.home.clubId}`;
-  const away = `hcz-${box.away.clubId}`;
+async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: number; away: number } | null) {
+  const none = { teamIds: null, h2h: null, photos: null, insights: null, prediction: null, preview: null };
+  if ((!box && !clubs) || !dbAvailable()) return none;
+  const ids = box
+    ? [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]
+        .map((p) => p.player.id)
+        .filter((x): x is number => Boolean(x))
+        .map((x) => `hcz-${x}`)
+    : [];
+  const photos = ids.length ? await getPhotos(ids).catch(() => null) : null;
+  const homeClub = box?.home.clubId ?? clubs?.home;
+  const awayClub = box?.away.clubId ?? clubs?.away;
+  if (!homeClub || !awayClub) return { ...none, photos };
+  const home = `hcz-${homeClub}`;
+  const away = `hcz-${awayClub}`;
   try {
     const [exists] = await sql<{ n: number }>("select count(*)::int as n from team where id in ($1, $2)", [home, away]);
-    if (!exists || exists.n < 2) return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
+    if (!exists || exists.n < 2) return { ...none, photos };
     const before = game?.startAt ?? new Date().toISOString();
     const dbGameId = game?.external.hokejczId ? `hcz-${game.external.hokejczId}` : null;
     const [h2h, homeStreak, awayStreak, players] = await Promise.all([
@@ -284,8 +307,12 @@ async function dbLinks(box: HokejczMatch | null, game?: Game) {
       getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null),
     ]);
     const extra = await getPhotos(players.notes.map((n) => n.player_id)).catch(() => ({}));
-    const prediction = await predictMatch("cz-elh", home, away, dbGameId ?? undefined).catch(() => null);
+    const [prediction, preview] = await Promise.all([
+      predictMatch("cz-elh", home, away, dbGameId ?? undefined).catch(() => null),
+      game && game.status !== "final" ? getElhPreview(home, away, game.startAt).catch((e) => (console.error("[db] preview", e), null)) : null,
+    ]);
     return {
+      preview,
       teamIds: { home, away },
       h2h,
       photos: { ...extra, ...(photos ?? {}) },
@@ -294,8 +321,30 @@ async function dbLinks(box: HokejczMatch | null, game?: Game) {
     };
   } catch (e) {
     console.error("[db] links", e);
-    return { teamIds: null, h2h: null, photos, insights: null, prediction: null };
+    return { ...none, photos };
   }
+}
+
+/** hokej.cz club ids for a Czech-feed game: the main feed lacks them, the ELH variant has them. */
+async function clubIdsFor(game: Game, date: string) {
+  if (game.home.hokejczClubId && game.away.hokejczClubId) return { home: game.home.hokejczClubId, away: game.away.hokejczClubId };
+  if (game.leagueKey !== "cz-elh") return null;
+  const alt = await fetchJson(esportsUrls.scoreboardAlt(date), parseScoreboardAlt, { revalidate: 3600, notFoundIsEmpty: true });
+  const g = alt.data?.find((x) => x.id === game.id);
+  return g?.home.hokejczClubId && g.away.hokejczClubId ? { home: g.home.hokejczClubId, away: g.away.hokejczClubId } : null;
+}
+
+/**
+ * NHL pre-game model: expected goals from both teams' season scoring and conceding rates
+ * (with a small home edge), then the same Poisson 1X2 as the extraliga model.
+ */
+function nhlPrediction(rail: NhlRightRail | null) {
+  const t = rail?.teamSeason;
+  if (!t?.home.gfPerGame || !t.home.gaPerGame || !t.away.gfPerGame || !t.away.gaPerGame) return null;
+  const expHome = ((t.home.gfPerGame + t.away.gaPerGame) / 2) * 1.04;
+  const expAway = ((t.away.gfPerGame + t.home.gaPerGame) / 2) * 0.96;
+  const r = poisson1x2(expHome, expAway, DEFAULT_ELO.drawInflation);
+  return { ...r, homeWin: r.home + r.draw * (expHome / (expHome + expAway)), expHome, expAway, homeElo: null, awayElo: null };
 }
 
 export { revalidateFor };

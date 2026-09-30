@@ -16,6 +16,9 @@ import { PredictionCard } from "./game/prediction";
 import { Recap } from "./game/recap";
 import { PeriodSiren } from "./game/period-siren";
 import { Faceoffs } from "./game/faceoffs";
+import { NhlInfoRows, NhlMatchup, NhlPlayers, SeasonSeries, ThreeStars } from "./game/nhl";
+import { ElhPreviewPanel } from "./game/preview";
+import { ScoreGrid } from "./game/score-grid";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
@@ -56,10 +59,10 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
   const tabs: { id: Tab; label: string; show: boolean }[] = [
     { id: "prehled", label: "Přehled", show: true },
     { id: "prenos", label: "Přenos", show: Boolean(data.commentary?.length) },
-    { id: "statistiky", label: "Statistiky", show: Boolean(data.periodStats || data.box || data.shots?.length) },
+    { id: "statistiky", label: "Statistiky", show: Boolean(data.periodStats || data.box || data.shots?.length || data.nhl?.rail?.teamStats.length) },
     { id: "sestavy", label: "Sestavy", show: Boolean(data.lineups) },
     { id: "strely", label: "Střely & xG", show: Boolean(data.shots?.length) },
-    { id: "hraci", label: "Hráči", show: Boolean(data.playerStats || data.box?.skaters.home.length) },
+    { id: "hraci", label: "Hráči", show: Boolean(data.playerStats || data.box?.skaters.home.length || data.nhl?.box) },
     { id: "h2h", label: "H2H", show: Boolean(data.teamIds && data.h2h) },
     { id: "kurzy", label: "Kurzy", show: Boolean(game.preOdds || data.liveOdds || data.bets) },
   ];
@@ -116,7 +119,20 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           ) : null}
           {tab === "statistiky" ? (
             <Card title="Statistiky zápasu">
-              <PeriodStats game={game} stats={data.periodStats} box={data.box} shots={data.shots} />
+              <PeriodStats
+                game={game}
+                stats={data.periodStats}
+                box={data.box}
+                shots={data.shots}
+                extraRows={data.nhl?.rail?.teamStats.map((r) => ({
+                  label: r.label,
+                  home: r.home,
+                  away: r.away,
+                  homeText: r.homeText,
+                  awayText: r.awayText,
+                  lowerIsBetter: r.key === "pim" || r.key === "giveaways",
+                }))}
+              />
             </Card>
           ) : null}
           {tab === "statistiky" && (data.faceoffZones || data.playerStats) ? (
@@ -127,7 +143,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} box={data.box} photos={data.photos} /> : null}
           {tab === "strely" && data.shots ? <ShotsTab data={data} /> : null}
           {tab === "hraci" ? (
-            data.playerStats ? (
+            data.nhl?.box ? (
+              <Card title="Statistiky hráčů">
+                <NhlPlayers game={game} box={data.nhl.box} />
+              </Card>
+            ) : data.playerStats ? (
               <Card title="Statistiky hráčů">
                 <PlayersTable game={game} stats={data.playerStats} box={data.box} photos={data.photos} />
               </Card>
@@ -163,6 +183,21 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4">
+        {data.nhl?.extras.threeStars.length ? (
+          <Card title="Tři hvězdy zápasu">
+            <ThreeStars stars={data.nhl.extras.threeStars} />
+          </Card>
+        ) : null}
+        {game.status === "scheduled" && data.preview ? (
+          <Card title="Před zápasem">
+            <ElhPreviewPanel game={game} preview={data.preview} />
+          </Card>
+        ) : null}
+        {game.status === "scheduled" && data.nhl?.extras.matchup ? (
+          <Card title="Před zápasem">
+            <NhlMatchup game={game} extras={data.nhl.extras} rail={data.nhl.rail} />
+          </Card>
+        ) : null}
         {data.box && game.status === "final" ? (
           <Card title="Report">
             <Recap box={data.box} xg={xg} homeWinProb={data.prediction?.homeWin ?? null} />
@@ -186,7 +221,7 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
         ) : null}
         {game.status !== "scheduled" ? (
           <Card title="Průběh zápasu">
-            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} />
+            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} penalties={data.nhl?.extras.penalties} />
           </Card>
         ) : null}
       </div>
@@ -208,6 +243,16 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
             <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
           </Card>
         ) : null}
+        {data.prediction && game.status === "scheduled" ? (
+          <Card title="Nejpravděpodobnější výsledky">
+            <ScoreGrid expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.abbrev} awayLabel={game.away.abbrev} />
+          </Card>
+        ) : null}
+        {data.nhl?.rail?.seasonSeries.length ? (
+          <Card title="Vzájemné zápasy v sezóně">
+            <SeasonSeries rail={data.nhl.rail} game={game} />
+          </Card>
+        ) : null}
         {game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} /> : null}
         <Card title="Informace">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
@@ -224,6 +269,7 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
               </>
             ) : null}
             {data.box ? <HokejczInfo box={data.box} /> : null}
+            {data.nhl ? <NhlInfoRows rail={data.nhl.rail} extras={data.nhl.extras} game={game} /> : null}
           </dl>
         </Card>
       </div>

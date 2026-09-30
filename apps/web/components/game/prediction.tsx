@@ -19,9 +19,7 @@ export function PredictionCard({ game, prediction, odds }: { game: Game; predict
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between text-xs text-muted tabular">
-        <span>
-          Elo {prediction.homeElo} vs {prediction.awayElo}
-        </span>
+        <span>{prediction.homeElo != null ? `Elo ${prediction.homeElo} vs ${prediction.awayElo}` : "podle gólů v sezóně"}</span>
         <span>
           očekávané skóre{" "}
           <span className="font-semibold text-fg">
@@ -65,7 +63,9 @@ export function PredictionCard({ game, prediction, odds }: { game: Game; predict
         );
       })}
       <p className="text-[11px] text-muted">
-        Náš model: Elo z celé historie extraligy → očekávané góly → Poissonovo rozdělení. Svislá čárka = pravděpodobnost z kurzu
+        {game.leagueKey === "nhl"
+          ? "Náš model: průměr vstřelených a obdržených gólů obou týmů v sezóně → očekávané góly → Poissonovo rozdělení."
+          : "Náš model: Elo z celé historie extraligy → očekávané góly → Poissonovo rozdělení."} Svislá čárka = pravděpodobnost z kurzu
         Tipsportu bez marže. Výhra včetně prodloužení: {game.home.shortName} {pct(prediction.homeWin)}.
       </p>
     </div>
