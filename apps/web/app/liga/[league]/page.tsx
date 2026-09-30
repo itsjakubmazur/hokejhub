@@ -29,7 +29,9 @@ import {
   getTeamLogos,
   toResultGames,
 } from "@/lib/server/queries";
-import { CS, csCount } from "@hokejhub/core";
+import { buildPlayoffBracket, computeStandings, CS, csCount, ELH_WINS_NEEDED, rulesForSeason } from "@hokejhub/core";
+import { PlayoffBracket } from "@/components/league/bracket";
+import { Network } from "lucide-react";
 
 export const revalidate = 300;
 
@@ -68,9 +70,11 @@ export default async function LeaguePage(props: PageProps<"/liga/[league]">) {
           <SeasonSelect seasons={seasons} value={season} />
         </div>
       </div>
-      <UrlTabs tabs={TABS} active={tab} layoutId="league-tab" />
+      <UrlTabs tabs={phase === "playoff" ? TABS.map((t) => (t.id === "tabulka" ? { ...t, label: "Pavouk" } : t)) : TABS} active={tab} layoutId="league-tab" />
       <Suspense key={`${tab}-${season}-${phase}`} fallback={<CardSkeleton rows={14} />}>
-        {tab === "tabulka" ? <TableTab league={league} season={season} phase={phase} /> : null}
+        {tab === "tabulka" ? (
+          phase === "playoff" ? <PlayoffTab league={league} season={season} /> : <TableTab league={league} season={season} phase={phase} />
+        ) : null}
         {tab === "bodovani" ? <SkatersTab league={league} season={season} phase={phase} sort="pts" /> : null}
         {tab === "strelci" ? <SkatersTab league={league} season={season} phase={phase} sort="g" /> : null}
         {tab === "xg" ? <SkatersTab league={league} season={season} phase={phase} sort="xg" /> : null}
@@ -95,6 +99,27 @@ function PhaseSwitch({ phase, league, season, tab }: { phase: string; league: st
         </Link>
       ))}
     </div>
+  );
+}
+
+async function PlayoffTab({ league, season }: { league: string; season: number }) {
+  const [rows, regular, logos, seasons] = await Promise.all([
+    getSeasonGames(league, season, "playoff"),
+    getSeasonGames(league, season, "regular"),
+    getTeamLogos(league),
+    getLeagueSeasons(league),
+  ]);
+  const games = rows
+    .filter((g) => g.status === "final" && g.home_score !== null && g.away_score !== null)
+    .map((g) => ({ ...toResultGames([g])[0]!, round: g.round }));
+  if (games.length === 0) return <Empty>Play-off této sezóny zatím nezačalo nebo pro něj nemáme data.</Empty>;
+  const seeds = new Map(computeStandings(toResultGames(regular), { rules: rulesForSeason(season) }).map((r, i) => [r.teamId, i + 1]));
+  const inProgress = seasons[0]?.season === season && league === "cz-elh";
+  const stages = buildPlayoffBracket(games, seeds, inProgress ? ELH_WINS_NEEDED : {});
+  return (
+    <Card title={`Play-off ${seasonLabel(season)}`} icon={Network}>
+      <PlayoffBracket stages={stages} logos={logos} />
+    </Card>
   );
 }
 

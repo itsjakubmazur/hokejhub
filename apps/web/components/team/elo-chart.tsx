@@ -60,7 +60,7 @@ export function EloChart({ points, leagueBest }: { points: [string, number][]; l
           const yy = pad.t + (1 - (v - min) / (max - min)) * (H - pad.t - pad.b);
           return (
             <g key={v}>
-              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke="var(--line)" strokeDasharray={v === 1500 ? "" : "3 4"} />
+              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke="var(--border)" strokeDasharray={v === 1500 ? "" : "3 4"} />
               <text x={pad.l - 6} y={yy + 4} textAnchor="end" fontSize="11" fill="var(--muted)">
                 {v}
               </text>

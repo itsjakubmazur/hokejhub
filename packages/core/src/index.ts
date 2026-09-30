@@ -13,6 +13,7 @@ export * from "./model/xg.ts";
 export * from "./sources/onlajny-match.ts";
 export * from "./model/shots.ts";
 export * from "./model/standings.ts";
+export * from "./model/bracket.ts";
 export * from "./sources/hokejcz-online.ts";
 export * from "./model/elo.ts";
 export * from "./notify/engine.ts";

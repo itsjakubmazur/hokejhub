@@ -108,6 +108,13 @@ h1,
 h1 {
   font-size: clamp(1.9rem, 4vw, 2.75rem);
 }
+/* Clipped display text (truncate / overflow) needs headroom for Czech accents on capitals. */
+.display.truncate,
+.truncate .display,
+.overflow-hidden > .display {
+  line-height: 1.15;
+  padding-top: 0.08em;
+}
 /* Section labels: arena lettering, small caps feel. */
 .label {
   font-family: var(--font-display);
@@ -115,7 +122,8 @@ h1 {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 0.95rem;
-  line-height: 1;
+  /* Room above caps for Czech diacritics (Č, Ř, Á) — at 1 they are clipped inside scroll containers. */
+  line-height: 1.2;
 }
 .led {
   font-family: var(--font-display);
@@ -305,4 +313,57 @@ body {
 }
 @keyframes nav-fade {
   to { opacity: 0; }
+}
+
+/* ---------- play-off bracket ---------- */
+/* Connectors: a stub out of each card, a vertical joint per pair, a stub into the next round. */
+.bracket-stub::after,
+.bracket-out::after,
+.bracket-in::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 1.25rem;
+  border-top: 2px solid var(--border);
+  transform-origin: left;
+  animation: bracket-draw 0.35s 0.25s ease-out both;
+}
+.bracket-stub::after,
+.bracket-out::after {
+  left: 100%;
+}
+.bracket-out::after {
+  width: 2.5rem;
+}
+.bracket-in::before {
+  right: 100%;
+}
+.bracket-pair::after {
+  content: "";
+  position: absolute;
+  left: calc(100% + 1.25rem);
+  top: 25%;
+  bottom: 25%;
+  border-left: 2px solid var(--border);
+  transform-origin: top;
+  animation: bracket-drop 0.3s 0.5s ease-out both;
+}
+@keyframes bracket-draw {
+  from { transform: scaleX(0); }
+}
+@keyframes bracket-drop {
+  from { transform: scaleY(0); }
+}
+.champion::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(from 0deg, transparent 0 70%, color-mix(in oklab, var(--gold) 35%, transparent) 80%, transparent 90%);
+  animation: champion-spin 4s linear infinite;
+}
+.champion > * {
+  position: relative;
+}
+@keyframes champion-spin {
+  to { transform: rotate(1turn); }
 }

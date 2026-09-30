@@ -10,7 +10,7 @@ export function PuckLoader({ label = "Načítám…" }: { label?: string }) {
         <svg viewBox="0 0 24 24" className="absolute bottom-0 right-0 size-8" aria-hidden>
           <path d="M20 2 L10 18 Q9 21 5 21 H2" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
         </svg>
-        <span className="puck-pass absolute bottom-1 left-6 h-2 w-4 rounded-[50%] bg-fg shadow-[0_2px_0_var(--line)]" />
+        <span className="puck-pass absolute bottom-1 left-6 h-2 w-4 rounded-[50%] bg-fg shadow-[0_2px_0_var(--border)]" />
       </div>
       <span className="text-xs">{label}</span>
     </div>
