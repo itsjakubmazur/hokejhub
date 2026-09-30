@@ -48,7 +48,10 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
             </div>
             <ul className="space-y-0.5 text-xs text-muted">
               {streakText(s).map((t) => (
-                <li key={t}>🔥 {t}</li>
+                <li key={t} className="flex items-center gap-1.5">
+                  <span className="size-1.5 shrink-0 bg-live" aria-hidden />
+                  {t}
+                </li>
               ))}
               {streakText(s).length === 0 ? <li>Bez výrazné série.</li> : null}
             </ul>
