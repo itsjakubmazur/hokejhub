@@ -165,3 +165,106 @@ export function parseHokejczHistory(html: string): HistorySeason[] {
   }
   return seasons;
 }
+
+// ---------- national team (world championships, incl. Olympic tournaments) ----------
+
+export const HOKEJCZ_NATIONAL_PAGES: { id: number; label: string }[] = [
+  { id: 5018331, label: "1909–1920" },
+  { id: 5018332, label: "1921–1930" },
+  { id: 5018333, label: "1931–1940" },
+  { id: 5018334, label: "1941–1950" },
+  { id: 5018335, label: "1951–1960" },
+  { id: 5018336, label: "1961–1970" },
+  { id: 5018337, label: "1971–1980" },
+  { id: 5018338, label: "1981–1990" },
+  { id: 5018340, label: "1991–1999" },
+];
+
+export interface NationalTournament {
+  /** Running number of the world championship. */
+  number: number | null;
+  year: number;
+  dates: string;
+  place: string;
+  /** Played as part of the Winter Olympics. */
+  olympic: boolean;
+  /** Final ranking as written ("SSSR", "ČSSR", …). */
+  ranking: string[];
+  /** Our final place (Czechoslovakia / Czech Republic), when listed. */
+  ourPlace: number | null;
+  results: string | null;
+  roster: string | null;
+  notes: string[];
+}
+
+/** Rankings hokej.cz describes only in prose. */
+const KNOWN_RANKINGS: Record<number, string[]> = {
+  1978: ["SSSR", "ČSSR", "Kanada", "Švédsko", "NSR", "USA", "Finsko", "NDR"],
+};
+
+const US = /^(ČSR|ČSSR|ČSFR|Česko|ČR|Česká republika|Československo|Čechy)$/;
+
+export function parseHokejczNational(html: string): NationalTournament[] {
+  const lines = toLines(html);
+  const out: NationalTournament[] = [];
+  let cur: NationalTournament | null = null;
+  // A ranking written after a finished block (roster already seen) belongs to the next heading,
+  // unless that tournament has its own ranking line (e.g. the 1976 Olympic table before MS 1976).
+  let pending: string[] | null = null;
+  const fallback = new Map<NationalTournament, string[]>();
+  for (const line of lines) {
+    const h = /^(?:(\d+)\.\s*)?MS\s+(\d{4})\s*\((.+)\)\s*$/.exec(line);
+    if (h) {
+      const inner = h[3]!;
+      const i = inner.indexOf(",");
+      cur = {
+        number: h[1] ? Number(h[1]) : null,
+        year: Number(h[2]),
+        dates: (i > 0 ? inner.slice(0, i) : inner).trim(),
+        place: (i > 0 ? inner.slice(i + 1) : "").trim(),
+        olympic: false,
+        ranking: [],
+        ourPlace: null,
+        results: null,
+        roster: null,
+        notes: [],
+      };
+      out.push(cur);
+      if (pending) fallback.set(cur, pending);
+      pending = null;
+      continue;
+    }
+    if (!cur) continue;
+    if (/^MS v hokeji \d{4}$/.test(line)) break;
+    if (/ZOH/.test(line) && /^Hráno v rámci/.test(line)) cur.olympic = true;
+    const r = /(?:^|\.\s)Pořadí:\s*(.+)$/.exec(line);
+    if (r) {
+      const ranking = r[1]!
+        .split(/,\s*/)
+        .map((x) => x.replace(/^\d+\.\s*/, "").replace(/\.$/, "").trim())
+        .filter(Boolean);
+      if (cur.roster) pending = ranking;
+      else if (cur.ranking.length === 0) cur.ranking = ranking;
+      continue;
+    }
+    const res = /^Výsledky našeho mužstva:\s*(.+)$/.exec(line);
+    if (res) {
+      cur.results = res[1]!.trim();
+      continue;
+    }
+    const ro = /^Reprezentovali:\s*(.+)$/.exec(line);
+    if (ro) {
+      cur.roster = ro[1]!.trim();
+      continue;
+    }
+    if (line.length < 400) cur.notes.push(line);
+  }
+  for (const t of out) {
+    if (t.ranking.length === 0) t.ranking = fallback.get(t) ?? KNOWN_RANKINGS[t.year] ?? [];
+    const idx = t.ranking.findIndex((x) => US.test(x));
+    t.ourPlace = idx >= 0 ? idx + 1 : null;
+    // hokej.cz lists the 1992 championship as "6." (typo for 56.).
+    if (t.year === 1992 && t.number === 6) t.number = 56;
+  }
+  return out;
+}

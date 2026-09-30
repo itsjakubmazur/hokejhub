@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HistoryTabs } from "@/components/history-tabs";
 import { Card, Empty } from "@/components/ui/card";
 import { franchiseOf, getCzechoslovakHistory } from "@/lib/server/history";
 
@@ -35,6 +36,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
           .
         </p>
       </header>
+      <HistoryTabs active="liga" />
 
       {selected ? <SeasonDetail season={selected} /> : null}
 

@@ -1,4 +1,4 @@
-import { HOKEJCZ_HISTORY_PAGES, parseHokejczHistory, type HistorySeason } from "@hokejhub/core";
+import { HOKEJCZ_HISTORY_PAGES, HOKEJCZ_NATIONAL_PAGES, parseHokejczHistory, parseHokejczNational, type HistorySeason, type NationalTournament } from "@hokejhub/core";
 import { fetchJson } from "./fetcher";
 
 const ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
@@ -39,4 +39,19 @@ const FAMILIES: [RegExp, string][] = [
 export function franchiseOf(name: string) {
   for (const [re, label] of FAMILIES) if (re.test(name)) return label;
   return name;
+}
+
+/** World championships (incl. Olympic tournaments) 1920–1999 from hokej.cz, cached a week. */
+export async function getNationalHistory(): Promise<NationalTournament[]> {
+  const results = await Promise.all(
+    HOKEJCZ_NATIONAL_PAGES.map((p) =>
+      fetchJson(new URL(`historie/stranka/${p.id}`, ORIGIN).toString(), (html) => parseHokejczNational(html as string), {
+        revalidate: 7 * 86400,
+        text: true,
+      }),
+    ),
+  );
+  const byYear = new Map<number, NationalTournament>();
+  for (const r of results) for (const t of r.data ?? []) byYear.set(t.year, t);
+  return [...byYear.values()].sort((a, b) => a.year - b.year);
 }

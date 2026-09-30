@@ -17,3 +17,18 @@ describe("parseHokejczHistory", () => {
     expect(s.topScorer).toMatchObject({ name: "Václav Nedomanský", team: "Bratislava", goals: 40 });
   });
 });
+
+describe("parseHokejczNational", () => {
+  it("parses world championships", async () => {
+    const { parseHokejczNational } = await import("../src/sources/hokejcz-history.ts");
+    const ts = parseHokejczNational(readFileSync(new URL("./fixtures/hokejcz-national-1971.html", import.meta.url), "utf8"));
+    const y1972 = ts.find((t) => t.year === 1972)!;
+    expect(y1972).toMatchObject({ number: 39, place: "Praha, ČSSR", ourPlace: 1 });
+    expect(y1972.ranking.slice(0, 3)).toEqual(["ČSSR", "SSSR", "Švédsko"]);
+    expect(y1972.roster).toContain("Holeček");
+    // 1976: the stray "Pořadí" above the heading belongs to 1975, not 1976.
+    expect(ts.find((t) => t.year === 1976)!.ourPlace).toBe(1);
+    // 1975: the ranking is written above the heading.
+    expect(ts.find((t) => t.year === 1975)!.ranking.slice(0, 3)).toEqual(["SSSR", "ČSSR", "Švédsko"]);
+  });
+});
