@@ -340,7 +340,7 @@ async function clubIdsFor(game: Game, date: string) {
  * NHL pre-game model: expected goals from both teams' season scoring and conceding rates
  * (with a small home edge), then the same Poisson 1X2 as the extraliga model.
  */
-function nhlPrediction(rail: NhlRightRail | null) {
+export function nhlPrediction(rail: NhlRightRail | null) {
   const t = rail?.teamSeason;
   if (!t?.home.gfPerGame || !t.home.gaPerGame || !t.away.gfPerGame || !t.away.gaPerGame) return null;
   const expHome = ((t.home.gfPerGame + t.away.gaPerGame) / 2) * 1.04;

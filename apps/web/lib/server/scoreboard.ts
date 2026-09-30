@@ -78,7 +78,7 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
         const a = clubOf.get(g.away.id);
         if (!h || !a) continue;
         const p = predict(state.ratings.get(`hcz-${h}`) ?? 1500, state.ratings.get(`hcz-${a}`) ?? 1500);
-        predictions[g.id] = { home: p.home, draw: p.draw, away: p.away };
+        predictions[g.id] = { home: p.home, draw: p.draw, away: p.away, expHome: p.expHome, expAway: p.expAway };
       }
     } catch {
       /* predictions are optional */

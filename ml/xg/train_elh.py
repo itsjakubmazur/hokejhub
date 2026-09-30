@@ -30,25 +30,30 @@ def get(url, headers=None):
 
 
 def download(first, last):
+    """Exports come from our API; raw shot files straight from hokej.cz's public S3 bucket."""
+    from concurrent.futures import ThreadPoolExecutor
+
     SHOTS.mkdir(parents=True, exist_ok=True)
     secret = os.environ["CRON_SECRET"]
+
+    def fetch(gid):
+        f = SHOTS / f"{gid}.json"
+        if f.exists():
+            return True
+        try:
+            f.write_text(json.dumps(get(S3.format(gid))))
+            return True
+        except Exception:  # 404 (no shot data), resets, timeouts
+            return False
+
     for season in range(first, last + 1):
         exp = DATA / f"export-{season}.json"
-        data = get(f"{API}?season={season}", {"Authorization": f"Bearer {secret}"})
-        exp.write_text(json.dumps(data))
-        have = miss = 0
-        for g in data["games"]:
-            f = SHOTS / f"{g['id']}.json"
-            if f.exists():
-                have += 1
-                continue
-            try:
-                f.write_text(json.dumps(get(S3.format(g["id"]))))
-                have += 1
-            except urllib.error.HTTPError:
-                miss += 1
-            time.sleep(0.05)
-        print(f"{season}: {len(data['games'])} games, shots for {have}, missing {miss}", flush=True)
+        if not exp.exists():
+            exp.write_text(json.dumps(get(f"{API}?season={season}", {"Authorization": f"Bearer {secret}"})))
+        games = json.loads(exp.read_text())["games"]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            ok = sum(pool.map(fetch, [g["id"] for g in games]))
+        print(f"{season}: {len(games)} games, shots for {ok}", flush=True)
 
 
 def features(xp, yp, rebound, pp, sh):
