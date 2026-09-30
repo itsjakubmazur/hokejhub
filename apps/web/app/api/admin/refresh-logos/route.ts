@@ -2,23 +2,40 @@ import { sql } from "@/lib/server/db";
 
 /**
  * POST /api/admin/refresh-logos — clubs change crests; hokej.cz's site navigation carries the
- * current one for every club of every league it covers. Reads that navigation and updates
- * `team.logo_url` for teams keyed by hokej.cz club id (hcz-<id>).
+ * current one for every club of every league it covers. Reads that navigation (from a few
+ * pages, since the rendered variant differs per request) and updates `team.logo_url` for
+ * teams keyed by hokej.cz club id (hcz-<id>).
  */
 export const dynamic = "force-dynamic";
 
 const ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
+const PAGES = ["historie", "tipsport-extraliga/table", "tipsport-extraliga/zapasy", "klub/hc-dynamo-pardubice/12"];
+const LINK = /<a href="\/klub\/[^/"]+\/(\d+)"[^>]*>\s*<img[^>]*?srcset="[^"]*?min\.php\?file=([^&"\s]+)/g;
+
+async function page(path: string) {
+  const res = await fetch(new URL(path, ORIGIN), {
+    headers: { "user-agent": "HokejHub/0.1 (personal, non-commercial)", accept: "text/html" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  return res?.ok ? res.text() : "";
+}
 
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) return Response.json({ error: "unauthorized" }, { status: 401 });
-  const res = await fetch(new URL("historie", ORIGIN), { headers: { "user-agent": "HokejHub/0.1 (personal, non-commercial)", accept: "text/html" } });
-  if (!res.ok) return Response.json({ error: `hokej.cz ${res.status}` }, { status: 502 });
-  const html = await res.text();
   const found = new Map<string, string>();
-  for (const m of html.matchAll(/<a href="\/klub\/[^/"]+\/(\d+)">\s*<img srcset="[^"]*?min\.php\?file=([^&"\s]+)/g)) {
-    const file = decodeURIComponent(m[2]!);
-    if (/^\/files\/logos\/[\w.-]+\.(png|jpe?g|svg)$/i.test(file)) found.set(`hcz-${m[1]}`, `https://www.hokej.cz${file}`);
+  const pages: Record<string, { bytes: number; clubs: number }> = {};
+  for (const path of PAGES) {
+    const html = await page(path);
+    let clubs = 0;
+    for (const m of html.matchAll(LINK)) {
+      const file = decodeURIComponent(m[2]!);
+      if (!/^\/files\/logos\/[\w.-]+\.(png|jpe?g|svg)$/i.test(file)) continue;
+      clubs++;
+      found.set(`hcz-${m[1]}`, `https://www.hokej.cz${file}`);
+    }
+    pages[path] = { bytes: html.length, clubs };
   }
   let updated = 0;
   const changed: { id: string; from: string | null; to: string }[] = [];
@@ -32,5 +49,5 @@ export async function POST(req: Request) {
       changed.push({ id, from: rows[0]!.logo_url, to: url });
     }
   }
-  return Response.json({ found: found.size, updated, changed, sample: [...found].slice(0, 20) });
+  return Response.json({ found: found.size, updated, changed, pages });
 }
