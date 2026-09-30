@@ -19,7 +19,6 @@ import {
   parseOnlajnyRoster,
   parseOnlajnySummary,
   penaltyWindows,
-  pragueDate,
   seasonOf,
   shotsWithXg,
   clockAnchor,
