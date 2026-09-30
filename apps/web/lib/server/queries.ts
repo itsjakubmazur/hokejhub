@@ -10,6 +10,7 @@ export interface TeamInfo {
   short_name: string;
   abbrev: string;
   logo_url: string | null;
+  league_id: string | null;
 }
 
 export interface GameRowDb {
@@ -47,7 +48,7 @@ const GAME_SELECT = `
 const GAME_FROM = `from game g join team th on th.id = g.home_team_id join team ta on ta.id = g.away_team_id`;
 
 export async function getTeam(id: string) {
-  const [t] = await sql<TeamInfo>("select id, name, short_name, abbrev, logo_url from team where id = $1", [id]);
+  const [t] = await sql<TeamInfo>("select id, name, short_name, abbrev, logo_url, league_id from team where id = $1", [id]);
   return t ?? null;
 }
 

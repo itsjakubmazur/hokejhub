@@ -24,6 +24,7 @@ import {
   getTeam,
   getTeamAttendance,
   getTeamFinalRanks,
+  getSeasonGames,
   getTeamGames,
   getTeamSeasons,
   getTeamSkaters,
@@ -96,7 +97,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
       </header>
       <UrlTabs tabs={TABS} active={tab} layoutId="team-tab" />
       <Suspense key={`${tab}-${season}`} fallback={<CardSkeleton rows={10} photos />}>
-        {tab === "prehled" ? <Overview teamId={id} games={games} season={season} /> : null}
+        {tab === "prehled" ? <Overview teamId={id} games={games} season={season} league={team.league_id} /> : null}
         {tab === "vysledky" ? (
           <Card title={`Zápasy ${seasonLabel(season)}`}>
             {games.length ? <TeamResults teamId={id} games={games} /> : <Empty>Žádné zápasy.</Empty>}
@@ -115,13 +116,16 @@ function record(teamId: string, games: GameRowDb[], season: number) {
   return row;
 }
 
-async function Overview({ teamId, games, season }: { teamId: string; games: GameRowDb[]; season: number }) {
+async function Overview({ teamId, games, season, league }: { teamId: string; games: GameRowDb[]; season: number; league: string | null }) {
   const regular = games.filter((g) => g.phase === "regular");
   const played = toResultGames(regular);
   if (played.length === 0) return <Empty>Tato sezóna zatím nemá odehrané zápasy.</Empty>;
   const rules = rulesForSeason(season);
-  const table = computeStandings(played, { rules });
-  const me = table.find((r) => r.teamId === teamId)!;
+  // The table needs every game of the league, not only this club's — otherwise the neighbours
+  // only hold the points they took from us.
+  const leagueGames = league ? toResultGames(await getSeasonGames(league, season, "regular")) : played;
+  const table = computeStandings(leagueGames, { rules });
+  const me = table.find((r) => r.teamId === teamId) ?? computeStandings(played, { rules }).find((r) => r.teamId === teamId)!;
   const home = computeStandings(played, { split: "home", rules }).find((r) => r.teamId === teamId);
   const away = computeStandings(played, { split: "away", rules }).find((r) => r.teamId === teamId);
   const last10 = computeStandings(played, { lastN: 10, rules }).find((r) => r.teamId === teamId);
