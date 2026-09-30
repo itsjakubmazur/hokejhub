@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { imgSrc } from "@/lib/img";
 
 /** Round player photo; hockey-player silhouette when hokej.cz has no photo. */
 export function PlayerPhoto({
@@ -17,7 +18,9 @@ export function PlayerPhoto({
   ring?: "home" | "away";
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  // Remember which URL failed, so a new photo for the same slot gets its own chance.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc !== null && failedSrc === src;
   const ringCls = ring === "home" ? "ring-2 ring-home" : ring === "away" ? "ring-2 ring-away" : "ring-1 ring-line";
   return (
     <span
@@ -26,12 +29,12 @@ export function PlayerPhoto({
     >
       {src && !failed ? (
         <img
-          src={src}
+          src={imgSrc(src)!}
           alt={alt}
           width={size}
           height={size}
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={() => setFailedSrc(src ?? null)}
           className="size-full object-cover object-top"
         />
       ) : (

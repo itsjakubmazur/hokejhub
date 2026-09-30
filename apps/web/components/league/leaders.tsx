@@ -8,6 +8,7 @@ import { ClubLogo } from "../club-logo";
 import { PlayerPhoto } from "../player-photo";
 import { Portrait } from "../portrait";
 import type { SkaterSeasonRow } from "@/lib/server/queries";
+import { imgSrc } from "@/lib/img";
 
 type Key = "pts" | "g" | "a" | "pm" | "sog" | "xg" | "gax" | "hits" | "blk" | "pim" | "toi_avg" | "fo";
 
@@ -54,7 +55,7 @@ function Spotlight({ rows, sort }: { rows: SkaterSeasonRow[]; sort: Key }) {
         >
           {r.team_logo ? (
             <img
-              src={r.team_logo}
+              src={imgSrc(r.team_logo)!}
               alt=""
               aria-hidden
               className="pointer-events-none absolute -right-4 -top-4 size-28 object-contain opacity-[0.09]"

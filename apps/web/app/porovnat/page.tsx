@@ -13,6 +13,7 @@ import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
 import { careerTotals } from "@/lib/server/hub";
 import { getPlayer, getPlayerSeasons } from "@/lib/server/queries";
+import { imgSrc } from "@/lib/img";
 
 export const metadata: Metadata = { title: "Porovnání hráčů" };
 
@@ -113,7 +114,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
               >
                 {s.player.current_team_logo ? (
                   <img
-                    src={s.player.current_team_logo}
+                    src={imgSrc(s.player.current_team_logo)!}
                     alt=""
                     aria-hidden
                     className="pointer-events-none absolute -right-8 -top-8 size-44 object-contain opacity-[0.08]"

@@ -7,7 +7,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { impliedProbs, pragueDate, type BetDistribution, type Game, type Odds1x2 } from "@hokejhub/core";
+import { CS, csCount, impliedProbs, pragueDate, type BetDistribution, type FormResult, type Game, type Odds1x2 } from "@hokejhub/core";
+import type { TeamCard } from "@/lib/server/team-card";
+import { imgSrc } from "@/lib/img";
 import type { GameDetailResponse } from "@/lib/types";
 import { formatDayLong, formatOdds, formatPct, formatTime } from "@/lib/format";
 import { GamblingNotice } from "./gambling-notice";
@@ -429,8 +431,9 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
       </div>
       <GoalCelebration trigger={flash.home + flash.away} side={lastSide} team={game[lastSide].shortName} />
       <PeriodSiren game={game} />
+      <BoardCrests game={game} />
       <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-2 px-3 pb-5 pt-6 sm:px-8">
-        <TeamBlock game={game} side="home" href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
+        <TeamBlock game={game} side="home" card={data.teamCards?.home ?? null} href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
         <div className="flex flex-col items-center">
           <div className="relative">
             {/* Faceoff: the puck drops on the centre dot, then the board lights up. */}
@@ -458,6 +461,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
             )}
           </div>
           {!started && game.status === "scheduled" ? <FaceoffCountdown startAt={game.startAt} /> : null}
+          <CenterFacts game={game} data={data} />
           <div className={`label mt-3 flex items-center gap-2 ${live ? "text-live" : "text-board-muted"}`}>
             {live ? <span className="live-dot size-2 rounded-full bg-live" /> : null}
             {game.statusLabel}
@@ -468,7 +472,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
             ) : null}
           </div>
         </div>
-        <TeamBlock game={game} side="away" href={data.teamIds ? `/tym/${data.teamIds.away}` : undefined} />
+        <TeamBlock game={game} side="away" card={data.teamCards?.away ?? null} href={data.teamIds ? `/tym/${data.teamIds.away}` : undefined} />
       </div>
       {started && (game.periods.length > 0 || sog) ? (
         <div className="overflow-x-auto border-t border-board-line">
@@ -505,6 +509,39 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
   );
 }
 
+/** xG, venue and crowd under the score — the centre of the board on wide screens. */
+function CenterFacts({ game, data }: { game: Game; data: GameDetailResponse }) {
+  const hasXg = data.shots?.some((x) => x.xg !== undefined);
+  const xg = hasXg
+    ? [
+        data.shots!.filter((x) => x.teamId === game.home.id).reduce((a, x) => a + (x.xg ?? 0), 0),
+        data.shots!.filter((x) => x.teamId !== game.home.id).reduce((a, x) => a + (x.xg ?? 0), 0),
+      ]
+    : null;
+  const venue = data.box?.venue ?? null;
+  const crowd = data.box?.attendance ?? null;
+  if (!xg && !venue && !crowd) return null;
+  return (
+    <motion.dl
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.8 }}
+      className="mt-4 hidden flex-col items-center gap-1 text-[11px] text-board-muted sm:flex"
+    >
+      {xg ? (
+        <div className="flex items-baseline gap-2">
+          <dt className="label text-[10px]">xG</dt>
+          <dd className="display text-lg text-board-text tabular">
+            {xg[0]!.toFixed(2)} <span className="text-board-muted">:</span> {xg[1]!.toFixed(2)}
+          </dd>
+        </div>
+      ) : null}
+      {venue ? <dd className="max-w-56 truncate">{venue}</dd> : null}
+      {crowd ? <dd className="tabular">{csCount(crowd, CS.divak)}</dd> : null}
+    </motion.dl>
+  );
+}
+
 /** LED countdown to the opening faceoff (shown within 48 hours of it). */
 function FaceoffCountdown({ startAt }: { startAt: string }) {
   const [now, setNow] = useState(() => Date.now());
@@ -526,7 +563,41 @@ function FaceoffCountdown({ startAt }: { startAt: string }) {
   );
 }
 
-function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; href?: string }) {
+/** Both clubs' crests blown up behind the scoreboard, one per side, with a wash of the side colour. */
+function BoardCrests({ game }: { game: Game }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-home/15 to-transparent" />
+      <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-away/15 to-transparent" />
+      {(["home", "away"] as const).map((side) =>
+        game[side].logoUrl ? (
+          <motion.img
+            key={side}
+            src={imgSrc(game[side].logoUrl)!}
+            alt=""
+            initial={{ opacity: 0, scale: 1.25, x: side === "home" ? -80 : 80 }}
+            animate={{ opacity: 0.1, scale: 1, x: 0 }}
+            transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+            className={`absolute top-1/2 size-[22rem] -translate-y-1/2 object-contain grayscale-[30%] sm:size-[30rem] ${
+              side === "home" ? "-left-24 -rotate-12 sm:-left-20" : "-right-24 rotate-12 sm:-right-20"
+            }`}
+          />
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+const FORM_CHIP: Record<FormResult, string> = {
+  W: "bg-win text-white",
+  OTW: "bg-win/60 text-white",
+  T: "bg-board-muted/50 text-board-text",
+  OTL: "bg-live/60 text-white",
+  L: "bg-live text-white",
+};
+const FORM_LETTER: Record<FormResult, string> = { W: "V", OTW: "VP", T: "R", OTL: "PP", L: "P" };
+
+function TeamBlock({ game, side, href, card }: { game: Game; side: "home" | "away"; href?: string; card: TeamCard | null }) {
   const team = game[side];
   const inner = (
     <motion.div
@@ -535,19 +606,59 @@ function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; hr
       animate={{ opacity: 1, x: 0, rotate: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.15 }}
     >
-      <div className="grid size-20 place-items-center bg-white p-2 sm:size-32 sm:p-3">
+      <div className="grid size-20 place-items-center bg-white p-2 shadow-[0_10px_40px_rgb(0_0_0/0.45)] sm:size-32 sm:p-3">
         <TeamLogo team={team} size={104} className="!size-full" />
       </div>
       <div className="display text-xl leading-none sm:text-3xl">{team.shortName}</div>
       <div className={`h-[3px] w-8 ${side === "home" ? "bg-home" : "bg-away"}`} aria-hidden />
     </motion.div>
   );
-  return href ? (
-    <Link href={href} className="transition-opacity hover:opacity-80">
-      {inner}
-    </Link>
-  ) : (
-    inner
+  return (
+    <div className="flex flex-col items-center">
+      {href ? (
+        <Link href={href} className="transition-opacity hover:opacity-80">
+          {inner}
+        </Link>
+      ) : (
+        inner
+      )}
+      {card ? <TeamCardInfo card={card} side={side} /> : null}
+    </div>
+  );
+}
+
+/** Table position, points, form and record under a team in the header. */
+function TeamCardInfo({ card, side }: { card: TeamCard; side: "home" | "away" }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.5, duration: 0.35 }}
+      className="mt-3 flex flex-col items-center gap-1.5 text-center"
+    >
+      <div className="flex items-baseline gap-1.5">
+        <span className="led text-2xl sm:text-3xl" style={{ color: "var(--led)" }}>
+          {card.rank}.
+        </span>
+        <span className="text-[11px] text-board-muted">
+          {card.scope} · {card.pts} b.
+        </span>
+      </div>
+      {card.form?.length ? (
+        <div className={`flex gap-0.5 ${side === "home" ? "" : ""}`} title="Forma, poslední zápas vlevo">
+          {card.form.map((f, i) => (
+            <span key={i} className={`grid h-5 min-w-5 place-items-center px-0.5 text-[9px] font-bold ${FORM_CHIP[f]}`}>
+              {FORM_LETTER[f]}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="hidden text-[11px] text-board-muted tabular sm:block">
+        {csCount(card.gp, CS.zapas)} · skóre {card.gf}:{card.ga}
+        {card.last10 ? ` · posl. 10: ${card.last10}` : ""}
+        {card.streak ? ` · série ${card.streak}` : ""}
+      </div>
+    </motion.div>
   );
 }
 

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import { imgSrc } from "@/lib/img";
 
 /**
  * Player card portrait (3:4) — the photo is the point, so it is shown large with the jersey
@@ -22,7 +23,9 @@ export function Portrait({
   number?: number | null;
   className?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  // Remember which URL failed, so a new photo for the same slot gets its own chance.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = failedSrc !== null && failedSrc === src;
   const height = Math.round((width * 4) / 3);
   return (
     <span
@@ -30,7 +33,7 @@ export function Portrait({
       style={{ width, height }}
     >
       {src && !failed ? (
-        <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className="size-full object-cover object-top" />
+        <img src={imgSrc(src)!} alt={alt} loading="lazy" onError={() => setFailedSrc(src ?? null)} className="size-full object-cover object-top" />
       ) : (
         <svg viewBox="0 0 30 40" className="size-full text-muted/40" aria-label={alt}>
           <circle cx="15" cy="14" r="6.5" fill="currentColor" />

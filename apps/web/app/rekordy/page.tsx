@@ -12,6 +12,7 @@ import { seasonLabel } from "@/lib/format";
 import { dbAvailable } from "@/lib/server/db";
 import { recordGames, recordPlayers } from "@/lib/server/hub";
 import { CS, csCount, csPlural, type CsForms } from "@hokejhub/core";
+import { imgSrc } from "@/lib/img";
 
 export const metadata: Metadata = { title: "Rekordy extraligy" };
 export const revalidate = 3600;
@@ -34,7 +35,7 @@ function Podium({ rows, unit }: { rows: PodiumRow[]; unit: CsForms }) {
     <div>
       <Link href={`/hrac/${top!.id}`} className="line-change group relative flex items-end gap-4 overflow-hidden bg-board p-3 text-board-text">
         {top!.logo ? (
-          <img src={top!.logo} alt="" aria-hidden className="pointer-events-none absolute -right-6 -top-6 size-40 object-contain opacity-[0.08]" />
+          <img src={imgSrc(top!.logo)!} alt="" aria-hidden className="pointer-events-none absolute -right-6 -top-6 size-40 object-contain opacity-[0.08]" />
         ) : null}
         <Portrait src={top!.photo} alt={top!.name} width={96} />
         <div className="relative min-w-0 flex-1 pb-1">

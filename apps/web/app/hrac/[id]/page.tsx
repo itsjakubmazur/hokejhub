@@ -15,6 +15,7 @@ import { CardSkeleton } from "@/components/ui/skeletons";
 import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
 import { getPlayer, getPlayerGameLog, getPlayerGoalieSeasons, getPlayerMilestones, getPlayerSeasons, getPlayerShots } from "@/lib/server/queries";
+import { imgSrc } from "@/lib/img";
 
 export const revalidate = 300;
 
@@ -86,7 +87,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
       <header className="rise relative overflow-hidden bg-board text-board-text">
         {player.current_team_logo ? (
           <img
-            src={player.current_team_logo}
+            src={imgSrc(player.current_team_logo)!}
             alt=""
             aria-hidden
             className="pointer-events-none absolute -right-10 top-1/2 size-72 -translate-y-1/2 object-contain opacity-[0.08] sm:size-96"
@@ -104,7 +105,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
                 >
                   {player.current_team_logo ? (
                     <span className="grid size-7 place-items-center bg-white p-0.5">
-                      <img src={player.current_team_logo} alt="" className="size-full object-contain" />
+                      <img src={imgSrc(player.current_team_logo)!} alt="" className="size-full object-contain" />
                     </span>
                   ) : null}
                   {player.current_team_name ?? currentTeam!.team_name}

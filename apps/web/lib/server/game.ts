@@ -1,3 +1,4 @@
+import { elhTeamCards, nhlTeamCards } from "./team-card";
 import {
   esportsUrls,
   nhlUrls,
@@ -170,8 +171,12 @@ export async function getGameDetail(id: string, date?: string, t?: Timings): Pro
     const board = await getScoreboard(nhlDate(game.startAt));
     const fromBoard = board.games.find((g) => g.id === id);
     if (fromBoard) game = { ...game, preOdds: fromBoard.preOdds, external: fromBoard.external };
-    const { liveOdds, bets } = await extras(game, sources);
+    const [{ liveOdds, bets }, teamCards] = await Promise.all([
+      extras(game, sources),
+      nhlTeamCards(nhlDate(game.startAt), game.home.abbrev, game.away.abbrev).catch(() => null),
+    ]);
     return {
+      teamCards,
       game,
       liveOdds,
       bets,
@@ -210,7 +215,9 @@ export async function getGameDetail(id: string, date?: string, t?: Timings): Pro
     const [{ liveOdds, bets }, box] = await Promise.all([timed(t, "extras", extras(game, sources)), timed(t, "hcz", hokejczBox(game, sources))]);
     const clubs = box ? null : await clubIdsFor(game, date).catch(() => null);
     const [details, links] = await Promise.all([timed(t, "details", czDetails(game, box, sources)), timed(t, "db", dbLinks(box, game, clubs, t))]);
+    const teamCards = links.teamIds ? await timed(t, "table", elhTeamCards(links.teamIds.home, links.teamIds.away, game.startAt)).catch(() => null) : null;
     return {
+      teamCards,
       game,
       liveOdds,
       bets,
@@ -232,7 +239,9 @@ export async function getGameDetail(id: string, date?: string, t?: Timings): Pro
     const box = game.box;
     const details = await czDetails(game.game, box, sources);
     const links = await dbLinks(box, game.game);
+    const teamCards = links.teamIds ? await elhTeamCards(links.teamIds.home, links.teamIds.away, game.game.startAt).catch(() => null) : null;
     return {
+      teamCards,
       game: game.game,
       liveOdds: null,
       bets: null,

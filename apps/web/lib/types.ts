@@ -39,6 +39,8 @@ export interface GameDetailResponse {
   prediction: (import("@hokejhub/core").MatchProbabilities & { homeElo: number | null; awayElo: number | null }) | null;
   /** Pre-game comparison of both extraliga teams (database). */
   preview?: import("./server/preview").ElhPreview | null;
+  /** Both teams' table position going into the game (header). */
+  teamCards?: { home: import("./server/team-card").TeamCard; away: import("./server/team-card").TeamCard } | null;
   /** NHL gamecenter extras: player box score, team stats, officials, stars, penalties, matchup. */
   nhl?: {
     box: import("@hokejhub/core").NhlBoxscore | null;

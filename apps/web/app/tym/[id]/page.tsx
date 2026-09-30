@@ -31,6 +31,7 @@ import {
   type GameRowDb,
 } from "@/lib/server/queries";
 import { CS, csCount } from "@hokejhub/core";
+import { imgSrc } from "@/lib/img";
 
 export const revalidate = 300;
 
@@ -65,7 +66,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
       <header className="rise relative overflow-hidden bg-board text-board-text">
         {team.logo_url ? (
           <img
-            src={team.logo_url}
+            src={imgSrc(team.logo_url)!}
             alt=""
             aria-hidden
             className="pointer-events-none absolute -right-12 top-1/2 size-80 -translate-y-1/2 object-contain opacity-[0.07] sm:size-[28rem]"
@@ -74,7 +75,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
         <div className="relative flex flex-wrap items-center gap-5 p-4 sm:p-6">
           <div className="grid size-24 shrink-0 place-items-center bg-white p-2.5 sm:size-36 sm:p-4">
             {team.logo_url ? (
-              <img src={team.logo_url} alt="" className="size-full object-contain" />
+              <img src={imgSrc(team.logo_url)!} alt="" className="size-full object-contain" />
             ) : (
               <span className="display text-3xl text-black">{team.abbrev}</span>
             )}

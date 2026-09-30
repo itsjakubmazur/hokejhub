@@ -10,7 +10,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/game/[id]">)
   const timing = Object.entries(t).map(([k, v]) => `${k};dur=${v}`).join(", ");
   if (!data) return Response.json({ error: "not found" }, { status: 404 });
   const live = data.game.status === "live" || data.game.status === "intermission";
-  const maxAge = live ? 15 : data.game.status === "final" ? 600 : 60;
+  // A response missing the DB extras (photos, insights) is degraded: never cache it for long.
+  const degraded = data.game.leagueKey === "cz-elh" && data.box !== null && data.photos === null;
+  const maxAge = live || degraded ? 15 : data.game.status === "final" ? 600 : 60;
   return Response.json(data, {
     headers: { "server-timing": timing, "cache-control": `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 3}` },
   });
