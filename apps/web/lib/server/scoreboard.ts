@@ -97,7 +97,7 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
         await Promise.all(
           [...missing].map(async (id) => {
             const team = byId.get(id);
-            const hit = team ? await findTeamByAbbrev("cz-elh", team.abbrev).catch(() => null) : null;
+            const hit = team ? await findTeamByAbbrev("cz-elh", team.abbrev, team.shortName).catch(() => null) : null;
             const num = hit ? Number(/^hcz-(\d+)$/.exec(hit)?.[1]) : NaN;
             if (Number.isFinite(num)) clubOf.set(id, num);
           }),

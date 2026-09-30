@@ -53,13 +53,17 @@ export async function getTeam(id: string) {
 }
 
 /** Maps a live-feed team (by abbreviation) to our DB team, most recently active first. */
-export async function findTeamByAbbrev(league: string, abbrev: string) {
+/** Feed abbreviations that differ from the ones hokej.cz uses in its tables. */
+const ABBREV_ALIASES: Record<string, string[]> = { HKM: ["MHK"], MHK: ["HKM"], CEB: ["MCB", "CBU"], MCB: ["CEB"] };
+
+export async function findTeamByAbbrev(league: string, abbrev: string, name?: string) {
+  const candidates = [abbrev, ...(ABBREV_ALIASES[abbrev] ?? [])];
   const [t] = await sql<{ id: string }>(
     `select t.id from team t
      left join game g on g.home_team_id = t.id
-     where t.league_id = $1 and t.abbrev = $2
-     group by t.id order by max(g.start_at) desc nulls last limit 1`,
-    [league, abbrev],
+     where t.league_id = $1 and (t.abbrev = any($2::text[]) or ($3::text is not null and (t.name ilike '%' || $3 || '%' or $3 ilike '%' || t.name || '%')))
+     group by t.id order by (t.abbrev = $4) desc, max(g.start_at) desc nulls last limit 1`,
+    [league, candidates, name ?? null, abbrev],
   );
   return t?.id ?? null;
 }

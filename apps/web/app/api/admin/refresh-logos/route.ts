@@ -32,5 +32,5 @@ export async function POST(req: Request) {
       changed.push({ id, from: rows[0]!.logo_url, to: url });
     }
   }
-  return Response.json({ found: found.size, updated, changed });
+  return Response.json({ found: found.size, updated, changed, sample: [...found].slice(0, 20) });
 }
