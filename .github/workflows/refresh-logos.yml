@@ -1,0 +1,19 @@
+name: Refresh club crests
+
+# Clubs change crests between seasons; hokej.cz's navigation carries the current one for every
+# club. Weekly is plenty. Requires repo secret CRON_SECRET.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 1"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Update team.logo_url from hokej.cz
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -m 90 -X POST https://hokejhub.vercel.app/api/admin/refresh-logos -H "Authorization: Bearer $CRON_SECRET" | jq '{found, updated, changed}'

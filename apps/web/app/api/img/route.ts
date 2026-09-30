@@ -1,9 +1,9 @@
 /**
  * Image relay for hokej.cz player photos and club logos. Browsers hotlinking 40+ photos at once
  * got part of them refused, so each image is fetched here once and served from the CDN cache for
- * a month. Only public images under /static/images/ on hokej.cz are relayed.
+ * a month. Only public images under /static/images/ and club crests under /files/logos/ on hokej.cz are relayed.
  */
-const ALLOW = /^\/static\/images\/[\w./-]+\.(png|jpe?g|gif|webp|svg)$/i;
+const ALLOW = /^\/(static\/images\/[\w./-]+|files\/logos\/[\w.-]+)\.(png|jpe?g|gif|webp|svg)$/i;
 const MONTH = 30 * 86400;
 
 export async function GET(request: Request) {
