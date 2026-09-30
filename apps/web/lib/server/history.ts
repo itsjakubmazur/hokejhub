@@ -68,13 +68,16 @@ export async function getNationalHistory(): Promise<NationalTournament[]> {
       ),
     ),
     Promise.all(
-      MODERN_WC.filter((w) => w.competitionId !== null).map(async (w) => {
-        const r = await fetchJson(
-          new URL(`reprezentace/zapasy/15?competitionId=${w.competitionId}`, ORIGIN).toString(),
-          (html) => czechResults(parseHokejczNationalGames(html as string), w),
-          { revalidate: 7 * 86400, text: true },
+      MODERN_WC.filter((w) => w.competitionIds.length).map(async (w) => {
+        const lists = await Promise.all(
+          w.competitionIds.map((id) =>
+            fetchJson(new URL(`reprezentace/zapasy/15?competitionId=${id}`, ORIGIN).toString(), (html) => parseHokejczNationalGames(html as string), {
+              revalidate: 7 * 86400,
+              text: true,
+            }),
+          ),
         );
-        return [w.year, r.data] as const;
+        return [w.year, czechResults(lists.flatMap((l) => l.data ?? []), w)] as const;
       }),
     ),
   ]);
