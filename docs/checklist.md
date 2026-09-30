@@ -54,6 +54,8 @@ Stav k 30. 9. 2026. ✅ hotovo · 🟡 částečně / čeká na data · ⏳ zbý
 - ✅ Animace: přechody stránek, puk jako loader, naskakující čísla, vykreslování grafů
 
 ## Zbývá / nápady
-- ⏳ Vizualizace buly nad rámec zón (kdo s kým vyhrává)
-- ⏳ Reprezentace (MS, OH) z hokej.cz historie
+- ✅ Buly: souhrn, úspěšnost podle pásem na kluzišti, souboj centrů
+- ✅ Reprezentace na MS 1920–1999 (`/historie/reprezentace`) – medaile, graf umístění, sestavy
+- ✅ Nový vizuální styl „led a tabule“ (vlastní písmo, barvy kluziště, LED tabule zápasu, bez emoji)
+- ⏳ Reprezentace 2000+ (hokej.cz má jen odkazy, bez výsledků)
 - ⏳ LLM shrnutí (volitelně, vyžaduje API klíč) – teď pravidlový report bez klíče

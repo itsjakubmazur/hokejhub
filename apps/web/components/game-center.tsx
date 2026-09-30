@@ -15,6 +15,7 @@ import { Commentary } from "./game/commentary";
 import { PredictionCard } from "./game/prediction";
 import { Recap } from "./game/recap";
 import { PeriodSiren } from "./game/period-siren";
+import { Faceoffs } from "./game/faceoffs";
 import { WinProbability } from "./game/win-probability";
 import { LiveClock } from "./game/live-clock";
 import { Lineups } from "./game/lineups";
@@ -116,7 +117,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           {tab === "statistiky" ? (
             <Card title="Statistiky zápasu">
               <PeriodStats game={game} stats={data.periodStats} box={data.box} shots={data.shots} />
-              {data.faceoffZones ? <FaceoffZones game={game} zones={data.faceoffZones} /> : null}
+            </Card>
+          ) : null}
+          {tab === "statistiky" && (data.faceoffZones || data.playerStats) ? (
+            <Card title="Buly" className="mt-4">
+              <Faceoffs game={game} zones={data.faceoffZones} stats={data.playerStats} periodStats={data.periodStats} box={data.box} photos={data.photos} />
             </Card>
           ) : null}
           {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} box={data.box} photos={data.photos} /> : null}
@@ -344,29 +349,6 @@ function ShotsTab({ data }: { data: GameDetailResponse }) {
   );
 }
 
-function FaceoffZones({ game, zones }: { game: Game; zones: { home: number[]; away: number[] } }) {
-  const labels = ["Obranné pásmo", "Střední pásmo", "Útočné pásmo"];
-  return (
-    <div className="mt-6 border-t border-line pt-4">
-      <h3 className="mb-3 label text-muted">Vhazování podle pásem</h3>
-      <div className="grid grid-cols-3 gap-2">
-        {labels.map((l, i) => {
-          const h = zones.home[i] ?? 0;
-          const a = zones.away[2 - i] ?? 0;
-          return (
-            <div key={l} className="rounded-xl bg-surface-2 p-3 text-center">
-              <div className="text-[11px] text-muted">{l}</div>
-              <div className="mt-1 text-lg font-bold tabular">{Math.round(h)} %</div>
-              <div className="text-[11px] text-muted">
-                {game.home.abbrev} · soupeř {Math.round(a)} %
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse; day: string }) {
   const flash = useGoalFlash(game.homeScore, game.awayScore);
