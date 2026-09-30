@@ -68,18 +68,19 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
   const tab = TABS.some((t) => t.id === sp.tab) ? (sp.tab as string) : "kariera";
   const isGoalie = goalie.length > 0 && seasons.every((s) => s.gp === 0 || goalie.some((g) => g.season === s.season));
 
-  const reg = seasons.filter((s) => s.phase === "regular");
-  const totals = reg.reduce(
-    (a, s) => ({
-      gp: a.gp + s.gp,
-      g: a.g + s.g,
-      a: a.a + s.a,
-      pts: a.pts + s.pts,
-      xg: a.xg + (s.xg ?? 0),
-      pm: a.pm + s.pm,
-    }),
-    { gp: 0, g: 0, a: 0, pts: 0, xg: 0, pm: 0 },
-  );
+  // Career totals across every phase (regular season, play-off, relegation) — the same count the
+  // milestones use — with the regular-season share underneath so "1000. zápas" and the header agree.
+  const sum = (list: typeof seasons) =>
+    list.reduce(
+      (a, s) => ({ gp: a.gp + s.gp, g: a.g + s.g, a: a.a + s.a, pts: a.pts + s.pts, xg: a.xg + (s.xg ?? 0), pm: a.pm + s.pm }),
+      { gp: 0, g: 0, a: 0, pts: 0, xg: 0, pm: 0 },
+    );
+  const totals = sum(seasons);
+  const reg = sum(seasons.filter((s) => s.phase === "regular"));
+  const po = sum(seasons.filter((s) => s.phase === "playoff"));
+  const other = sum(seasons.filter((s) => s.phase !== "regular" && s.phase !== "playoff"));
+  const split = (k: "gp" | "g" | "a" | "pts") =>
+    [`${reg[k]} zákl. část`, po[k] ? `${po[k]} play-off` : null, other[k] ? `${other[k]} baráž` : null].filter(Boolean).join(" · ");
   const currentTeam = seasons[0];
 
   return (
@@ -142,10 +143,10 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
       <div className="relative">
         {!isGoalie && totals.gp ? (
           <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <Stat label="Zápasy ELH" value={totals.gp} />
-            <Stat label="Góly" value={totals.g} />
-            <Stat label="Asistence" value={totals.a} />
-            <Stat label="Body" value={totals.pts} sub={`${(totals.pts / totals.gp).toFixed(2)} na zápas`} />
+            <Stat label="Zápasy ELH" value={totals.gp} sub={split("gp")} />
+            <Stat label="Góly" value={totals.g} sub={split("g")} />
+            <Stat label="Asistence" value={totals.a} sub={split("a")} />
+            <Stat label="Body" value={totals.pts} sub={`${(totals.pts / totals.gp).toFixed(2)} na zápas · ${split("pts")}`} />
             <Stat
               label="xG"
               value={totals.xg.toFixed(1)}
