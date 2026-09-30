@@ -3,16 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  addDays,
-  DEFAULT_LEAGUES,
-  esportsUrls,
-  getLeague,
-  parseLiveOdds,
-  parseScoreboard,
-  pragueDate,
-  type Game,
-} from "@hokejhub/core";
+import { addDays, DEFAULT_LEAGUES, getLeague, pragueDate, type Game } from "@hokejhub/core";
 import type { ScoreboardResponse } from "@/lib/types";
 import { isFavoriteTeam, useFavorites } from "@/lib/favorites";
 import { formatDayLong, formatDayShort } from "@/lib/format";
@@ -37,6 +28,8 @@ async function fetchScoreboard(date: string): Promise<ScoreboardResponse> {
 }
 
 async function fetchScoreboardFromBrowser(date: string): Promise<ScoreboardResponse> {
+  // Loaded only when our server is down, so the feed parsers (and zod) stay out of the main bundle.
+  const { esportsUrls, parseLiveOdds, parseScoreboard } = await import("@hokejhub/core");
   const res = await fetch(esportsUrls.scoreboard(date));
   const games = res.status === 404 ? [] : res.ok ? parseScoreboard(await res.json()) : null;
   if (!games) throw new Error(`HTTP ${res.status}`);

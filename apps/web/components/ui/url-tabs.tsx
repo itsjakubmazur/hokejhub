@@ -20,6 +20,7 @@ export function UrlTabs({ tabs, active, layoutId }: { tabs: { id: string; label:
             key={t.id}
             href={qs ? `${pathname}?${qs}` : pathname}
             scroll={false}
+            prefetch
             className={`label relative shrink-0 px-3 py-3.5 transition-colors ${
               active === t.id ? "text-fg" : "text-muted hover:text-fg"
             }`}

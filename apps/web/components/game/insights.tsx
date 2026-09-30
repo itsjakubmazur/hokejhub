@@ -67,7 +67,7 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
                 key={`${m.player_id}-${m.kind}`}
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.06 }}
+                transition={{ delay: Math.min(i * 0.02, 0.1) }}
                 className="flex items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 p-2.5"
               >
                 <PlayerPhoto src={m.headshot} alt={m.name} size={36} ring={sideOf(m.team_id)} />
@@ -94,7 +94,7 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
                 key={`${n.player_id}-${n.text}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
+                transition={{ delay: Math.min(i * 0.02, 0.1) }}
                 className="flex items-center gap-2.5 rounded-xl bg-surface-2 p-2"
               >
                 <PlayerPhoto src={n.headshot ?? data.photos?.[n.player_id]} alt={n.name} size={34} ring={sideOf(n.team_id)} />

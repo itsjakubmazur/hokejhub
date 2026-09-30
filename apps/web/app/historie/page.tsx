@@ -48,7 +48,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
                 href={`/historie?s=${x.season}`}
                 scroll={false}
                 className={`rise block rounded-xl border px-2.5 py-2 transition-colors hover:border-accent ${selected?.season === x.season ? "border-accent bg-accent-soft" : "border-line bg-surface-2"}`}
-                style={{ animationDelay: `${Math.min(i * 12, 600)}ms` }}
+               
               >
                 <span className="block text-[11px] text-muted tabular">{x.label}</span>
                 <span className="block truncate text-sm font-semibold">{x.champion ?? "nedohráno"}</span>

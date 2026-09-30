@@ -103,14 +103,8 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
         ))}
       </nav>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.18 }}
-        >
+      <AnimatePresence initial={false}>
+        <motion.div key={tab} initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
           {tab === "prehled" ? <Overview data={data} day={day} /> : null}
           {tab === "prenos" && data.commentary ? (
             <Card title="Textový přenos">

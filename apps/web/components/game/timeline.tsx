@@ -128,7 +128,7 @@ function EventRow({ e, index, photos }: { e: TimelineEvent; index: number; photo
     <motion.li
       initial={{ opacity: 0, x: home ? -12 : 12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.6), duration: 0.3 }}
+      transition={{ delay: Math.min(index * 0.01, 0.15), duration: 0.2 }}
       className={`flex items-start gap-3 py-2 ${home ? "" : "flex-row-reverse text-right"}`}
     >
       <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold text-muted tabular">{e.clock}</span>

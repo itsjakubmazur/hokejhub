@@ -96,7 +96,7 @@ export function ShotMap({
                 cx={cx}
                 cy={cy}
                 r={goal ? 2.8 : s.xg !== undefined ? 1.1 + Math.sqrt(s.xg) * 4.2 : 1.5}
-                style={{ animationDelay: `${Math.min(i * 12, 900)}ms`, transformOrigin: `${cx}px ${cy}px` }}
+                style={{ animationDelay: `${Math.min(i * 4, 300)}ms`, transformOrigin: `${cx}px ${cy}px` }}
                 fill={goal ? color : missed ? "none" : color}
                 fillOpacity={goal ? 1 : 0.45}
                 stroke={color}

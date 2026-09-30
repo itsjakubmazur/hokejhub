@@ -12,7 +12,7 @@ export function CountUp({ value, decimals = 0, suffix = "" }: { value: number; d
   useEffect(() => {
     if (!inView) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const c = animate(mv, value, { duration: reduce ? 0 : 0.9, ease: [0.2, 0.8, 0.2, 1] });
+    const c = animate(mv, value, { duration: reduce ? 0 : 0.45, ease: [0.2, 0.8, 0.2, 1] });
     return () => c.stop();
   }, [inView, value, mv]);
   return <motion.span ref={ref}>{text}</motion.span>;

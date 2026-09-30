@@ -20,7 +20,7 @@ function Podium({
   return (
     <ol className="space-y-1.5">
       {rows.map((r, i) => (
-        <li key={r.key} className={`rise flex items-center gap-2.5 rounded-xl px-2 py-1.5 ${i === 0 ? "bg-gold/10" : ""}`} style={{ animationDelay: `${i * 40}ms` }}>
+        <li key={r.key} className={`rise flex items-center gap-2.5 rounded-xl px-2 py-1.5 ${i === 0 ? "bg-gold/10" : ""}`} style={{ animationDelay: `${i * 15}ms` }}>
           <span className={`w-5 text-right text-sm font-bold tabular ${i === 0 ? "text-gold" : "text-muted"}`}>{i + 1}.</span>
           <PlayerPhoto src={r.photo} alt={r.name} size={i === 0 ? 40 : 32} />
           <div className="min-w-0 flex-1">
