@@ -134,7 +134,19 @@ async function extras(game: Game, sources: Record<string, SourceState>) {
   return { liveOdds, bets };
 }
 
-export async function getGameDetail(id: string, date?: string): Promise<GameDetailResponse | null> {
+/** Per-request step timings, surfaced as a Server-Timing header by the game API. */
+export type Timings = Record<string, number>;
+async function timed<T>(t: Timings | undefined, label: string, p: Promise<T>): Promise<T> {
+  if (!t) return p;
+  const start = performance.now();
+  try {
+    return await p;
+  } finally {
+    t[label] = Math.round(performance.now() - start);
+  }
+}
+
+export async function getGameDetail(id: string, date?: string, t?: Timings): Promise<GameDetailResponse | null> {
   const sources: Record<string, SourceState> = {};
 
   if (id.startsWith("nhl-")) {
@@ -191,13 +203,13 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
   }
 
   if (id.startsWith("cz-") && date) {
-    const board = await getScoreboard(date);
+    const board = await timed(t, "board", getScoreboard(date));
     sources.esports = board.sources.esports ?? "error";
     const game = board.games.find((g) => g.id === id);
     if (!game) return null;
-    const [{ liveOdds, bets }, box] = await Promise.all([extras(game, sources), hokejczBox(game, sources)]);
+    const [{ liveOdds, bets }, box] = await Promise.all([timed(t, "extras", extras(game, sources)), timed(t, "hcz", hokejczBox(game, sources))]);
     const clubs = box ? null : await clubIdsFor(game, date).catch(() => null);
-    const [details, links] = await Promise.all([czDetails(game, box, sources), dbLinks(box, game, clubs)]);
+    const [details, links] = await Promise.all([timed(t, "details", czDetails(game, box, sources)), timed(t, "db", dbLinks(box, game, clubs, t))]);
     return {
       game,
       liveOdds,
@@ -282,7 +294,7 @@ async function gameFromHokejcz(hczId: number, sources: Record<string, SourceStat
 }
 
 /** Database links for a Czech game: team ids (for /tym links) and head-to-head history. */
-async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: number; away: number } | null) {
+async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: number; away: number } | null, t?: Timings) {
   const none = { teamIds: null, h2h: null, photos: null, insights: null, prediction: null, preview: null };
   if ((!box && !clubs) || !dbAvailable()) return none;
   const ids = box
@@ -303,14 +315,14 @@ async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: nu
     const before = game?.startAt ?? new Date().toISOString();
     const dbGameId = game?.external.hokejczId ? `hcz-${game.external.hokejczId}` : null;
     const [h2h, homeStreak, awayStreak, players] = await Promise.all([
-      getHeadToHead(home, away, 30),
-      getTeamStreaks(home, before),
-      getTeamStreaks(away, before),
-      getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null),
+      timed(t, "h2h", getHeadToHead(home, away, 30)),
+      timed(t, "streakH", getTeamStreaks(home, before)),
+      timed(t, "streakA", getTeamStreaks(away, before)),
+      timed(t, "notes", getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null)),
     ]);
     const extra = await getPhotos(players.notes.map((n) => n.player_id)).catch(() => ({}));
     const [prediction, preview] = await Promise.all([
-      predictMatch("cz-elh", home, away, dbGameId ?? undefined).catch(() => null),
+      timed(t, "elo", predictMatch("cz-elh", home, away, dbGameId ?? undefined)).catch(() => null),
       game && game.status !== "final" ? getElhPreview(home, away, game.startAt).catch((e) => (console.error("[db] preview", e), null)) : null,
     ]);
     return {

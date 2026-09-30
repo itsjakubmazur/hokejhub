@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Crosshair, Goal, ListOrdered, Shield, Shirt, TrendingUp, Trophy, Users } from "lucide-react";
 import { PageHero } from "@/components/ui/page-hero";
 import { ClubLogo } from "@/components/club-logo";
@@ -14,6 +15,7 @@ import { FillBar } from "@/components/ui/fill-bar";
 import { SeasonSelect } from "@/components/ui/season-select";
 import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { dbAvailable } from "@/lib/server/db";
 import { getLiveElhGames } from "@/lib/server/live-table";
 import {
@@ -66,6 +68,7 @@ export default async function LeaguePage(props: PageProps<"/liga/[league]">) {
         </div>
       </div>
       <UrlTabs tabs={TABS} active={tab} layoutId="league-tab" />
+      <Suspense key={`${tab}-${season}-${phase}`} fallback={<CardSkeleton rows={14} />}>
       {tab === "tabulka" ? <TableTab league={league} season={season} phase={phase} /> : null}
       {tab === "bodovani" ? <SkatersTab league={league} season={season} phase={phase} sort="pts" /> : null}
       {tab === "strelci" ? <SkatersTab league={league} season={season} phase={phase} sort="g" /> : null}
@@ -73,6 +76,7 @@ export default async function LeaguePage(props: PageProps<"/liga/[league]">) {
       {tab === "brankari" ? <GoaliesTab league={league} season={season} phase={phase} /> : null}
       {tab === "navstevnost" ? <AttendanceTab league={league} season={season} /> : null}
       {tab === "historie" ? <HistoryTab league={league} season={season} /> : null}
+      </Suspense>
     </div>
   );
 }

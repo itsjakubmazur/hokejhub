@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- remote club logos */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
 import { ClubLogo } from "@/components/club-logo";
@@ -10,6 +11,7 @@ import { Card, Empty, Stat } from "@/components/ui/card";
 import { SeasonSelect } from "@/components/ui/season-select";
 import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
 import { getPlayer, getPlayerGameLog, getPlayerGoalieSeasons, getPlayerMilestones, getPlayerSeasons, getPlayerShots } from "@/lib/server/queries";
@@ -153,6 +155,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
       </div>
       <UrlTabs tabs={TABS} active={tab} layoutId="player-tab" />
 
+      <Suspense key={`${tab}-${season}`} fallback={<CardSkeleton rows={10} />}>
       {tab === "kariera" ? (
         <div className="space-y-4">
           {seasons.length ? (
@@ -249,6 +252,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
       {tab === "zapasy" ? <GameLog id={id} season={season} /> : null}
       {tab === "strely" ? <Shots id={id} season={season} /> : null}
       {tab === "milniky" ? <Milestones id={id} /> : null}
+      </Suspense>
     </div>
   );
 }

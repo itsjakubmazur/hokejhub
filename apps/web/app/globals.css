@@ -269,3 +269,40 @@ body {
     animation: none;
   }
 }
+
+/* Loading placeholders on the dark board, and a light sweep like a Zamboni pass over fresh ice. */
+.skel-board {
+  background: color-mix(in oklab, var(--board-text) 9%, transparent);
+}
+.ice-sweep {
+  background: linear-gradient(100deg, transparent 30%, color-mix(in oklab, var(--board-text) 7%, transparent) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: ice-sweep 1.3s linear infinite;
+}
+@keyframes ice-sweep {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* Top-edge navigation progress: a puck pushes the red goal line across, then it fades on arrival. */
+.nav-progress-bar {
+  width: 0;
+  animation: nav-run 6s cubic-bezier(0.08, 0.7, 0.2, 1) forwards;
+}
+.nav-progress-done .nav-progress-bar {
+  animation: nav-finish 0.22s ease-out forwards;
+}
+.nav-progress-done {
+  animation: nav-fade 0.25s 0.2s ease-in forwards;
+}
+@keyframes nav-run {
+  0% { width: 0; }
+  12% { width: 35%; }
+  100% { width: 88%; }
+}
+@keyframes nav-finish {
+  to { width: 100%; }
+}
+@keyframes nav-fade {
+  to { opacity: 0; }
+}

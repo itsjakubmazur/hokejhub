@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- remote club logos */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { computeStandings, rulesForSeason } from "@hokejhub/core";
 import { FavoriteButton } from "@/components/favorite-button";
@@ -14,6 +15,7 @@ import { FillBar } from "@/components/ui/fill-bar";
 import { SeasonSelect } from "@/components/ui/season-select";
 import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
+import { CardSkeleton } from "@/components/ui/skeletons";
 import { dbAvailable } from "@/lib/server/db";
 import { getEloState } from "@/lib/server/model";
 import {
@@ -82,6 +84,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
         </div>
       </header>
       <UrlTabs tabs={TABS} active={tab} layoutId="team-tab" />
+      <Suspense key={`${tab}-${season}`} fallback={<CardSkeleton rows={10} photos />}>
       {tab === "prehled" ? <Overview teamId={id} games={games} season={season} /> : null}
       {tab === "vysledky" ? (
         <Card title={`Zápasy ${seasonLabel(season)}`}>
@@ -91,6 +94,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
       {tab === "hraci" ? <Players teamId={id} season={season} /> : null}
       {tab === "navstevnost" ? <Attendance teamId={id} season={season} /> : null}
       {tab === "historie" ? <History teamId={id} /> : null}
+      </Suspense>
     </div>
   );
 }
