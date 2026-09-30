@@ -33,7 +33,7 @@ import { InfoButton } from "./game/versus";
 import { WinGauge } from "./game/win-gauge";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CS, csCount, impliedProbs, pragueDate, type BetDistribution, type FormResult, type Game, type Odds1x2 } from "@hokejhub/core";
+import { addDays, CS, csCount, impliedProbs, pragueDate, type BetDistribution, type FormResult, type Game, type Odds1x2 } from "@hokejhub/core";
 import type { TeamCard } from "@/lib/server/team-card";
 import { imgSrc } from "@/lib/img";
 import type { GameDetailResponse } from "@/lib/types";
@@ -81,7 +81,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
     refetchInterval: (q) => (q.state.data && isLive(q.state.data.game) ? 15_000 : false),
   });
   const { game } = data;
-  const day = pragueDate(new Date(game.startAt));
+  // NHL nights are listed under the following Prague day (see lib/server/scoreboard.ts).
+  const day =
+    game.source === "nhl"
+      ? addDays(new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(game.startAt)), 1)
+      : pragueDate(new Date(game.startAt));
 
   const live = isLive(game);
   const scheduled = game.status === "scheduled";

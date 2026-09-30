@@ -8,13 +8,21 @@ import {
   parseNhlScore,
   parseScoreboard,
   parseScoreboardAlt,
-  pragueDate,
   type Game,
 } from "@hokejhub/core";
 import { dbAvailable } from "./db";
 import { getEloState } from "./model";
 import type { ScoreboardResponse } from "../types";
 import { fetchJson } from "./fetcher";
+
+/** North American date of the NHL night shown under a Prague date. */
+export const nhlNightOf = (pragueDay: string) => addDays(pragueDay, -1);
+
+/** Prague date an NHL game is listed under, from its start time. */
+export function nhlListDate(startAt: string): string {
+  const na = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(startAt));
+  return addDays(na, 1);
+}
 
 /** Cache lifetime in seconds for a scoreboard date: short for today, long for the past. */
 export function revalidateFor(date: string): number {
@@ -27,24 +35,13 @@ const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
 export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
   const revalidate = revalidateFor(date);
-  // NHL games are listed by the Prague date they start on (a 01:30 face-off belongs to that
-  // morning's day, so last night's results show under "today"). The league API keys its
-  // schedule by North American date, so a Prague day spans two of those.
-  const [es, nhlPrev, nhlSame] = await Promise.all([
+  // An NHL night (North American date N) is played through the Czech night and is read the
+  // next morning, so it is listed under the Prague date N + 1 — all of it, including the games
+  // that face off before our midnight.
+  const [es, nhl] = await Promise.all([
     fetchJson(esportsUrls.scoreboard(date), parseScoreboard, { revalidate, notFoundIsEmpty: true }),
-    fetchJson(nhlUrls.score(addDays(date, -1)), parseNhlScore, { revalidate }),
-    fetchJson(nhlUrls.score(date), parseNhlScore, { revalidate }),
+    fetchJson(nhlUrls.score(nhlNightOf(date)), parseNhlScore, { revalidate }),
   ]);
-  const nhlSeen = new Set<string>();
-  const nhlGames =
-    nhlPrev.data || nhlSame.data
-      ? [...(nhlPrev.data ?? []), ...(nhlSame.data ?? [])].filter((g) => {
-          if (nhlSeen.has(g.id) || pragueDate(new Date(g.startAt)) !== date) return false;
-          nhlSeen.add(g.id);
-          return true;
-        })
-      : null;
-  const nhl = { data: nhlGames, state: nhlSame.state === "ok" ? nhlPrev.state : nhlSame.state };
 
   // If the main feed fails outright (not a plain 404), fall back to the older ELH-only variant.
   let esGames = es.data ?? [];
