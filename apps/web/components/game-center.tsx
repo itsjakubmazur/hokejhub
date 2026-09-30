@@ -409,6 +409,16 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
       <Insights game={game} data={data} />
     </Card>
   ) : null;
+  // Without a box score there is no report, no standouts and no insights; the timeline is then
+  // the story of the game and belongs on the first screen instead of one tap away.
+  const sparse = !data.box && !data.nhl?.extras.threeStars.length && !data.insights;
+  const hasEvents = Boolean(data.box?.goals.length || data.box?.penalties.length || data.goals?.length);
+  const timelineCard = (recent?: number) =>
+    hasEvents ? (
+      <Card title={recent ? "Poslední události" : "Průběh zápasu"} icon={ListOrdered}>
+        <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} recent={recent} />
+      </Card>
+    ) : null;
   const prediction = data.prediction ? (
     <Card title={scheduled ? "Predikce" : "Predikce před zápasem"} icon={ChartNoAxesColumnIncreasing}>
       <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
@@ -459,9 +469,7 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
               <WinProbability game={game} goals={goalMoments(data)} expHome={data.prediction.expHome} expAway={data.prediction.expAway} elapsedNow={elapsedNow(data)} />
             </Card>
           ) : null}
-          <Card title="Poslední události" icon={ListOrdered}>
-            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} recent={6} />
-          </Card>
+          {timelineCard(sparse ? undefined : 6)}
           {insights}
         </div>
         <div className="space-y-3 sm:space-y-4">
@@ -499,6 +507,7 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
             <BestPlayers box={data.box} photos={data.photos} />
           </Card>
         ) : null}
+        {sparse ? timelineCard() : null}
         {insights}
       </div>
       <div className="space-y-3 sm:space-y-4">
