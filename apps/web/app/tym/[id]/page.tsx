@@ -214,8 +214,15 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
           ) : null}
         </Card>
       </div>
-      <Card title="Poslední zápasy">
-        <TeamResults teamId={teamId} games={games.filter((g) => g.status === "final").slice(-8)} />
+      <Card
+        title="Posledních 8 zápasů"
+        action={
+          <Link href={`/tym/${teamId}?sezona=${season}&tab=vysledky`} className="text-xs font-semibold text-accent hover:underline">
+            Všechny výsledky
+          </Link>
+        }
+      >
+        <TeamResults teamId={teamId} games={games.filter((g) => g.status === "final").slice(-8)} compact />
       </Card>
     </div>
   );
