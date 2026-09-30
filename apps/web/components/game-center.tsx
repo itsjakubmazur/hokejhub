@@ -411,7 +411,8 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
   ) : null;
   // Without a box score there is no report, no standouts and no insights; the timeline is then
   // the story of the game and belongs on the first screen instead of one tap away.
-  const sparse = !data.box && !data.nhl?.extras.threeStars.length && !data.insights;
+  const hasStory = (game.status === "final" && data.box) || data.nhl?.extras.threeStars.length || data.insights;
+  const sparse = !hasStory;
   const hasEvents = Boolean(data.box?.goals.length || data.box?.penalties.length || data.goals?.length);
   const timelineCard = (recent?: number) =>
     hasEvents ? (
