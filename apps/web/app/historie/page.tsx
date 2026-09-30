@@ -42,7 +42,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
 
       <Card title="Mistři po sezónách">
         <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
-          {seasons.map((x, i) => (
+          {seasons.map((x) => (
             <li key={x.season}>
               <Link
                 href={`/historie?s=${x.season}`}

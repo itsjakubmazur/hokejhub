@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Activity, ChartBar, ChartNoAxesColumnIncreasing, CircleDot, ClipboardList, Crosshair, FileText, Grid3x3, Info, ListOrdered, MessageSquareText, Sparkles, Star, Swords, Users } from "lucide-react";
+
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -107,12 +109,12 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
         <motion.div key={tab} initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
           {tab === "prehled" ? <Overview data={data} day={day} /> : null}
           {tab === "prenos" && data.commentary ? (
-            <Card title="Textový přenos">
+            <Card title="Textový přenos" icon={MessageSquareText}>
               <Commentary comments={data.commentary} game={game} />
             </Card>
           ) : null}
           {tab === "statistiky" ? (
-            <Card title="Statistiky zápasu">
+            <Card title="Statistiky zápasu" icon={ChartBar}>
               <PeriodStats
                 game={game}
                 stats={data.periodStats}
@@ -131,7 +133,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
             </Card>
           ) : null}
           {tab === "statistiky" && (data.faceoffZones || data.playerStats) ? (
-            <Card title="Buly" className="mt-4">
+            <Card title="Buly" icon={CircleDot} className="mt-4">
               <Faceoffs game={game} zones={data.faceoffZones} stats={data.playerStats} periodStats={data.periodStats} box={data.box} photos={data.photos} />
             </Card>
           ) : null}
@@ -139,11 +141,11 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
           {tab === "strely" && data.shots ? <ShotsTab data={data} /> : null}
           {tab === "hraci" ? (
             data.nhl?.box ? (
-              <Card title="Statistiky hráčů">
+              <Card title="Statistiky hráčů" icon={Users}>
                 <NhlPlayers game={game} box={data.nhl.box} />
               </Card>
             ) : data.playerStats ? (
-              <Card title="Statistiky hráčů">
+              <Card title="Statistiky hráčů" icon={Users}>
                 <PlayersTable game={game} stats={data.playerStats} box={data.box} photos={data.photos} />
               </Card>
             ) : data.box ? (
@@ -151,7 +153,7 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
             ) : null
           ) : null}
           {tab === "h2h" && data.teamIds && data.h2h ? (
-            <Card title="Vzájemné zápasy">
+            <Card title="Vzájemné zápasy" icon={Swords}>
               <HeadToHead game={game} games={data.h2h} teamIds={data.teamIds} />
             </Card>
           ) : null}
@@ -179,32 +181,32 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
     <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
       <div className="space-y-4">
         {data.nhl?.extras.threeStars.length ? (
-          <Card title="Tři hvězdy zápasu">
+          <Card title="Tři hvězdy zápasu" icon={Star}>
             <ThreeStars stars={data.nhl.extras.threeStars} />
           </Card>
         ) : null}
         {game.status === "scheduled" && data.preview ? (
-          <Card title="Před zápasem">
+          <Card title="Před zápasem" icon={ClipboardList}>
             <ElhPreviewPanel game={game} preview={data.preview} />
           </Card>
         ) : null}
         {game.status === "scheduled" && data.nhl?.extras.matchup ? (
-          <Card title="Před zápasem">
+          <Card title="Před zápasem" icon={ClipboardList}>
             <NhlMatchup game={game} extras={data.nhl.extras} rail={data.nhl.rail} />
           </Card>
         ) : null}
         {data.box && game.status === "final" ? (
-          <Card title="Report">
+          <Card title="Report" icon={FileText}>
             <Recap box={data.box} xg={xg} homeWinProb={data.prediction?.homeWin ?? null} />
           </Card>
         ) : null}
         {data.insights ? (
-          <Card title="Zajímavosti">
+          <Card title="Zajímavosti" icon={Sparkles}>
             <Insights game={game} data={data} />
           </Card>
         ) : null}
         {data.prediction && game.status !== "scheduled" ? (
-          <Card title="Pravděpodobnost výhry v průběhu zápasu">
+          <Card title="Pravděpodobnost výhry v průběhu zápasu" icon={Activity}>
             <WinProbability
               game={game}
               goals={goalMoments(data)}
@@ -215,14 +217,14 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
           </Card>
         ) : null}
         {game.status !== "scheduled" ? (
-          <Card title="Průběh zápasu">
-            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos} penalties={data.nhl?.extras.penalties} />
+          <Card title="Průběh zápasu" icon={ListOrdered}>
+            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} />
           </Card>
         ) : null}
       </div>
       <div className="space-y-4">
         {xg ? (
-          <Card title="Očekávané góly (xG)">
+          <Card title="Očekávané góly (xG)" icon={Crosshair}>
             <div className="flex items-end justify-between">
               <BigNumber value={xg[0]!} side="home" label={game.home.shortName} />
               <span className="pb-2 text-xs text-muted">vs</span>
@@ -234,22 +236,22 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
           </Card>
         ) : null}
         {data.prediction ? (
-          <Card title={game.status === "scheduled" ? "Predikce" : "Predikce před zápasem"}>
+          <Card title={game.status === "scheduled" ? "Predikce" : "Predikce před zápasem"} icon={ChartNoAxesColumnIncreasing}>
             <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
           </Card>
         ) : null}
         {data.prediction && game.status === "scheduled" ? (
-          <Card title="Nejpravděpodobnější výsledky">
+          <Card title="Nejpravděpodobnější výsledky" icon={Grid3x3}>
             <ScoreGrid expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.abbrev} awayLabel={game.away.abbrev} />
           </Card>
         ) : null}
         {data.nhl?.rail?.seasonSeries.length ? (
-          <Card title="Vzájemné zápasy v sezóně">
+          <Card title="Vzájemné zápasy v sezóně" icon={Swords}>
             <SeasonSeries rail={data.nhl.rail} game={game} />
           </Card>
         ) : null}
         {game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} /> : null}
-        <Card title="Informace">
+        <Card title="Informace" icon={Info}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-muted">Soutěž</dt>
             <dd>{game.leagueName}</dd>
@@ -500,10 +502,10 @@ function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; hr
       animate={{ opacity: 1, x: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 24 }}
     >
-      <div className="grid size-16 place-items-center bg-white p-2 sm:size-20">
-        <TeamLogo team={team} size={56} />
+      <div className="grid size-20 place-items-center bg-white p-2 sm:size-32 sm:p-3">
+        <TeamLogo team={team} size={104} className="!size-full" />
       </div>
-      <div className="display text-lg leading-none sm:text-2xl">{team.shortName}</div>
+      <div className="display text-xl leading-none sm:text-3xl">{team.shortName}</div>
       <div className={`h-[3px] w-8 ${side === "home" ? "bg-home" : "bg-away"}`} aria-hidden />
     </motion.div>
   );
@@ -601,4 +603,14 @@ function BetsCard({ bets, game }: { bets: BetDistribution; game: Game }) {
       ) : null}
     </Card>
   );
+}
+
+/** NHL headshots keyed like goal scorer ids (`nhl-{playerId}`). */
+function nhlPhotos(data: GameDetailResponse): Record<string, string> | null {
+  const box = data.nhl?.box;
+  if (!box) return null;
+  const out: Record<string, string> = {};
+  for (const p of [...box.skaters.home, ...box.skaters.away, ...box.goalies.home, ...box.goalies.away]) out[`nhl-${p.id}`] = p.headshot;
+  for (const p of [...box.skaters.home, ...box.skaters.away]) out[String(p.id)] = p.headshot;
+  return out;
 }

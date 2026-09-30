@@ -4,7 +4,8 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import type { Game, GoalSummary, HokejczMatch, NhlPenalty } from "@hokejhub/core";
 import { nice } from "@/lib/names";
-import { PlayerPhoto } from "../player-photo";
+import { OctagonAlert } from "lucide-react";
+import { Portrait } from "../portrait";
 
 type Side = "home" | "away";
 
@@ -90,6 +91,7 @@ function fromNhl(goals: GoalSummary[], game: Game, penalties: NhlPenalty[]): Tim
       clock: g.time,
       period: periodLabel,
       title: g.scorer,
+      playerId: g.scorerId ?? undefined,
       sub: g.assists.join(" + ") || undefined,
       badge: g.strength === "pp" ? "přesilovka" : g.strength === "sh" ? "oslabení" : undefined,
       score: `${g.homeScore}:${g.awayScore}`,
@@ -98,54 +100,45 @@ function fromNhl(goals: GoalSummary[], game: Game, penalties: NhlPenalty[]): Tim
   return [...gl, ...pens].sort((x, y) => x.t - y.t || (x.kind === "goal" ? -1 : 1));
 }
 
-function PuckIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-4 shrink-0" aria-label="gól">
-      <ellipse cx="10" cy="12" rx="7.5" ry="3.2" fill="currentColor" opacity="0.35" />
-      <ellipse cx="10" cy="10" rx="7.5" ry="3.2" fill="currentColor" />
-    </svg>
-  );
-}
-
 function EventRow({ e, index, photos }: { e: TimelineEvent; index: number; photos: Record<string, string> | null }) {
   const home = e.side === "home";
-  const icon =
-    e.kind === "goal" ? (
-      <span className={`flex items-center gap-1.5 ${home ? "" : "flex-row-reverse"}`}>
-        <PuckIcon />
-        <span className="rounded-md bg-surface-2 px-1.5 text-sm font-bold tabular">{e.score}</span>
-      </span>
-    ) : (
-      <span
-        className={`grid h-5 min-w-5 place-items-center rounded px-1 text-[11px] font-bold tabular ${
-          (e.minutes ?? 0) >= 10 ? "bg-live text-white" : "bg-gold text-black"
-        }`}
-      >
-        {e.minutes ?? "?"}
-      </span>
-    );
+  const goal = e.kind === "goal";
   return (
     <motion.li
-      initial={{ opacity: 0, x: home ? -12 : 12 }}
+      initial={{ opacity: 0.4, x: home ? -8 : 8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: Math.min(index * 0.01, 0.15), duration: 0.2 }}
-      className={`flex items-start gap-3 py-2 ${home ? "" : "flex-row-reverse text-right"}`}
+      className={`flex items-center gap-3 py-2.5 ${home ? "" : "flex-row-reverse text-right"}`}
     >
-      <span className="w-11 shrink-0 pt-0.5 text-xs font-semibold text-muted tabular">{e.clock}</span>
-      <span className="pt-0.5">{icon}</span>
-      {e.kind === "goal" && e.playerId ? <PlayerPhoto src={photos?.[e.playerId]} alt={e.title} size={34} ring={e.side} /> : null}
-      <span className={`min-w-0 ${e.kind === "goal" ? "" : "text-sm"}`}>
-        {e.href ? (
-          <Link href={e.href} className={`${e.kind === "goal" ? "font-semibold" : "font-medium"} hover:text-accent`}>
-            {e.title}
-          </Link>
-        ) : (
-          <span className={e.kind === "goal" ? "font-semibold" : "font-medium"}>{e.title}</span>
-        )}
-        {e.badge ? (
-          <span className="mx-1.5 rounded bg-accent-soft px-1 py-px text-[10px] font-semibold uppercase text-accent">{e.badge}</span>
-        ) : null}
-        {e.sub ? <span className="block text-xs text-muted">{e.kind === "penalty" ? `(${e.sub})` : e.sub}</span> : null}
+      <span className="w-11 shrink-0 text-xs font-semibold text-muted tabular">{e.clock}</span>
+      {goal ? (
+        <>
+          <span className={`display grid h-8 min-w-12 place-items-center px-2 text-xl tabular ${home ? "bg-home text-white" : "bg-away text-white"}`}>
+            {e.score}
+          </span>
+          <Portrait src={e.playerId ? photos?.[e.playerId] : null} alt={e.title} width={46} side={e.side} />
+        </>
+      ) : (
+        <span
+          className={`grid h-6 min-w-8 place-items-center px-1.5 text-xs font-bold tabular ${(e.minutes ?? 0) >= 10 ? "bg-live text-white" : "bg-gold text-black"}`}
+          title="Trestné minuty"
+        >
+          {e.minutes ?? "?"}′
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className={`flex items-center gap-1.5 ${home ? "" : "flex-row-reverse"}`}>
+          {goal ? null : <OctagonAlert className="size-3.5 shrink-0 text-muted" aria-hidden />}
+          {e.href ? (
+            <Link href={e.href} className={`truncate ${goal ? "text-base font-bold" : "text-sm font-medium"} hover:text-accent`}>
+              {e.title}
+            </Link>
+          ) : (
+            <span className={`truncate ${goal ? "text-base font-bold" : "text-sm font-medium"}`}>{e.title}</span>
+          )}
+          {e.badge ? <span className="shrink-0 bg-accent-soft px-1.5 py-px text-[10px] font-semibold uppercase text-accent">{e.badge}</span> : null}
+        </span>
+        {e.sub ? <span className="block truncate text-xs text-muted">{goal ? `asistence: ${e.sub}` : e.sub}</span> : null}
       </span>
     </motion.li>
   );

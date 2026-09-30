@@ -103,7 +103,7 @@ export function PlayersTable({
                   <PlayerPhoto
                     src={idByJersey.get(p.jersey) ? photos?.[`hcz-${idByJersey.get(p.jersey)}`] : null}
                     alt={p.name}
-                    size={24}
+                    size={34}
                     className="mr-2 align-middle"
                   />
                   {idByJersey.get(p.jersey) ? (

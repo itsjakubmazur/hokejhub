@@ -52,7 +52,7 @@ function Chip({
       title={title}
     >
       <div className="relative transition-transform group-hover:scale-110">
-        <PlayerPhoto src={link?.photo} alt={`${p.name} ${p.surname}`} size={48} ring={side} />
+        <PlayerPhoto src={link?.photo} alt={`${p.name} ${p.surname}`} size={56} ring={side} />
         <span
           className={`absolute -bottom-1 -left-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-surface ${
             side === "home" ? "bg-home" : "bg-away"

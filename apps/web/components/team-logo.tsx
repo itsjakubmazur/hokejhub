@@ -4,12 +4,12 @@
 import { useState } from "react";
 import type { TeamRef } from "@hokejhub/core";
 
-export function TeamLogo({ team, size = 28 }: { team: TeamRef; size?: number }) {
+export function TeamLogo({ team, size = 28, className = "" }: { team: TeamRef; size?: number; className?: string }) {
   const [failed, setFailed] = useState(false);
   if (!team.logoUrl || failed) {
     return (
       <span
-        className="grid shrink-0 place-items-center rounded-full bg-surface-2 font-semibold text-muted"
+        className={`display grid shrink-0 place-items-center bg-surface-2 text-muted ${className}`}
         style={{ width: size, height: size, fontSize: Math.max(9, size * 0.3) }}
       >
         {team.abbrev.slice(0, 3)}
@@ -24,7 +24,7 @@ export function TeamLogo({ team, size = 28 }: { team: TeamRef; size?: number }) 
       height={size}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="shrink-0 object-contain"
+      className={`shrink-0 object-contain ${className}`}
       style={{ width: size, height: size }}
     />
   );

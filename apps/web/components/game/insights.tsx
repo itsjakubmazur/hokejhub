@@ -1,11 +1,12 @@
 "use client";
 
-import { motion } from "motion/react";
+import { Award, CircleCheck, House, MapPin, TrendingDown, TrendingUp, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { Game } from "@hokejhub/core";
 import type { GameDetailResponse } from "@/lib/types";
 import { FormBadges } from "../league/standings";
-import { PlayerPhoto } from "../player-photo";
+import { Portrait } from "../portrait";
+import { TeamLogo } from "../team-logo";
 
 const MILESTONE: Record<string, (v: number) => string> = {
   career_gp: (v) => `${v}. zápas v extralize`,
@@ -16,13 +17,15 @@ const MILESTONE: Record<string, (v: number) => string> = {
   club_pts: (v) => `${v}. bod za klub`,
 };
 
-function streakText(s: NonNullable<GameDetailResponse["insights"]>["home"]) {
-  const out: string[] = [];
-  if (s.wins >= 2) out.push(`${s.wins} výhry v řadě`);
-  if (s.losses >= 2) out.push(`${s.losses} prohry v řadě`);
-  if (s.points >= 3 && s.wins < s.points) out.push(`bodoval ${s.points}× v řadě`);
-  if (s.homeWins >= 3) out.push(`doma vyhrál ${s.homeWins}× v řadě`);
-  if (s.awayWins >= 3) out.push(`venku vyhrál ${s.awayWins}× v řadě`);
+type Streaks = NonNullable<GameDetailResponse["insights"]>["home"];
+
+function streakItems(s: Streaks): { icon: LucideIcon; text: string; tone: "good" | "bad" }[] {
+  const out: { icon: LucideIcon; text: string; tone: "good" | "bad" }[] = [];
+  if (s.wins >= 2) out.push({ icon: TrendingUp, text: `${s.wins} výhry v řadě`, tone: "good" });
+  if (s.losses >= 2) out.push({ icon: TrendingDown, text: `${s.losses} prohry v řadě`, tone: "bad" });
+  if (s.points >= 3 && s.wins < s.points) out.push({ icon: CircleCheck, text: `bodoval ${s.points}× v řadě`, tone: "good" });
+  if (s.homeWins >= 3) out.push({ icon: House, text: `doma vyhrál ${s.homeWins}× v řadě`, tone: "good" });
+  if (s.awayWins >= 3) out.push({ icon: MapPin, text: `venku vyhrál ${s.awayWins}× v řadě`, tone: "good" });
   return out;
 }
 
@@ -33,80 +36,99 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
     { side: "home" as const, team: game.home, s: ins.home, id: data.teamIds.home },
     { side: "away" as const, team: game.away, s: ins.away, id: data.teamIds.away },
   ];
-  const sideOf = (teamId: string) => (teamId === data.teamIds!.home ? "home" : "away");
+  const sideOf = (teamId: string): "home" | "away" => (teamId === data.teamIds!.home ? "home" : "away");
+  // One card per player: merge several notes about the same player.
+  const notesBy = (side: "home" | "away") => {
+    const map = new Map<string, { player_id: string; name: string; photo: string | null | undefined; texts: string[] }>();
+    for (const n of ins.notes.filter((x) => sideOf(x.team_id) === side)) {
+      const e = map.get(n.player_id) ?? { player_id: n.player_id, name: n.name, photo: n.headshot ?? data.photos?.[n.player_id], texts: [] };
+      e.texts.push(n.text);
+      map.set(n.player_id, e);
+    }
+    return [...map.values()].slice(0, 4);
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {teams.map(({ side, team, s }) => (
-          <div key={side} className="rounded-xl bg-surface-2 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-sm font-semibold">
-                <span className={`size-2 rounded-full ${side === "home" ? "bg-home" : "bg-away"}`} />
-                {team.shortName}
-              </span>
-              <FormBadges form={s.last10.slice(0, 5) as never} />
+    <div className="space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {teams.map(({ side, team, s }) => {
+          const items = streakItems(s);
+          return (
+            <div key={side} className="border border-line p-3">
+              <div className="flex items-center gap-3">
+                <span className="grid size-11 shrink-0 place-items-center bg-white p-1">
+                  <TeamLogo team={team} size={36} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="display truncate text-xl">{team.shortName}</div>
+                  <FormBadges form={s.last10.slice(0, 5) as never} />
+                </div>
+              </div>
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {items.map(({ icon: Icon, text, tone }) => (
+                  <li key={text} className="flex items-center gap-2">
+                    <Icon className={`size-4 shrink-0 ${tone === "good" ? "text-win" : "text-live"}`} strokeWidth={2.25} aria-hidden />
+                    {text}
+                  </li>
+                ))}
+                {items.length === 0 ? <li className="text-muted">Bez výrazné série.</li> : null}
+              </ul>
             </div>
-            <ul className="space-y-0.5 text-xs text-muted">
-              {streakText(s).map((t) => (
-                <li key={t} className="flex items-center gap-1.5">
-                  <span className="size-1.5 shrink-0 bg-live" aria-hidden />
-                  {t}
-                </li>
-              ))}
-              {streakText(s).length === 0 ? <li>Bez výrazné série.</li> : null}
-            </ul>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
       {ins.reached.length > 0 ? (
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gold">Milníky v tomto zápase</h3>
-          <ul className="space-y-2">
-            {ins.reached.map((m, i) => (
-              <motion.li
-                key={`${m.player_id}-${m.kind}`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: Math.min(i * 0.02, 0.1) }}
-                className="flex items-center gap-3 rounded-xl border border-gold/40 bg-gold/10 p-2.5"
-              >
-                <PlayerPhoto src={m.headshot} alt={m.name} size={36} ring={sideOf(m.team_id)} />
-                <span className="text-sm">
-                  <Link href={`/hrac/${m.player_id}`} className="font-semibold hover:text-accent">
-                    {m.name}
-                  </Link>{" "}
-                  – {MILESTONE[m.kind]?.(m.value) ?? m.kind}
-                </span>
-                <span className="label ml-auto shrink-0 text-gold">milník</span>
-              </motion.li>
-            ))}
+          <h3 className="label mb-3 flex items-center gap-2 text-gold">
+            <Award className="size-4" aria-hidden />
+            Milníky v tomto zápase
+          </h3>
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {ins.reached.map((m) => {
+              const label = MILESTONE[m.kind]?.(m.value) ?? m.kind;
+              const unit = label.replace(/^\d+\.\s*/, "");
+              return (
+                <li key={`${m.player_id}-${m.kind}`} className="flex gap-4 border border-gold/50 bg-gold/5 p-3">
+                  <Portrait src={m.headshot} alt={m.name} width={84} side={sideOf(m.team_id)} />
+                  <div className="flex min-w-0 flex-col justify-center">
+                    <span className="display text-5xl leading-none text-gold tabular">{m.value}.</span>
+                    <span className="mt-1 text-sm text-muted">{unit}</span>
+                    <Link href={`/hrac/${m.player_id}`} className="mt-2 truncate font-semibold hover:text-accent">
+                      {m.name}
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
+
       {ins.notes.length > 0 ? (
         <div>
-          <h3 className="mb-2 label text-muted">
-            {game.status === "final" ? "Jak šli hráči do zápasu" : "Na koho se dívat"}
-          </h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {ins.notes.map((n, i) => (
-              <motion.li
-                key={`${n.player_id}-${n.text}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.02, 0.1) }}
-                className="flex items-center gap-2.5 rounded-xl bg-surface-2 p-2"
-              >
-                <PlayerPhoto src={n.headshot ?? data.photos?.[n.player_id]} alt={n.name} size={34} ring={sideOf(n.team_id)} />
-                <span className="min-w-0 text-sm leading-tight">
-                  <Link href={`/hrac/${n.player_id}`} className="font-semibold hover:text-accent">
-                    {n.name}
-                  </Link>
-                  <span className="block text-xs text-muted">{n.text}</span>
-                </span>
-              </motion.li>
+          <h3 className="label mb-3 text-muted">{game.status === "final" ? "Jak šli hráči do zápasu" : "Na koho se dívat"}</h3>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["home", "away"] as const).map((side) => (
+              <ul key={side} className="space-y-2">
+                {notesBy(side).map((n) => (
+                  <li key={n.player_id} className="flex gap-3 border-b border-line pb-2 last:border-b-0">
+                    <Portrait src={n.photo} alt={n.name} width={52} side={side} />
+                    <div className="min-w-0 self-center">
+                      <Link href={`/hrac/${n.player_id}`} className="block truncate font-semibold hover:text-accent">
+                        {n.name}
+                      </Link>
+                      {n.texts.map((t) => (
+                        <span key={t} className="block text-xs text-muted">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ))}
-          </ul>
+          </div>
         </div>
       ) : null}
     </div>

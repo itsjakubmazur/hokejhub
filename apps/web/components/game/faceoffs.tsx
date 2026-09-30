@@ -74,7 +74,7 @@ export function Faceoffs({
                     const w = pct(p.faceoffsWon, p.faceoffs);
                     return (
                       <li key={p.id} className="grid grid-cols-[28px_1fr_auto] items-center gap-2">
-                        <PlayerPhoto src={hid ? photos?.[`hcz-${hid}`] : null} alt={p.name} size={28} />
+                        <PlayerPhoto src={hid ? photos?.[`hcz-${hid}`] : null} alt={p.name} size={36} />
                         <div className="min-w-0">
                           <div className="flex items-baseline justify-between gap-2 text-sm">
                             {hid ? (

@@ -19,14 +19,14 @@ export function DbGameLine({ g, note, showSeason = true }: { g: GameRowDb; note?
       </span>
       <span className={`flex min-w-0 items-center justify-end gap-1.5 text-right ${hw ? "font-semibold" : ""}`}>
         <span className="truncate">{g.home_name}</span>
-        <ClubLogo src={g.home_logo} alt="" size={20} />
+        <ClubLogo src={g.home_logo} alt="" size={26} />
       </span>
       <span className="rounded-md bg-surface-2 px-2 py-0.5 text-center font-bold tabular">
         {g.home_score}:{g.away_score}
         {g.decided_in && g.decided_in !== "REG" ? <sup className="ml-0.5 text-[9px] font-medium text-muted">{SUFFIX[g.decided_in]}</sup> : null}
       </span>
       <span className={`flex min-w-0 items-center gap-1.5 ${!hw ? "font-semibold" : ""}`}>
-        <ClubLogo src={g.away_logo} alt="" size={20} />
+        <ClubLogo src={g.away_logo} alt="" size={26} />
         <span className="truncate">{g.away_name}</span>
       </span>
       {note ? <span className="col-span-4 text-right text-xs text-muted sm:col-span-1">{note}</span> : showSeason && g.season ? <span className="hidden text-xs text-muted sm:inline">{seasonLabel(g.season)}</span> : null}

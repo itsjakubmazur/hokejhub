@@ -1,8 +1,9 @@
+/* eslint-disable @next/next/no-img-element -- remote club logos */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
-import { PlayerPhoto } from "@/components/player-photo";
+import { Portrait } from "@/components/portrait";
 import { ShotMap } from "@/components/shot-map";
 import { Card, Empty, Stat } from "@/components/ui/card";
 import { SeasonSelect } from "@/components/ui/season-select";
@@ -72,37 +73,55 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
 
   return (
     <div className="space-y-4">
-      <header className="rise relative border-b-2 border-fg pb-5 pt-2">
-        <div className="relative flex flex-wrap items-end justify-between gap-3">
-          <div className="flex items-center gap-4">
-          <PlayerPhoto src={player.headshot} alt={player.name} size={96} />
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted">
+      <header className="rise relative overflow-hidden bg-board text-board-text">
+        {player.current_team_logo ? (
+          <img
+            src={player.current_team_logo}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute -right-10 top-1/2 size-72 -translate-y-1/2 object-contain opacity-[0.08] sm:size-96"
+          />
+        ) : null}
+        <div className="relative flex flex-wrap items-end gap-5 p-4 sm:p-6">
+          <Portrait src={player.headshot} alt={player.name} width={150} />
+          <div className="min-w-0 flex-1">
+            <p className="label flex flex-wrap items-center gap-2 text-board-muted">
               {player.position ? POS[player.position] ?? player.position : isGoalie ? "brankář" : "hráč"}
               {player.current_team_id || currentTeam ? (
-                <>
-                  {" · "}
-                  <Link href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`} className="hover:text-fg">
-                    {player.current_team_name ?? currentTeam!.team_name}
-                  </Link>
-                </>
+                <Link href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`} className="flex items-center gap-2 text-board-text hover:text-led">
+                  {player.current_team_logo ? (
+                    <span className="grid size-7 place-items-center bg-white p-0.5">
+                      <img src={player.current_team_logo} alt="" className="size-full object-contain" />
+                    </span>
+                  ) : null}
+                  {player.current_team_name ?? currentTeam!.team_name}
+                </Link>
               ) : null}
             </p>
-            <h1 className="text-3xl font-black tracking-tight">{player.name}</h1>
-            <p className="mt-1 flex flex-wrap gap-x-3 text-sm text-muted">
-              {player.birth_date ? (
-                <span>
-                  {age(player.birth_date)} let · nar. {new Date(player.birth_date).toLocaleDateString("cs-CZ")}
-                </span>
-              ) : null}
-              {player.height_cm ? <span>{player.height_cm} cm</span> : null}
-              {player.weight_kg ? <span>{player.weight_kg} kg</span> : null}
-              {player.shoots ? <span>hůl {player.shoots === "L" ? "levá" : "pravá"}</span> : null}
-            </p>
-          </div>
+            <h1 className="mt-2 text-board-text" style={{ fontSize: "clamp(2.4rem, 6vw, 4rem)" }}>
+              {player.name}
+            </h1>
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+              {[
+                ["Věk", player.birth_date ? `${age(player.birth_date)} let` : null, player.birth_date ? new Date(player.birth_date).toLocaleDateString("cs-CZ") : null],
+                ["Výška", player.height_cm ? `${player.height_cm} cm` : null, null],
+                ["Váha", player.weight_kg ? `${player.weight_kg} kg` : null, null],
+                ["Hůl", player.shoots ? (player.shoots === "L" ? "levá" : "pravá") : null, null],
+              ]
+                .filter(([, v]) => v)
+                .map(([k, v, sub]) => (
+                  <div key={k as string}>
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-board-muted">{k}</dt>
+                    <dd className="display text-2xl text-led">{v}</dd>
+                    {sub ? <dd className="text-xs text-board-muted">{sub}</dd> : null}
+                  </div>
+                ))}
+            </dl>
           </div>
           {seasonList.length ? <SeasonSelect seasons={seasonList} value={season} /> : null}
         </div>
+      </header>
+      <div className="relative">
         {!isGoalie && totals.gp ? (
           <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             <Stat label="Zápasy ELH" value={totals.gp} />
@@ -112,7 +131,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
             <Stat label="xG" value={totals.xg.toFixed(1)} sub={`G−xG ${totals.g - totals.xg >= 0 ? "+" : ""}${(totals.g - totals.xg).toFixed(1)} (sezóny se střelami)`} />
           </div>
         ) : null}
-      </header>
+      </div>
       <UrlTabs tabs={TABS} active={tab} layoutId="player-tab" />
 
       {tab === "kariera" ? (

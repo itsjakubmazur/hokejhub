@@ -51,7 +51,7 @@ export function TeamResults({ teamId, games }: { teamId: string; games: GameRowD
                 </span>
                 <span className="text-center text-[10px] font-semibold uppercase text-muted">{home ? "doma" : "venku"}</span>
                 <span className="flex min-w-0 items-center gap-2 truncate">
-                  <ClubLogo src={home ? g.away_logo : g.home_logo} alt="" size={20} />
+                  <ClubLogo src={home ? g.away_logo : g.home_logo} alt="" size={26} />
                   <span className="truncate font-medium">{home ? g.away_name : g.home_name}</span>
                   {g.phase === "playoff" && g.round ? <span className="ml-1.5 text-xs text-muted">{g.round}</span> : null}
                 </span>

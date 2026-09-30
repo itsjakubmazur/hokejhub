@@ -1,5 +1,7 @@
 "use client";
 
+import { Star } from "lucide-react";
+
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -108,9 +110,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       {mine.length > 0 ? (
         <section className="overflow-hidden border border-line border-t-2 border-t-gold bg-surface">
           <h2 className="label flex items-center gap-2 px-3 pb-2 pt-3">
-            <svg viewBox="0 0 24 24" className="size-3.5 text-gold" fill="currentColor" aria-hidden>
-              <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z" />
-            </svg>
+            <Star className="size-4 fill-gold text-gold" aria-hidden />
             Moje týmy
           </h2>
           {mine.map((g, i) => (
@@ -187,7 +187,7 @@ function DateStrip({ date, today }: { date: string; today: string }) {
             key={d}
             href={d === today ? "/" : `/?date=${d}`}
             scroll={false}
-            className={`flex min-w-14 flex-col items-center border px-2.5 py-1.5 transition ${
+            className={`flex min-w-16 shrink-0 flex-col items-center whitespace-nowrap border px-2.5 py-1.5 transition ${
               active ? "border-fg bg-fg text-bg" : d === today ? "border-live/60 text-fg" : "border-line text-muted hover:text-fg"
             }`}
           >

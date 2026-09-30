@@ -80,7 +80,7 @@ export function ElhPreviewPanel({ game, preview }: { game: Game; preview: ElhPre
             <ul className="space-y-2">
               {t.leaders.map((p) => (
                 <li key={p.id} className="flex items-center gap-2.5">
-                  <PlayerPhoto src={p.photo} alt={p.name} size={34} ring={i === 0 ? "home" : "away"} />
+                  <PlayerPhoto src={p.photo} alt={p.name} size={44} ring={i === 0 ? "home" : "away"} />
                   <Link href={`/hrac/${p.id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-accent">
                     {p.name}
                   </Link>
@@ -93,7 +93,7 @@ export function ElhPreviewPanel({ game, preview }: { game: Game; preview: ElhPre
             </ul>
             {t.goalie ? (
               <div className="flex items-center gap-2.5 border-t border-line pt-3">
-                <PlayerPhoto src={t.goalie.photo} alt={t.goalie.name} size={34} />
+                <PlayerPhoto src={t.goalie.photo} alt={t.goalie.name} size={44} />
                 <Link href={`/hrac/${t.goalie.id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-accent">
                   {t.goalie.name}
                   <span className="block text-xs font-normal text-muted">brankář · {t.goalie.gp} záp.</span>

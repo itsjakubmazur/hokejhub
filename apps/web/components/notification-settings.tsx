@@ -1,5 +1,7 @@
 "use client";
 
+import { BellOff, BellRing } from "lucide-react";
+
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -135,10 +137,7 @@ function Settings({ vapidKey }: { vapidKey: string | null }) {
             transition={{ duration: 0.8 }}
             className={`grid size-12 place-items-center ${state === "on" ? "bg-win/15 text-win" : "bg-surface-2 text-muted"}`}
           >
-            <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0" />
-              {state === "on" ? null : <path d="M3 3l18 18" />}
-            </svg>
+            {state === "on" ? <BellRing className="size-6" aria-hidden /> : <BellOff className="size-6" aria-hidden />}
           </motion.div>
           <div className="min-w-0 flex-1">
             <div className="font-semibold">

@@ -59,21 +59,26 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
 
   return (
     <div className="space-y-4">
-      <header className="rise relative border-b-2 border-fg pb-5 pt-2">
-        <div className="relative flex items-center gap-4">
-          <div className="grid size-20 shrink-0 place-items-center border border-line bg-white p-2">
-            {team.logo_url ? <img src={team.logo_url} alt="" className="size-full object-contain" /> : <span className="text-xl font-black text-black">{team.abbrev}</span>}
+      <header className="rise relative overflow-hidden bg-board text-board-text">
+        {team.logo_url ? (
+          <img src={team.logo_url} alt="" aria-hidden className="pointer-events-none absolute -right-12 top-1/2 size-80 -translate-y-1/2 object-contain opacity-[0.07] sm:size-[28rem]" />
+        ) : null}
+        <div className="relative flex flex-wrap items-center gap-5 p-4 sm:p-6">
+          <div className="grid size-24 shrink-0 place-items-center bg-white p-2.5 sm:size-36 sm:p-4">
+            {team.logo_url ? <img src={team.logo_url} alt="" className="size-full object-contain" /> : <span className="display text-3xl text-black">{team.abbrev}</span>}
           </div>
           <div className="min-w-0 flex-1">
-            <Link href="/liga/cz-elh" className="text-xs font-semibold uppercase tracking-wider text-muted hover:text-fg">
+            <Link href="/liga/cz-elh" className="label text-board-muted hover:text-board-text">
               Tipsport extraliga
             </Link>
-            <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">{team.name}</h1>
-            <div className="mt-2">
+            <h1 className="mt-1 text-board-text" style={{ fontSize: "clamp(2.2rem, 5.5vw, 3.75rem)" }}>
+              {team.name}
+            </h1>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               <FavoriteButton id={id} label={team.name} names={[team.short_name, team.name]} />
+              <SeasonSelect seasons={seasons} value={season} />
             </div>
           </div>
-          <SeasonSelect seasons={seasons} value={season} />
         </div>
       </header>
       <UrlTabs tabs={TABS} active={tab} layoutId="team-tab" />

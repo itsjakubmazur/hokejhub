@@ -1,5 +1,7 @@
 "use client";
 
+import { Search } from "lucide-react";
+
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
@@ -75,10 +77,7 @@ export function SearchPalette() {
         className="flex h-9 items-center gap-2 border border-line px-2.5 text-sm text-muted hover:text-fg"
         aria-label="Hledat"
       >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="11" cy="11" r="7" />
-          <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
-        </svg>
+        <Search className="size-4" aria-hidden />
         <span className="hidden md:inline">Hledat</span>
         <kbd className="hidden rounded bg-surface-2 px-1.5 text-[10px] md:inline">⌘K</kbd>
       </button>
@@ -100,10 +99,7 @@ export function SearchPalette() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-2 border-b border-line px-4">
-                <svg viewBox="0 0 24 24" className="size-5 text-muted" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
-                </svg>
+                <Search className="size-5 text-muted" aria-hidden />
                 <input
                   ref={input}
                   autoFocus

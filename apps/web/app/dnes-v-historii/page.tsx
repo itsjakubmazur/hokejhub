@@ -53,7 +53,7 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
           <ul className="grid gap-2 sm:grid-cols-2">
             {nights.map((n) => (
               <li key={`${n.game_id}-${n.player_id}`} className="flex items-center gap-3 rounded-xl bg-surface-2 p-2">
-                <PlayerPhoto src={n.headshot} alt={n.name} size={44} />
+                <PlayerPhoto src={n.headshot} alt={n.name} size={60} />
                 <div className="min-w-0 flex-1">
                   <Link href={`/hrac/${n.player_id}`} className="font-semibold hover:text-accent">
                     {n.name}
@@ -100,7 +100,7 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
             <ul className="space-y-2">
               {births.map((b) => (
                 <li key={b.id} className="flex items-center gap-2.5">
-                  <PlayerPhoto src={b.headshot} alt={b.name} size={36} />
+                  <PlayerPhoto src={b.headshot} alt={b.name} size={48} />
                   <div className="min-w-0 flex-1">
                     <Link href={`/hrac/${b.id}`} className="block truncate font-medium hover:text-accent">
                       {b.name}

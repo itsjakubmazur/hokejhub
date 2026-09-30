@@ -69,14 +69,14 @@ export function HeadToHead({ game, games, teamIds }: { game: Game; games: GameRo
                 <span className="text-xs text-muted tabular">{new Date(g.start_at).toLocaleDateString("cs-CZ")}</span>
                 <span className={`flex items-center justify-end gap-2 truncate text-right ${homeWon ? "font-bold" : "text-muted"}`}>
                   <span className="truncate">{g.home_name}</span>
-                  <ClubLogo src={g.home_logo} alt="" size={20} />
+                  <ClubLogo src={g.home_logo} alt="" size={26} />
                 </span>
                 <span className="rounded-md bg-surface-2 px-2 py-0.5 font-bold tabular">
                   {g.home_score}:{g.away_score}
                   {g.decided_in && g.decided_in !== "REG" ? <span className="ml-1 text-[10px] text-muted">{g.decided_in === "OT" ? "PP" : "SN"}</span> : null}
                 </span>
                 <span className={`flex items-center gap-2 truncate ${!homeWon ? "font-bold" : "text-muted"}`}>
-                  <ClubLogo src={g.away_logo} alt="" size={20} />
+                  <ClubLogo src={g.away_logo} alt="" size={26} />
                   <span className="truncate">{g.away_name}</span>
                   {g.phase === "playoff" ? <span className="ml-1.5 text-[10px] font-semibold uppercase text-accent">PO</span> : null}
                 </span>

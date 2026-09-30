@@ -165,7 +165,7 @@ export function Standings({
                     </span>
                   </td>
                   <td className="py-2 pr-2 font-medium">
-                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={22} className="mr-2 align-middle" />
+                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={28} className="mr-2 align-middle" />
                     <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
                       {r.teamName}
                     </Link>
@@ -213,7 +213,7 @@ export function Standings({
               {ou.map((r) => (
                 <tr key={r.teamId} className="hover:bg-surface-2">
                   <td className="py-2 font-medium">
-                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={22} className="mr-2 align-middle" />
+                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={28} className="mr-2 align-middle" />
                     <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
                       {r.teamName}
                     </Link>

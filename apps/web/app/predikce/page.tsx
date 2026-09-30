@@ -64,11 +64,11 @@ export default async function PredictionsPage() {
                   <span className="w-20 shrink-0 text-xs text-muted tabular">
                     {new Date(g.startAt).toLocaleDateString("cs-CZ", { weekday: "short", day: "numeric", month: "numeric" })} {formatTime(g.startAt)}
                   </span>
-                  <ClubLogo src={logos[h]} alt="" size={22} />
+                  <ClubLogo src={logos[h]} alt="" size={30} />
                   <span className="font-medium">{g.home.shortName}</span>
                   <span className="text-muted">–</span>
                   <span className="font-medium">{g.away.shortName}</span>
-                  <ClubLogo src={logos[a]} alt="" size={22} />
+                  <ClubLogo src={logos[a]} alt="" size={30} />
                 </Link>
                 <div className="sm:col-span-2 sm:order-last">
                   <TipInput
@@ -121,7 +121,7 @@ export default async function PredictionsPage() {
               return (
                 <li key={t.id} className="flex items-center gap-2 text-sm">
                   <span className="w-5 text-right text-muted tabular">{i + 1}.</span>
-                  <ClubLogo src={logos[t.id]} alt="" size={20} />
+                  <ClubLogo src={logos[t.id]} alt="" size={26} />
                   <Link href={`/tym/${t.id}`} className="min-w-0 flex-1 truncate hover:text-accent">
                     {t.name}
                   </Link>

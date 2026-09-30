@@ -114,11 +114,11 @@ export function TipLeague() {
                   {new Date(e.startAt).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric" })}
                 </span>
                 <Link href={`/zapas/${e.gameId}?d=${e.date}`} className="flex min-w-0 items-center gap-1.5 hover:text-accent">
-                  <ClubLogo src={e.homeLogo} alt="" size={18} />
+                  <ClubLogo src={e.homeLogo} alt="" size={24} />
                   <span className="truncate">
                     {e.home} – {e.away}
                   </span>
-                  <ClubLogo src={e.awayLogo} alt="" size={18} />
+                  <ClubLogo src={e.awayLogo} alt="" size={24} />
                 </Link>
                 <span className="text-right font-bold tabular">
                   {game && game.homeScore !== null ? `${game.homeScore}:${game.awayScore}${game.decidedIn === "OT" ? " pp" : game.decidedIn === "SO" ? " sn" : ""}` : "–"}

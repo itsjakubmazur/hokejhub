@@ -55,7 +55,7 @@ export function Leaders({ rows, initialSort = "pts", showTeam = true }: { rows: 
             <tr key={r.player_id} className="hover:bg-surface-2">
               <td className="py-1.5 pr-2 text-muted">{i + 1}.</td>
               <td className="whitespace-nowrap py-1.5 pr-2 font-medium">
-                <PlayerPhoto src={r.headshot} alt={r.name} size={26} className="mr-2 align-middle" />
+                <PlayerPhoto src={r.headshot} alt={r.name} size={36} className="mr-2 align-middle" />
                 <Link href={`/hrac/${r.player_id}`} className="hover:text-accent">
                   {r.name}
                 </Link>

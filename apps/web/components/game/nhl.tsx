@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Game, NhlBoxscore, NhlGoalieLine, NhlLandingExtras, NhlRightRail, NhlSkaterLine } from "@hokejhub/core";
 import { PlayerPhoto } from "../player-photo";
+import { Portrait } from "../portrait";
 import { Segmented } from "./segmented";
 
 const POS: Record<string, string> = { C: "C", L: "LK", R: "PK", D: "O", G: "B" };
@@ -71,7 +72,7 @@ export function NhlPlayers({ game, box }: { game: Game; box: NhlBoxscore }) {
               <tr key={p.id} className="hover:bg-surface-2">
                 <td className="py-1.5 pr-2 text-muted">{p.number}</td>
                 <td className="whitespace-nowrap py-1.5 pr-2">
-                  <PlayerPhoto src={p.headshot} alt={p.name} size={26} className="mr-2 align-middle" />
+                  <PlayerPhoto src={p.headshot} alt={p.name} size={34} className="mr-2 align-middle" />
                   <span className="font-medium">{p.name}</span>
                   <span className="ml-1 text-muted">{POS[p.position] ?? p.position}</span>
                 </td>
@@ -121,7 +122,7 @@ function Goalies({ goalies }: { goalies: NhlGoalieLine[] }) {
             {goalies.map((g) => (
               <tr key={g.id}>
                 <td className="whitespace-nowrap py-1.5">
-                  <PlayerPhoto src={g.headshot} alt={g.name} size={26} className="mr-2 align-middle" />
+                  <PlayerPhoto src={g.headshot} alt={g.name} size={34} className="mr-2 align-middle" />
                   <span className="font-medium">{g.name}</span>
                 </td>
                 <td className="text-right">
@@ -149,12 +150,12 @@ export function ThreeStars({ stars }: { stars: NhlLandingExtras["threeStars"] })
   return (
     <ol className="grid grid-cols-3 gap-3">
       {stars.map((s) => (
-        <li key={s.star} className="flex flex-col items-center gap-1.5 text-center">
+        <li key={s.star} className="flex flex-col items-center gap-2 text-center">
           <div className="relative">
-            <PlayerPhoto src={s.headshot} alt={s.name} size={s.star === 1 ? 72 : 60} />
-            <span className="display absolute -bottom-1 -right-1 grid size-6 place-items-center bg-gold text-sm text-black">{s.star}</span>
+            <Portrait src={s.headshot} alt={s.name} width={s.star === 1 ? 118 : 96} />
+            <span className="display absolute -right-2 -top-2 grid size-8 place-items-center bg-gold text-lg text-black">{s.star}</span>
           </div>
-          <div className="text-sm font-semibold leading-tight">{s.name}</div>
+          <div className="text-sm font-bold leading-tight sm:text-base">{s.name}</div>
           <div className="text-xs text-muted">
             {s.team}
             {s.position === "G" ? (s.savePct != null ? ` · ${pct(s.savePct)}` : "") : s.points != null ? ` · ${s.goals}+${s.assists}` : ""}
@@ -277,7 +278,7 @@ export function NhlMatchup({ game, extras, rail }: { game: Game; extras: NhlLand
                 <ul className="space-y-2">
                   {m.goalies[side].slice(0, 2).map((g) => (
                     <li key={g.id} className="flex items-center gap-2.5">
-                      <PlayerPhoto src={g.headshot} alt={g.name} size={36} ring={side} />
+                      <PlayerPhoto src={g.headshot} alt={g.name} size={48} ring={side} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{g.name}</div>
                         <div className="text-xs text-muted tabular">
@@ -339,7 +340,7 @@ function Leader({ p, align }: { p: { name: string; headshot: string; value: numb
   if (!p) return <span />;
   return (
     <div className={`flex items-center gap-2.5 ${align === "right" ? "flex-row-reverse text-right" : ""}`}>
-      <PlayerPhoto src={p.headshot} alt={p.name} size={40} ring={align === "left" ? "home" : "away"} />
+      <PlayerPhoto src={p.headshot} alt={p.name} size={52} ring={align === "left" ? "home" : "away"} />
       <div className="min-w-0">
         <div className="truncate text-sm font-medium">{p.name}</div>
         <div className="display text-xl tabular">{p.value}</div>

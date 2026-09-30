@@ -39,13 +39,13 @@ export function GameRow({
   game,
   date,
   liveOdds,
-  index,
   prediction,
 }: {
   game: Game;
   date: string;
   liveOdds?: Odds1x2;
-  index: number;
+  /** Position in its list (kept for callers; rows no longer stagger). */
+  index?: number;
   prediction?: { home: number; draw: number; away: number };
 }) {
   const flash = useGoalFlash(game.homeScore, game.awayScore);
@@ -69,7 +69,7 @@ export function GameRow({
       <div className="min-w-0 space-y-0.5">
         {(["home", "away"] as const).map((side) => (
           <div key={side} className="flex items-center gap-2">
-            <TeamLogo team={game[side]} size={18} />
+            <TeamLogo team={game[side]} size={24} />
             <span
               className={`truncate text-[14px] ${winner === side ? "font-bold" : winner ? "text-muted" : "font-medium"}`}
             >

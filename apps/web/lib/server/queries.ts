@@ -230,9 +230,10 @@ export async function getPlayer(id: string) {
     shoots: string | null;
     current_team_id: string | null;
     current_team_name: string | null;
+    current_team_logo: string | null;
   }>(
     `select p.id, p.name, p.position, p.headshot, to_char(p.birth_date, 'YYYY-MM-DD') as birth_date, p.height_cm, p.weight_kg,
-            p.shoots, p.current_team_id, t.name as current_team_name
+            p.shoots, p.current_team_id, t.name as current_team_name, t.logo_url as current_team_logo
      from player p left join team t on t.id = p.current_team_id where p.id = $1`,
     [id],
   );

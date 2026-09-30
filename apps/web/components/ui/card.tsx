@@ -1,13 +1,33 @@
+import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { CountUp } from "./count-up";
 
 /** Flat panel on the ice: a label in arena lettering over the content, no shadow. */
-export function Card({ title, children, action, className = "" }: { title?: ReactNode; children: ReactNode; action?: ReactNode; className?: string }) {
+export function Card({
+  title,
+  icon: Icon,
+  children,
+  action,
+  className = "",
+}: {
+  title?: ReactNode;
+  icon?: LucideIcon;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+}) {
   return (
     <section className={`rise border border-line bg-surface p-4 sm:p-5 ${className}`}>
       {title || action ? (
         <div className="mb-4 flex items-baseline justify-between gap-3">
-          {title ? <h2 className="label text-fg">{title}</h2> : <span />}
+          {title ? (
+            <h2 className="label flex items-center gap-2 text-fg">
+              {Icon ? <Icon className="size-4 text-muted" strokeWidth={2.25} aria-hidden /> : null}
+              {title}
+            </h2>
+          ) : (
+            <span />
+          )}
           {action}
         </div>
       ) : null}
