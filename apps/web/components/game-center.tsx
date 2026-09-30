@@ -409,10 +409,9 @@ function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
       <Insights game={game} data={data} />
     </Card>
   ) : null;
-  // Without a box score there is no report, no standouts and no insights; the timeline is then
-  // the story of the game and belongs on the first screen instead of one tap away.
-  const hasStory = (game.status === "final" && data.box) || data.nhl?.extras.threeStars.length || data.insights;
-  const sparse = !hasStory;
+  // Without a hokej.cz box score there is no report, no standouts and no insights (three stars
+  // alone are a headline, not a story); the timeline then belongs on the first screen.
+  const sparse = !((game.status === "final" && data.box) || data.insights);
   const hasEvents = Boolean(data.box?.goals.length || data.box?.penalties.length || data.goals?.length);
   const timelineCard = (recent?: number) =>
     hasEvents ? (
