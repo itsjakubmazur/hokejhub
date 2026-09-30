@@ -74,7 +74,7 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
                   </Link>{" "}
                   – {MILESTONE[m.kind]?.(m.value) ?? m.kind}
                 </span>
-                <span className="ml-auto text-lg">🏆</span>
+                <span className="label ml-auto shrink-0 text-gold">milník</span>
               </motion.li>
             ))}
           </ul>
@@ -82,7 +82,7 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
       ) : null}
       {ins.notes.length > 0 ? (
         <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+          <h3 className="mb-2 label text-muted">
             {game.status === "final" ? "Jak šli hráči do zápasu" : "Na koho se dívat"}
           </h3>
           <ul className="grid gap-2 sm:grid-cols-2">

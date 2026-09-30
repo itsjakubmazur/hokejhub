@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
 import { impliedProbs, pragueDate, type BetDistribution, type Game, type Odds1x2 } from "@hokejhub/core";
 import type { GameDetailResponse } from "@/lib/types";
 import { formatDayLong, formatOdds, formatPct, formatTime } from "@/lib/format";
@@ -29,6 +28,7 @@ import { SourceStatus } from "./source-status";
 import { TeamLogo } from "./team-logo";
 import { PlayerPhoto } from "./player-photo";
 import { ShareButton } from "./share-button";
+import { Card } from "./ui/card";
 import { useGoalFlash } from "./use-goal-flash";
 
 const easternDate = (iso: string) =>
@@ -348,7 +348,7 @@ function FaceoffZones({ game, zones }: { game: Game; zones: { home: number[]; aw
   const labels = ["Obranné pásmo", "Střední pásmo", "Útočné pásmo"];
   return (
     <div className="mt-6 border-t border-line pt-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Vhazování podle pásem</h3>
+      <h3 className="mb-3 label text-muted">Vhazování podle pásem</h3>
       <div className="grid grid-cols-3 gap-2">
         {labels.map((l, i) => {
           const h = zones.home[i] ?? 0;
@@ -374,74 +374,96 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
   const started = game.homeScore !== null;
   const live = isLive(game);
   const lastSide = flash.home + flash.away === 0 ? "home" : flash.home >= flash.away ? "home" : "away";
+  const sog =
+    data.box?.teamStats["Střely na branku"] ??
+    (data.shots?.length
+      ? ([
+          data.shots.filter((x) => x.teamId === game.home.id && (x.type === "shot-on-goal" || x.type === "goal")).length,
+          data.shots.filter((x) => x.teamId !== game.home.id && (x.type === "shot-on-goal" || x.type === "goal")).length,
+        ] as [number, number])
+      : null);
+  const periodCols = Math.max(3, game.periods.length);
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-line bg-surface">
-      <div className="flex items-center justify-between border-b border-line px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
-        <Link href={day === pragueDate() ? "/" : `/?date=${day}`} className="hover:text-fg">
+    <section className="relative overflow-hidden bg-board text-board-text">
+      <div className="flex items-center justify-between gap-3 border-b border-board-line px-4 py-2.5">
+        <Link href={day === pragueDate() ? "/" : `/?date=${day}`} className="label min-w-0 truncate text-board-muted hover:text-board-text">
           ← {game.leagueName}
           {data.box?.round ? ` · ${data.box.round}` : ""}
         </Link>
-        <span className="flex items-center gap-3">
-          <span className="tabular">
-            {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(game.startAt))}{" "}
+        <span className="flex shrink-0 items-center gap-3 text-xs text-board-muted">
+          <span className="hidden tabular sm:inline">
+            {new Intl.DateTimeFormat("cs-CZ", { timeZone: "Europe/Prague", day: "numeric", month: "numeric", year: "numeric" }).format(new Date(game.startAt))}{" "}
             {formatTime(game.startAt)}
           </span>
-          <span className="normal-case tracking-normal">
-            <ShareButton
-              title={`${game.home.shortName} ${started ? `${game.homeScore}:${game.awayScore}` : "vs"} ${game.away.shortName}`}
-              image={`/api/og${pathname}?d=${day}`}
-            />
-          </span>
+          <ShareButton
+            title={`${game.home.shortName} ${started ? `${game.homeScore}:${game.awayScore}` : "vs"} ${game.away.shortName}`}
+            image={`/api/og${pathname}?d=${day}`}
+          />
         </span>
       </div>
-      <div
-        className="pointer-events-none absolute inset-0 top-10 opacity-70"
-        style={{
-          background:
-            "radial-gradient(50% 90% at 0% 50%, color-mix(in oklab, var(--home) 16%, transparent), transparent), radial-gradient(50% 90% at 100% 50%, color-mix(in oklab, var(--away) 16%, transparent), transparent)",
-        }}
-      />
       <GoalCelebration trigger={flash.home + flash.away} side={lastSide} team={game[lastSide].shortName} />
       <PeriodSiren game={game} />
-      <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 py-5 sm:px-8 sm:py-7">
+      <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-2 px-3 pb-5 pt-6 sm:px-8">
         <TeamBlock game={game} side="home" href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-2 text-5xl font-black tracking-tight tabular sm:text-6xl">
-            {started ? (
-              <>
-                <span key={`h${flash.home}`} className={flash.home ? "goal-pop" : ""}>
-                  {game.homeScore}
+        <div className="flex flex-col items-center">
+          {started ? (
+            <div className="flex items-stretch gap-1.5">
+              {(["home", "away"] as const).map((side) => (
+                <span
+                  key={`${side}${flash[side]}`}
+                  className={`led grid min-w-[1.35em] place-items-center bg-board-2 px-2 text-6xl leading-none sm:text-7xl ${flash[side] ? "goal-pop" : ""}`}
+                  style={{ paddingBlock: "0.12em" }}
+                >
+                  {side === "home" ? game.homeScore : game.awayScore}
                 </span>
-                <span className="text-muted/40">-</span>
-                <span key={`a${flash.away}`} className={flash.away ? "goal-pop" : ""}>
-                  {game.awayScore}
-                </span>
-              </>
-            ) : (
-              <span className="text-3xl font-bold text-muted">{formatTime(game.startAt)}</span>
-            )}
-          </div>
-          <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider ${live ? "text-live" : "text-muted"}`}>
-            {live ? <span className="live-dot size-1.5 rounded-full bg-live" /> : null}
+              ))}
+            </div>
+          ) : (
+            <span className="led bg-board-2 px-3 py-1 text-5xl">{formatTime(game.startAt)}</span>
+          )}
+          <div className={`label mt-3 flex items-center gap-2 ${live ? "text-live" : "text-board-muted"}`}>
+            {live ? <span className="live-dot size-2 rounded-full bg-live" /> : null}
             {game.statusLabel}
             {live ? (
-              <span className="rounded bg-live/15 px-1.5 py-0.5 text-sm">
+              <span className="led text-xl" style={{ color: "var(--live)", textShadow: "0 0 12px color-mix(in oklab, var(--live) 45%, transparent)" }}>
                 <LiveClock anchor={game.status === "live" ? data.clock : null} fallback={game.clock} />
               </span>
             ) : null}
           </div>
-          {game.periods.length > 0 ? (
-            <div className="mt-1 flex gap-1.5 text-[11px] text-muted tabular">
-              {game.periods.map(([h, a], i) => (
-                <span key={i} className="rounded-md bg-surface-2 px-1.5 py-0.5">
-                  {h}:{a}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
         <TeamBlock game={game} side="away" href={data.teamIds ? `/tym/${data.teamIds.away}` : undefined} />
       </div>
+      {started && (game.periods.length > 0 || sog) ? (
+        <div className="overflow-x-auto border-t border-board-line">
+          <table className="mx-auto text-center tabular">
+            <thead>
+              <tr className="text-[10px] font-semibold uppercase tracking-[0.12em] text-board-muted">
+                <th className="px-3 pt-2 text-left font-semibold">Třetina</th>
+                {Array.from({ length: periodCols }, (_, i) => (
+                  <th key={i} className="w-9 pt-2 font-semibold">
+                    {i < 3 ? i + 1 : i === 3 ? "PP" : "SN"}
+                  </th>
+                ))}
+                {sog ? <th className="pl-4 pr-3 pt-2 font-semibold">Střely</th> : null}
+              </tr>
+            </thead>
+            <tbody className="display text-lg">
+              {(["home", "away"] as const).map((side, si) => (
+                <tr key={side}>
+                  <td className="px-3 text-left font-sans text-xs font-semibold text-board-muted">{game[side].abbrev}</td>
+                  {Array.from({ length: periodCols }, (_, i) => (
+                    <td key={i} className={`w-9 ${game.periods[i] ? "text-board-text" : "text-board-muted/40"}`}>
+                      {game.periods[i] ? game.periods[i]![si] : "–"}
+                    </td>
+                  ))}
+                  {sog ? <td className="led pl-4 pr-3">{sog[si]}</td> : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="h-2" />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -450,19 +472,20 @@ function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; hr
   const team = game[side];
   const inner = (
     <motion.div
-      className="flex flex-col items-center gap-2 text-center"
+      className="flex flex-col items-center gap-2.5 text-center"
       initial={{ opacity: 0, x: side === "home" ? -20 : 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 24 }}
     >
-      <div className="grid size-16 place-items-center rounded-2xl bg-white/95 p-2 shadow-md sm:size-20">
+      <div className="grid size-16 place-items-center bg-white p-2 sm:size-20">
         <TeamLogo team={team} size={56} />
       </div>
-      <div className="text-sm font-semibold sm:text-base">{team.shortName}</div>
+      <div className="display text-lg leading-none sm:text-2xl">{team.shortName}</div>
+      <div className={`h-[3px] w-8 ${side === "home" ? "bg-home" : "bg-away"}`} aria-hidden />
     </motion.div>
   );
   return href ? (
-    <Link href={href} className="transition-transform hover:scale-[1.03]">
+    <Link href={href} className="transition-opacity hover:opacity-80">
       {inner}
     </Link>
   ) : (
@@ -470,14 +493,6 @@ function TeamBlock({ game, side, href }: { game: Game; side: "home" | "away"; hr
   );
 }
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rise rounded-2xl border border-line bg-surface p-4">
-      <h2 className="mb-3 text-sm font-semibold text-muted">{title}</h2>
-      {children}
-    </section>
-  );
-}
 
 function OddsCard({ pre, live, game }: { pre: Odds1x2 | null; live: Odds1x2 | null; game: Game }) {
   if (!pre && !live) return null;

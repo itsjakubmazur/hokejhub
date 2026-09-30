@@ -11,8 +11,8 @@ const nice = (name: string) =>
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rise rounded-2xl border border-line bg-surface p-4">
-      <h2 className="mb-3 text-sm font-semibold text-muted">{title}</h2>
+    <section className="rise border border-line bg-surface p-4 sm:p-5">
+      <h2 className="label mb-4">{title}</h2>
       {children}
     </section>
   );
@@ -48,7 +48,7 @@ export function HokejczTimeline({ box }: { box: HokejczMatch }) {
           ].sort((a, b) => a.time.localeCompare(b.time));
           return (
             <div key={period}>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{period}</h3>
+              <h3 className="mb-1 label text-muted">{period}</h3>
               <ol className="divide-y divide-line">
                 {events.map((e, i) => {
                   if (e.kind === "goal") {

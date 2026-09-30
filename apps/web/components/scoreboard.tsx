@@ -90,13 +90,13 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
   const liveCount = data.games.filter(isLive).length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <DateStrip date={date} today={today} />
 
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight first-letter:uppercase">{formatDayLong(date)}</h1>
-          <p className="mt-0.5 text-sm text-muted">
+          <h1 className="first-letter:uppercase">{formatDayLong(date)}</h1>
+          <p className="mt-2 text-sm text-muted">
             {data.games.length} zápasů
             {liveCount > 0 ? (
               <span className="ml-2 inline-flex items-center gap-1.5 text-live">
@@ -113,8 +113,8 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       <SourceStatus sources={isError ? { ...data.sources, server: "stale" } : data.sources} />
 
       {mine.length > 0 ? (
-        <section className="overflow-hidden rounded-xl border border-gold/50 bg-surface">
-          <h2 className="flex items-center gap-2 bg-gold/10 px-3 py-2 text-[13px] font-bold">
+        <section className="overflow-hidden border border-line border-t-2 border-t-gold bg-surface">
+          <h2 className="label flex items-center gap-2 px-3 pb-2 pt-3">
             <svg viewBox="0 0 24 24" className="size-3.5 text-gold" fill="currentColor" aria-hidden>
               <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z" />
             </svg>
@@ -134,17 +134,16 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       ) : null}
 
       {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line p-10 text-center text-muted">
+        <div className="border border-dashed border-line p-10 text-center text-muted">
           {data.games.length === 0 ? "Tento den se nehraje." : "Ve vybraných soutěžích se dnes nehraje."}
         </div>
       ) : null}
 
       {visible.map(({ league, games }) => (
-        <section key={league.key} className="overflow-hidden rounded-xl border border-line bg-surface">
-          <h2 className="flex items-center gap-2 bg-surface-2 px-3 py-2 text-[13px] font-bold">
-            <span className="h-3.5 w-1 rounded-full bg-accent" />
+        <section key={league.key} className="overflow-hidden border border-line bg-surface">
+          <h2 className="label flex items-baseline gap-2 border-b border-line px-3 pb-2 pt-3">
             {league.name}
-            <span className="ml-auto text-[11px] font-medium text-muted tabular">
+            <span className="ml-auto font-sans text-[11px] font-medium normal-case tracking-normal text-muted tabular">
               {games.filter(isLive).length > 0 ? (
                 <span className="mr-2 text-live">{games.filter(isLive).length} živě</span>
               ) : null}
@@ -169,7 +168,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
       {hidden > 0 || showAll ? (
         <button
           onClick={() => setShowAll((v) => !v)}
-          className="w-full rounded-xl border border-line py-2.5 text-sm text-muted hover:text-fg"
+          className="w-full border border-line py-2.5 text-sm text-muted hover:text-fg"
         >
           {showAll ? "Jen vybrané soutěže" : `Další soutěže (${hidden})`}
         </button>
@@ -195,12 +194,12 @@ function DateStrip({ date, today }: { date: string; today: string }) {
             key={d}
             href={d === today ? "/" : `/?date=${d}`}
             scroll={false}
-            className={`flex min-w-14 flex-col items-center rounded-xl px-2.5 py-1.5 text-xs transition ${
-              active ? "bg-accent text-bg" : "bg-surface text-muted hover:text-fg"
+            className={`flex min-w-14 flex-col items-center border px-2.5 py-1.5 transition ${
+              active ? "border-fg bg-fg text-bg" : d === today ? "border-live/60 text-fg" : "border-line text-muted hover:text-fg"
             }`}
           >
-            <span className="uppercase">{d === today ? "dnes" : weekday}</span>
-            <span className="font-semibold tabular">{day}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em]">{d === today ? "dnes" : weekday}</span>
+            <span className="display text-lg tabular">{day}</span>
           </Link>
         );
       })}
@@ -232,8 +231,8 @@ function LeagueChips({
               onChange(on ? selected.filter((k) => k !== league.key) : [...selected, league.key])
             }
             aria-pressed={on}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
-              on ? "border-accent/50 bg-accent-soft text-accent" : "border-line text-muted hover:text-fg"
+            className={`flex shrink-0 items-center gap-1.5 border px-3 py-1 text-xs transition ${
+              on ? "border-fg text-fg font-semibold" : "border-line text-muted hover:text-fg"
             }`}
           >
             {live ? <span className="live-dot size-1.5 rounded-full bg-live" /> : null}

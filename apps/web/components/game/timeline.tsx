@@ -164,7 +164,7 @@ export function Timeline({
         const score = game.periods[pi];
         return (
           <section key={period}>
-            <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+            <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 label text-muted">
               <span>{period}</span>
               {score ? (
                 <span className="tabular text-fg">

@@ -95,7 +95,7 @@ function TeamFormation({
 }) {
   const byJersey = new Map((stats ?? []).map((s) => [s.jersey, s]));
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line bg-[radial-gradient(ellipse_at_top,var(--accent-soft),transparent_60%)] bg-surface p-3 sm:p-4">
+    <div className="relative overflow-hidden border border-line bg-rink p-3 sm:p-4">
       <h3 className="relative mb-3 flex items-center gap-2 text-sm font-semibold">
         <span className={`size-2.5 rounded-full ${side === "home" ? "bg-home" : "bg-away"}`} />
         {name}

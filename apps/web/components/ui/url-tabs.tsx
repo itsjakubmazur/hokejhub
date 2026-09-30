@@ -20,12 +20,12 @@ export function UrlTabs({ tabs, active, layoutId }: { tabs: { id: string; label:
             key={t.id}
             href={qs ? `${pathname}?${qs}` : pathname}
             scroll={false}
-            className={`relative shrink-0 px-3 py-3 text-sm font-semibold uppercase tracking-wide transition-colors ${
+            className={`label relative shrink-0 px-3 py-3.5 transition-colors ${
               active === t.id ? "text-fg" : "text-muted hover:text-fg"
             }`}
           >
             {t.label}
-            {active === t.id ? <motion.span layoutId={layoutId} className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-live" /> : null}
+            {active === t.id ? <motion.span layoutId={layoutId} className="absolute inset-x-2 -bottom-px h-[3px] bg-live" /> : null}
           </Link>
         );
       })}

@@ -98,13 +98,10 @@ function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechos
     <Card title={`Sezóna ${season.label}`} action={<Link href="/historie" scroll={false} className="text-xs text-muted hover:text-fg">zavřít ✕</Link>}>
       <div className="space-y-4">
         {season.champion ? (
-          <div className="flex items-center gap-3 rounded-xl bg-gold/10 p-3">
-            <span className="text-3xl" aria-hidden>
-              🏆
-            </span>
+          <div className="flex items-center gap-3 border-l-4 border-gold bg-surface-2 p-3">
             <div>
               <div className="text-xs uppercase tracking-wide text-muted">Mistr</div>
-              <div className="text-xl font-black">{season.champion}</div>
+              <div className="display text-3xl">{season.champion}</div>
             </div>
             {season.topScorer ? (
               <div className="ml-auto text-right text-sm">
@@ -119,7 +116,7 @@ function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechos
         ) : null}
         {season.tables.map((t, ti) => (
           <div key={ti}>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">{t.title}</h3>
+            <h3 className="mb-1 label text-muted">{t.title}</h3>
             <div className="-mx-4 overflow-x-auto px-4">
               <table className="w-full min-w-[440px] text-sm tabular">
                 <thead>
@@ -156,7 +153,7 @@ function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechos
         ))}
         {season.results.length ? (
           <div>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Play-off a konečné pořadí</h3>
+            <h3 className="mb-1 label text-muted">Play-off a konečné pořadí</h3>
             <ul className="space-y-1 text-sm">
               {season.results.map((r, i) => (
                 <li key={i}>{r}</li>
@@ -166,11 +163,11 @@ function SeasonDetail({ season }: { season: Awaited<ReturnType<typeof getCzechos
         ) : null}
         {season.rosters.length ? (
           <div>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Sestavy medailistů</h3>
+            <h3 className="mb-1 label text-muted">Sestavy medailistů</h3>
             <ul className="space-y-2 text-sm">
               {season.rosters.map((r, i) => (
                 <li key={i}>
-                  <span className="font-semibold">{["🥇", "🥈", "🥉"][i] ?? ""} {r.team}:</span> <span className="text-fg/80">{r.players}</span>
+                  <span className="font-semibold">{i + 1}. {r.team}:</span> <span className="text-fg/80">{r.players}</span>
                 </li>
               ))}
             </ul>

@@ -143,7 +143,7 @@ export default async function PredictionsPage() {
             <Stat label="Log-loss" value={bt.logLoss.toFixed(3)} sub="náhodný tip ≈ 1,099" />
             <Stat label="Brier skóre" value={bt.brier.toFixed(3)} sub="nižší = lepší" />
           </div>
-          <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Kalibrace: předpověď vs. skutečnost (výhra domácích)</h3>
+          <h3 className="mb-2 mt-4 label text-muted">Kalibrace: předpověď vs. skutečnost (výhra domácích)</h3>
           <div className="space-y-1">
             {bt.calibration.map((c) => (
               <div key={c.bucket} className="grid grid-cols-[56px_1fr_60px] items-center gap-2 text-xs tabular">

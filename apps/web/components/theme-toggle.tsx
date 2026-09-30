@@ -13,7 +13,7 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label="Přepnout motiv"
-      className="grid size-9 place-items-center rounded-xl border border-line bg-surface text-muted transition hover:text-fg active:scale-95"
+      className="grid size-9 place-items-center border border-line text-muted transition hover:text-fg active:scale-95"
     >
       <svg viewBox="0 0 24 24" className="size-4.5 dark:hidden" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />

@@ -76,7 +76,7 @@ export function TipLeague() {
           ].map((x, i) =>
             x ? (
               <div key={i} className={i === 0 ? "text-left" : "text-right"}>
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted">{x.label}</div>
+                <div className="label text-muted">{x.label}</div>
                 <div className="text-5xl font-black tabular">{x.v}</div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
                   <motion.div
@@ -89,7 +89,7 @@ export function TipLeague() {
               </div>
             ) : (
               <div key={i} className="text-center text-sm text-muted">
-                {scored.length ? (me > bot ? "Vedeš! 🏆" : me < bot ? "Model vede 🤖" : "Nerozhodně") : "vs"}
+                {scored.length ? (me > bot ? "Vedeš" : me < bot ? "Vede model" : "Nerozhodně") : "vs"}
                 <div className="text-xs">{scored.length} vyhodnocených · {exact}× přesně</div>
               </div>
             ),
@@ -128,7 +128,7 @@ export function TipLeague() {
                   {mine !== null ? ` · ${mine}` : ""}
                 </span>
                 <span className={`rounded-md px-2 py-0.5 text-center text-xs tabular ${pointsCls(model)}`} title="Tip modelu">
-                  🤖 {e.model.home}:{e.model.away}
+                  M {e.model.home}:{e.model.away}
                   {model !== null ? ` · ${model}` : ""}
                 </span>
               </li>

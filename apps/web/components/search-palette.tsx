@@ -72,7 +72,7 @@ export function SearchPalette() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-1.5 text-sm text-muted hover:text-fg"
+        className="flex h-9 items-center gap-2 border border-line px-2.5 text-sm text-muted hover:text-fg"
         aria-label="Hledat"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2">

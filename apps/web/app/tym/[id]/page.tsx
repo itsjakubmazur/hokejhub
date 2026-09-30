@@ -59,13 +59,9 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
 
   return (
     <div className="space-y-4">
-      <header className="rise relative overflow-hidden rounded-3xl border border-line bg-surface p-5 sm:p-7">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{ background: "radial-gradient(60% 120% at 0% 0%, var(--accent-soft), transparent)" }}
-        />
+      <header className="rise relative border-b-2 border-fg pb-5 pt-2">
         <div className="relative flex items-center gap-4">
-          <div className="grid size-20 shrink-0 place-items-center rounded-2xl bg-white p-2 shadow-md">
+          <div className="grid size-20 shrink-0 place-items-center border border-line bg-white p-2">
             {team.logo_url ? <img src={team.logo_url} alt="" className="size-full object-contain" /> : <span className="text-xl font-black text-black">{team.abbrev}</span>}
           </div>
           <div className="min-w-0 flex-1">

@@ -133,9 +133,12 @@ function Settings({ vapidKey }: { vapidKey: string | null }) {
           <motion.div
             animate={state === "on" ? { rotate: [0, -18, 14, -8, 0] } : {}}
             transition={{ duration: 0.8 }}
-            className={`grid size-12 place-items-center rounded-2xl text-2xl ${state === "on" ? "bg-win/15" : "bg-surface-2"}`}
+            className={`grid size-12 place-items-center ${state === "on" ? "bg-win/15 text-win" : "bg-surface-2 text-muted"}`}
           >
-            {state === "on" ? "🔔" : "🔕"}
+            <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 003.4 0" />
+              {state === "on" ? null : <path d="M3 3l18 18" />}
+            </svg>
           </motion.div>
           <div className="min-w-0 flex-1">
             <div className="font-semibold">
@@ -168,7 +171,7 @@ function Settings({ vapidKey }: { vapidKey: string | null }) {
           <div className="flex flex-wrap gap-2">
             {teams.map((t) => (
               <span key={t} className="rounded-full bg-gold/15 px-3 py-1 text-sm font-medium text-gold">
-                ★ {t}
+                {t}
               </span>
             ))}
           </div>
@@ -187,7 +190,7 @@ function Settings({ vapidKey }: { vapidKey: string | null }) {
               <button
                 key={k}
                 onClick={() => toggleLeague(k)}
-                className={`rounded-full border px-3 py-1 text-sm ${on ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"}`}
+                className={`border px-3 py-1 text-sm ${on ? "border-accent bg-accent-soft text-accent" : "border-line text-muted"}`}
               >
                 {getLeague(k).shortName}
               </button>

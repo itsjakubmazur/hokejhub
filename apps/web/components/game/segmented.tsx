@@ -26,14 +26,14 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`relative shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              active ? "text-bg" : "bg-surface-2 text-muted hover:text-fg"
+            className={`relative shrink-0 border px-3 py-1.5 text-xs font-semibold transition-colors ${
+              active ? "border-fg text-bg" : "border-line text-muted hover:text-fg"
             }`}
           >
             {active ? (
               <motion.span
                 layoutId={`seg-${id}`}
-                className="absolute inset-0 rounded-full bg-accent"
+                className="absolute inset-0 bg-fg"
                 transition={{ type: "spring", stiffness: 500, damping: 38 }}
               />
             ) : null}

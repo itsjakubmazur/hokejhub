@@ -11,7 +11,7 @@ export function FavoriteButton({ id, label, names }: { id: string; label: string
       onClick={() => toggle({ id, names })}
       aria-pressed={on}
       title={on ? `Odebrat ${label} z oblíbených` : `Přidat ${label} do oblíbených`}
-      className={`relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+      className={`relative inline-flex items-center gap-1.5 border px-3 py-1 text-xs font-semibold transition-colors ${
         on ? "border-gold bg-gold/15 text-gold" : "border-line text-muted hover:text-fg"
       }`}
     >
@@ -33,7 +33,7 @@ export function FavoriteButton({ id, label, names }: { id: string; label: string
             animate={{ opacity: 0, scale: 2.2 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
-            className="pointer-events-none absolute inset-0 rounded-full border-2 border-gold"
+            className="pointer-events-none absolute inset-0 border-2 border-gold"
           />
         ) : null}
       </AnimatePresence>

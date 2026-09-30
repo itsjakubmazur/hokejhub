@@ -21,7 +21,7 @@ export function ShareButton({ title, image }: { title: string; image: string }) 
   };
   return (
     <>
-      <button onClick={share} className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:text-fg" aria-label="Sdílet zápas">
+      <button onClick={share} className="border border-board-line px-3 py-1 text-xs font-semibold text-board-muted hover:text-board-text" aria-label="Sdílet zápas">
         <svg viewBox="0 0 24 24" className="mr-1 inline size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" />
         </svg>

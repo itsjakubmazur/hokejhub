@@ -72,11 +72,10 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
 
   return (
     <div className="space-y-4">
-      <header className="rise relative overflow-hidden rounded-3xl border border-line bg-surface p-5 sm:p-7">
-        <div className="pointer-events-none absolute inset-0 opacity-60" style={{ background: "radial-gradient(60% 120% at 100% 0%, var(--accent-soft), transparent)" }} />
+      <header className="rise relative border-b-2 border-fg pb-5 pt-2">
         <div className="relative flex flex-wrap items-end justify-between gap-3">
           <div className="flex items-center gap-4">
-          <PlayerPhoto src={player.headshot} alt={player.name} size={96} className="shadow-xl" />
+          <PlayerPhoto src={player.headshot} alt={player.name} size={96} />
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">
               {player.position ? POS[player.position] ?? player.position : isGoalie ? "brankář" : "hráč"}

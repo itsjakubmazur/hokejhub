@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Big_Shoulders } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { BottomNav } from "@/components/bottom-nav";
 import { Header } from "@/components/header";
 import { SwRegister } from "@/components/sw-register";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin", "latin-ext"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin", "latin-ext"] });
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin", "latin-ext"] });
+const shoulders = Big_Shoulders({ variable: "--font-shoulders", subsets: ["latin", "latin-ext"], axes: ["opsz"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#080b10" },
-    { media: "(prefers-color-scheme: light)", color: "#f3f6f9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c1318" },
+    { media: "(prefers-color-scheme: light)", color: "#eef2f5" },
   ],
   viewportFit: "cover",
 };
@@ -31,7 +31,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(!t)t
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="cs" className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+    <html lang="cs" className={`${archivo.variable} ${shoulders.variable} antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

@@ -34,7 +34,7 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
   return (
     <div className="space-y-4">
       <header className="rise flex items-center gap-3">
-        <Link href={shift(-1)} className="rounded-full border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Předchozí den">
+        <Link href={shift(-1)} className="border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Předchozí den">
           ←
         </Link>
         <div className="flex-1 text-center">
@@ -43,7 +43,7 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
             {day}. {MONTHS[month - 1]}
           </h1>
         </div>
-        <Link href={shift(1)} className="rounded-full border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Další den">
+        <Link href={shift(1)} className="border border-line px-3 py-1 text-muted hover:text-fg" aria-label="Další den">
           →
         </Link>
       </header>
@@ -109,7 +109,6 @@ export default async function OnThisDay({ searchParams }: { searchParams: Promis
                       {year - Number(b.birth_date.slice(0, 4))} let · {b.games} záp., {b.points} b.
                     </span>
                   </div>
-                  <span aria-hidden>🎂</span>
                 </li>
               ))}
             </ul>

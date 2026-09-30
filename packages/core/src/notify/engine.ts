@@ -101,7 +101,7 @@ export function detectEvents(prev: GameSnapshot | undefined, g: Game, now = Date
   if ((live(g.status) || g.status === "final") && h + a > prev.homeScore + prev.awayScore) {
     const scorer = h > prev.homeScore ? g.home.shortName : g.away.shortName;
     const minute = g.clock && g.source !== "nhl" ? ` (${g.clock.replace(/'$/, "")}. min)` : g.clock ? ` (${g.period}. tř. ${g.clock})` : "";
-    emit("goal", `🚨 GÓL ${scorer}!`, `${score(g)}${minute}`, `:${h}-${a}`);
+    emit("goal", `GÓL ${scorer}!`, `${score(g)}${minute}`, `:${h}-${a}`);
     const prevDiff = prev.homeScore - prev.awayScore;
     const diff = h - a;
     if (diff === 0) emit("equalizer", `Vyrovnáno! ${score(g)}`, g.leagueName, `:${h}-${a}`);
@@ -114,7 +114,7 @@ export function detectEvents(prev: GameSnapshot | undefined, g: Game, now = Date
 
   const left = minutesLeft(g);
   if (g.status === "live" && left !== null && left <= 5 && Math.abs(h - a) <= 1 && !once.has("close_finish")) {
-    emit("close_finish", `⏱️ Napínavá koncovka`, `${score(g)} – zbývá ${Math.ceil(left)} min`);
+    emit("close_finish", `Napínavá koncovka`, `${score(g)} – zbývá ${Math.ceil(left)} min`);
   }
   if (live(g.status) && (g.period ?? 0) > 3 && !once.has("overtime")) {
     emit("overtime", g.period === 5 || /nájez|SO/i.test(g.statusLabel) ? "Rozhodnou nájezdy!" : "Prodloužení!", score(g));
