@@ -140,6 +140,7 @@ export interface SkaterSeasonRow {
   headshot: string | null;
   team_id: string;
   team_abbrev: string;
+  team_logo: string | null;
   position: string | null;
   gp: number;
   g: number;
@@ -157,7 +158,7 @@ export interface SkaterSeasonRow {
 }
 
 const SKATER_COLS = `
-  s.player_id, p.name, p.headshot, s.team_id, t.abbrev as team_abbrev, p.position,
+  s.player_id, p.name, p.headshot, s.team_id, t.abbrev as team_abbrev, t.logo_url as team_logo, p.position,
   s.gp::int, s.g::int, s.a::int, s.pts::int, s.pm::int, s.pim::int, s.sog::int, s.hits::int, s.blk::int,
   coalesce(s.fo_w,0)::int as fo_w, coalesce(s.fo_taken,0)::int as fo_taken, s.toi_avg::int,
   x.xg::float as xg`;
@@ -197,6 +198,7 @@ export interface GoalieSeasonRow {
   name: string;
   headshot: string | null;
   team_abbrev: string;
+  team_logo: string | null;
   gp: number;
   saves: number;
   ga: number;
@@ -207,7 +209,7 @@ export interface GoalieSeasonRow {
 
 export async function getLeagueGoalies(league: string, season: number, phase = "regular") {
   return sql<GoalieSeasonRow>(
-    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, t.logo_url as team_logo, s.gp::int, s.saves::int, s.ga::int,
             s.sv_pct::float, s.gaa::float, s.shutouts::int
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.league_id = $1 and s.season = $2 and s.phase = $3 and s.gp > 0
@@ -255,7 +257,7 @@ export async function getPlayerSeasons(id: string) {
 
 export async function getPlayerGoalieSeasons(id: string) {
   return sql<GoalieSeasonRow & { season: number; phase: string }>(
-    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, t.logo_url as team_logo, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
             s.gaa::float, s.shutouts::int, s.season, s.phase
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.player_id = $1 order by s.season desc, s.phase desc`,

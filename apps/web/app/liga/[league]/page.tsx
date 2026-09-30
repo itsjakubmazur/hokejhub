@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ClubLogo } from "@/components/club-logo";
 import { notFound } from "next/navigation";
 import { getLeague } from "@hokejhub/core";
 import { Leaders } from "@/components/league/leaders";
@@ -197,7 +198,7 @@ async function GoaliesTab({ league, season, phase }: { league: string; season: n
                   {r.name}
                 </Link>
               </td>
-              <td className="text-muted">{r.team_abbrev}</td>
+              <td className="text-muted"><span className="flex items-center gap-1.5"><ClubLogo src={r.team_logo} alt={r.team_abbrev} size={22} />{r.team_abbrev}</span></td>
               <td className="text-right">{r.gp}</td>
               <td className="text-right">{r.saves}</td>
               <td className="text-right">{r.ga}</td>

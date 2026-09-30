@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
+import { ClubLogo } from "@/components/club-logo";
 import { Portrait } from "@/components/portrait";
 import { ShotMap } from "@/components/shot-map";
 import { Card, Empty, Stat } from "@/components/ui/card";
@@ -162,7 +163,8 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
                       <tr key={`${s.season}-${s.phase}-${s.team_id}`} className={`hover:bg-surface-2 ${s.season === season ? "bg-accent-soft" : ""}`}>
                         <td className="py-1.5">{seasonLabel(s.season)}</td>
                         <td>
-                          <Link href={`/tym/${s.team_id}?sezona=${s.season}`} className="hover:text-accent">
+                          <Link href={`/tym/${s.team_id}?sezona=${s.season}`} className="flex items-center gap-1.5 hover:text-accent">
+                            <ClubLogo src={s.team_logo} alt={s.team_abbrev} size={22} />
                             {s.team_abbrev}
                           </Link>
                         </td>
@@ -204,7 +206,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
                   {goalie.map((s) => (
                     <tr key={`${s.season}-${s.phase}`}>
                       <td className="py-1.5">{seasonLabel(s.season)}</td>
-                      <td>{s.team_abbrev}</td>
+                      <td><span className="flex items-center gap-1.5"><ClubLogo src={s.team_logo} alt={s.team_abbrev} size={22} />{s.team_abbrev}</span></td>
                       <td className="text-xs text-muted">{s.phase === "playoff" ? "play-off" : "ZČ"}</td>
                       <td className="text-right">{s.gp}</td>
                       <td className="text-right">{s.saves}</td>

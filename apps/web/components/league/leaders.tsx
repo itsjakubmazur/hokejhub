@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { fmtToi } from "@/lib/names";
+import { ClubLogo } from "../club-logo";
 import { PlayerPhoto } from "../player-photo";
 import type { SkaterSeasonRow } from "@/lib/server/queries";
 
@@ -63,7 +64,8 @@ export function Leaders({ rows, initialSort = "pts", showTeam = true }: { rows: 
               </td>
               {showTeam ? (
                 <td className="px-1.5">
-                  <Link href={`/tym/${r.team_id}`} className="text-muted hover:text-accent">
+                  <Link href={`/tym/${r.team_id}`} className="flex items-center gap-1.5 text-muted hover:text-accent">
+                    <ClubLogo src={r.team_logo} alt={r.team_abbrev} size={24} />
                     {r.team_abbrev}
                   </Link>
                 </td>

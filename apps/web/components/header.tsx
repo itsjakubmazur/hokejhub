@@ -7,6 +7,7 @@ const NAV = [
   { href: "/", label: "Zápasy" },
   { href: "/liga/cz-elh", label: "Extraliga" },
   { href: "/predikce", label: "Predikce" },
+  { href: "/tipovacka", label: "Tipovačka" },
   { href: "/rekordy", label: "Rekordy" },
   { href: "/historie", label: "Historie" },
 ];
