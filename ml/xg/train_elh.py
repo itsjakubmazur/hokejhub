@@ -64,10 +64,11 @@ def features(xp, yp, rebound, pp, sh):
     dy = abs(y)
     dist = math.hypot(dx, dy)
     angle = 90 + math.degrees(math.atan2(-dx, max(dy, 0.05))) if dx <= 0 else math.degrees(math.atan2(dy, dx))
-    return [dist, math.log(dist + 1), angle, dist * angle / 100, rebound, pp, sh]
+    a90 = angle / 90
+    return [dist, math.log(dist + 1), angle, dist * angle / 100, rebound, pp, sh, 1 / (dist + 1), a90 * a90, dist * dist / 100, rebound * a90]
 
 
-NAMES = ["distance", "logDistance", "angle", "distAngle", "rebound", "pp", "sh"]
+NAMES = ["distance", "logDistance", "angle", "distAngle", "rebound", "pp", "sh", "invDistance", "angleSq", "distanceSq", "reboundAngle"]
 
 
 def manpower(t, penalties, goals):

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { expectedGoal, strengthAt, type PenaltyWindow, type Strength } from "../model/xg.ts";
+import { expectedGoalElh, strengthAt, type PenaltyWindow, type Strength } from "../model/xg.ts";
 
 /** hokej.cz shot & faceoff feed used by its "Vizualizace: střely" widget. */
 export const hokejczShotsUrl = (matchId: number) =>
@@ -124,20 +124,16 @@ export function penaltyWindows(
 }
 
 export function shotsWithXg(feed: HokejczShotFeed, penalties: PenaltyWindow[]): HokejczShotXg[] {
-  const lastUnblocked = new Map<boolean, number>();
+  // Rebounds count from the previous attempt of any result, as in training (train_elh.py).
+  const last = new Map<boolean, number>();
   return feed.shots.map((s) => {
     const strength = strengthAt(s.elapsed, s.isHome, penalties);
-    let xg = 0;
-    if (s.result !== "blocked") {
-      const prev = lastUnblocked.get(s.isHome);
-      xg = expectedGoal({
-        x: s.x,
-        y: s.y,
-        sincePrevSameTeam: prev !== undefined ? s.elapsed - prev : null,
-        strength,
-      });
-      lastUnblocked.set(s.isHome, s.elapsed);
-    }
+    const prev = last.get(s.isHome);
+    last.set(s.isHome, s.elapsed);
+    const xg =
+      s.result === "blocked" || s.elapsed >= 3900
+        ? 0
+        : expectedGoalElh({ xp: s.x, yp: s.y / Y_SCALE, sincePrevSameTeam: prev !== undefined ? s.elapsed - prev : null, strength });
     return { ...s, strength, xg };
   });
 }

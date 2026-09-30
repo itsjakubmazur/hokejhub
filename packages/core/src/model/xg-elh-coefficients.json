@@ -1,0 +1,23 @@
+{
+  "intercept": -0.6340346465866953,
+  "weights": {
+    "distance": -0.23107690952725163,
+    "logDistance": -0.02932290618739234,
+    "angle": 0.0006874470882620562,
+    "distAngle": -0.10476546629894186,
+    "rebound": 0.02854868375886008,
+    "pp": 0.3655745921592315,
+    "sh": 0.16399365069239077,
+    "invDistance": -0.2707095999696711,
+    "angleSq": -1.0449208842179292,
+    "distanceSq": 0.47054066866352245,
+    "reboundAngle": 0.49123441043969
+  },
+  "geometry": {
+    "halfLengthM": 30.0,
+    "halfWidthM": 15.0,
+    "goalXM": 26.0,
+    "units": "hokej.cz percent of half-rink"
+  },
+  "trainedOn": "ELH hokej.cz shots, seasons 2016-2026, 346069 unblocked attempts"
+}
