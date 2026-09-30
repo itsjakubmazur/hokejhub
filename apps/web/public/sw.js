@@ -1,12 +1,12 @@
 /* HokejHub service worker: offline cache + Web Push. */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC = `static-${VERSION}`;
 const RUNTIME = `runtime-${VERSION}`;
 const IMAGES = `images-${VERSION}`;
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(STATIC).then((c) => c.addAll([OFFLINE_URL, "/icons/icon-192.png"])));
+  event.waitUntil(caches.open(STATIC).then((c) => c.addAll([OFFLINE_URL, "/icons/icon-192-v2.png"])));
   self.skipWaiting();
 });
 
@@ -85,8 +85,8 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(data.title || "HokejHub", {
       body: data.body,
       tag: data.tag,
-      icon: data.icon || "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: data.icon || "/icons/icon-192-v2.png",
+      badge: "/icons/icon-192-v2.png",
       data: { url: data.url || "/" },
       renotify: Boolean(data.tag),
     }),

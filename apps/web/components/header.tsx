@@ -41,13 +41,13 @@ export function Header() {
   );
 }
 
-/** Centre-ice faceoff circle: the one mark in the brand. */
+/** Faceoff circle with hash marks, the same mark as the app icon. */
 function Mark() {
   return (
     <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
-      <circle cx="14" cy="14" r="12" fill="none" stroke="var(--accent)" strokeWidth="2.2" />
-      <circle cx="14" cy="14" r="3.6" fill="var(--live)" />
-      <path d="M2 14h7M19 14h7" stroke="var(--live)" strokeWidth="2.2" />
+      <path d="M2.5 10.8h4.6M2.5 17.2h4.6M20.9 10.8h4.6M20.9 17.2h4.6" stroke="var(--live)" strokeWidth="1.8" />
+      <circle cx="14" cy="14" r="8.3" fill="none" stroke="var(--accent)" strokeWidth="2.4" />
+      <circle cx="14" cy="14" r="2.9" fill="var(--live)" />
     </svg>
   );
 }
