@@ -77,7 +77,7 @@ export function PlayersTable({
           />
         ) : null}
       </div>
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[680px] text-xs tabular">
           <thead>
             <tr className="border-b border-line text-muted">

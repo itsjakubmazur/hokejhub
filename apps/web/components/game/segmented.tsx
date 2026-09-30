@@ -26,7 +26,7 @@ export function Segmented<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.value)}
-            className={`relative shrink-0 border px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={`relative shrink-0 border px-2.5 py-1 text-[11px] font-semibold transition-colors sm:px-3 sm:py-1.5 sm:text-xs ${
               active ? "border-fg text-bg" : "border-line text-muted hover:text-fg"
             }`}
           >

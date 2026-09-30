@@ -342,7 +342,7 @@ async function History({ teamId }: { teamId: string }) {
         </Card>
       ) : null}
       <Card title="Sezóny v extralize">
-        <div className="-mx-4 overflow-x-auto px-4">
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
           <table className="w-full min-w-[560px] text-sm tabular">
             <thead>
               <tr className="border-b border-line text-xs text-muted">

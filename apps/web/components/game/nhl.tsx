@@ -49,7 +49,7 @@ export function NhlPlayers({ game, box }: { game: Game; box: NhlBoxscore }) {
           { value: "away", label: game.away.shortName },
         ]}
       />
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[760px] text-xs tabular">
           <thead>
             <tr className="border-b border-line text-muted">
@@ -106,7 +106,7 @@ function Goalies({ goalies }: { goalies: NhlGoalieLine[] }) {
   return (
     <div>
       <h3 className="label mb-2 text-muted">Brankáři</h3>
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[620px] text-xs tabular">
           <thead>
             <tr className="border-b border-line text-muted">

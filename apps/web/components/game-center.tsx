@@ -16,7 +16,6 @@ import {
   Grid3x3,
   Info,
   ListOrdered,
-  MessageSquareText,
   Sparkles,
   Star,
   Swords,
@@ -29,6 +28,7 @@ import { ShotDanger } from "./game/danger";
 import { BestPlayers, GoalieDuel, MatchInfo } from "./game/goalies";
 import { Momentum, type MomentumPenalty } from "./game/momentum";
 import { PreviewGoalies, PreviewPlayers, PreviewTeams } from "./game/preview-pro";
+import { Segmented } from "./game/segmented";
 import { InfoButton } from "./game/versus";
 import { WinGauge } from "./game/win-gauge";
 import Link from "next/link";
@@ -69,7 +69,7 @@ const easternDate = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone
 
 const isLive = (g: Game) => g.status === "live" || g.status === "intermission";
 
-type Tab = "prehled" | "prenos" | "statistiky" | "sestavy" | "strely" | "vyvoj" | "hraci" | "h2h" | "kurzy";
+type Tab = "prehled" | "prubeh" | "statistiky" | "sestavy" | "strely" | "vyvoj" | "hraci" | "h2h" | "kurzy";
 
 export function GameCenter({ id, date, initial }: { id: string; date?: string; initial: GameDetailResponse }) {
   const { data } = useQuery({
@@ -85,17 +85,31 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
   const { game } = data;
   const day = game.source === "nhl" ? easternDate(game.startAt) : pragueDate(new Date(game.startAt));
 
-  const tabs: { id: Tab; label: string; show: boolean }[] = [
-    { id: "prehled", label: "Přehled", show: true },
-    { id: "prenos", label: "Přenos", show: Boolean(data.commentary?.length) },
-    { id: "statistiky", label: "Statistiky", show: Boolean(data.periodStats || data.box || data.shots?.length || data.nhl?.rail?.teamStats.length) },
-    { id: "sestavy", label: "Sestavy", show: Boolean(data.lineups) },
-    { id: "strely", label: "Střely & xG", show: Boolean(data.shots?.length) },
-    { id: "vyvoj", label: "Výhrometr & vývoj", show: Boolean(data.prediction || (data.shots?.length && game.status !== "scheduled")) },
-    { id: "hraci", label: "Hráči", show: Boolean(data.playerStats || data.box?.skaters.home.length || data.nhl?.box) },
-    { id: "h2h", label: "H2H", show: Boolean(data.teamIds && data.h2h) },
-    { id: "kurzy", label: "Kurzy", show: Boolean(game.preOdds || data.liveOdds || data.bets) },
-  ];
+  const live = isLive(game);
+  const scheduled = game.status === "scheduled";
+  const hasTimeline = !scheduled && Boolean(data.box?.goals.length || data.box?.penalties.length || data.goals?.length);
+  // Tab order follows what matters in each state: events first while it's on, the report once it's
+  // over, the matchup before it starts. Everything stays reachable; only the order changes.
+  const all: Record<Tab, { label: string; show: boolean }> = {
+    prehled: { label: "Přehled", show: true },
+    prubeh: { label: "Průběh", show: hasTimeline || Boolean(data.commentary?.length) },
+    statistiky: {
+      label: "Statistiky",
+      show: !scheduled && Boolean(data.periodStats || data.box || data.shots?.length || data.nhl?.rail?.teamStats.length),
+    },
+    strely: { label: "Střely", show: Boolean(data.shots?.length) },
+    sestavy: { label: "Sestavy", show: Boolean(data.lineups) },
+    hraci: { label: "Hráči", show: !scheduled && Boolean(data.playerStats || data.box?.skaters.home.length || data.nhl?.box) },
+    vyvoj: { label: "Vývoj", show: !scheduled && Boolean(data.prediction || data.shots?.length) },
+    h2h: { label: "H2H", show: Boolean((data.teamIds && data.h2h) || data.preview || data.nhl?.rail?.seasonSeries.length) },
+    kurzy: { label: "Kurzy", show: Boolean(game.preOdds || data.liveOdds || data.bets) },
+  };
+  const order: Tab[] = scheduled
+    ? ["prehled", "h2h", "sestavy", "prubeh", "kurzy"]
+    : live
+      ? ["prehled", "prubeh", "statistiky", "strely", "sestavy", "hraci", "vyvoj", "h2h", "kurzy"]
+      : ["prehled", "prubeh", "statistiky", "strely", "hraci", "sestavy", "vyvoj", "h2h", "kurzy"];
+  const tabs = order.map((id) => ({ id, ...all[id] }));
   const visible = tabs.filter((t) => t.show);
 
   // Compact score bar once the big board has scrolled away.
@@ -123,13 +137,13 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5 sm:space-y-3">
       <div ref={boardRef}>
         <MatchHeader game={game} data={data} day={day} />
       </div>
       <SourceStatus sources={data.sources} />
 
-      <div className="sticky top-14 z-20 -mx-4 border-b border-line bg-bg/85 backdrop-blur-xl sm:mx-0">
+      <div className="sticky top-14 z-20 -mx-3 border-b border-line bg-bg/85 backdrop-blur-xl sm:mx-0">
         <AnimatePresence initial={false}>
           {compact ? (
             <motion.div
@@ -159,12 +173,12 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
             </motion.div>
           ) : null}
         </AnimatePresence>
-        <nav className="no-scrollbar flex gap-1 overflow-x-auto px-4 sm:px-0">
+        <nav className="no-scrollbar flex gap-0.5 overflow-x-auto px-2 sm:gap-1 sm:px-0">
           {visible.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`relative shrink-0 px-3 py-3 text-sm font-semibold uppercase tracking-wide transition-colors ${
+              className={`relative shrink-0 px-2.5 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors sm:px-3 sm:py-3 sm:text-sm ${
                 tab === t.id ? "text-fg" : "text-muted hover:text-fg"
               }`}
             >
@@ -178,43 +192,39 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
       <AnimatePresence initial={false}>
         <motion.div key={tab} initial={{ opacity: 0.5 }} animate={{ opacity: 1 }} transition={{ duration: 0.12 }}>
           {tab === "prehled" ? <Overview data={data} day={day} /> : null}
-          {tab === "prenos" && data.commentary ? (
-            <Card title="Textový přenos" icon={MessageSquareText}>
-              <Commentary comments={data.commentary} game={game} />
-            </Card>
-          ) : null}
+          {tab === "prubeh" ? <ProgressTab data={data} /> : null}
           {tab === "statistiky" ? (
-            <Card title="Statistiky zápasu" icon={ChartBar}>
-              <PeriodStats
-                game={game}
-                stats={data.periodStats}
-                box={data.box}
-                shots={data.shots}
-                rowsByPeriod={data.nhl?.periods?.rows ?? null}
-                extraRows={data.nhl?.rail?.teamStats
-                  .filter((r) => r.key === "powerPlay")
-                  .map((r) => ({
-                    label: r.label,
-                    home: r.home,
-                    away: r.away,
-                    homeText: r.homeText,
-                    awayText: r.awayText,
-                    lowerIsBetter: r.key === "pim" || r.key === "giveaways",
-                  }))}
-              />
-            </Card>
-          ) : null}
-          {tab === "statistiky" && (data.faceoffZones || data.playerStats) ? (
-            <Card title="Buly" icon={CircleDot} className="mt-4">
-              <Faceoffs
-                game={game}
-                zones={data.faceoffZones}
-                stats={data.playerStats}
-                periodStats={data.periodStats}
-                box={data.box}
-                photos={data.photos}
-              />
-            </Card>
+            <div className="space-y-3 sm:space-y-4">
+              <Card title="Statistiky zápasu" icon={ChartBar}>
+                <PeriodStats
+                  game={game}
+                  stats={data.periodStats}
+                  box={data.box}
+                  shots={data.shots}
+                  rowsByPeriod={data.nhl?.periods?.rows ?? null}
+                  extraRows={data.nhl?.rail?.teamStats
+                    .filter((r) => r.key === "powerPlay")
+                    .map((r) => ({
+                      label: r.label,
+                      home: r.home,
+                      away: r.away,
+                      homeText: r.homeText,
+                      awayText: r.awayText,
+                      lowerIsBetter: r.key === "pim" || r.key === "giveaways",
+                    }))}
+                />
+              </Card>
+              {data.box && data.box.goalies.home.length && data.box.goalies.away.length ? (
+                <Card title="Statistiky brankářů" icon={Shield} action={<GsaxInfo />}>
+                  <GoalieDuel game={game} box={data.box} shots={data.shots} photos={data.photos} />
+                </Card>
+              ) : null}
+              {data.faceoffZones || data.playerStats ? (
+                <Card title="Buly" icon={CircleDot}>
+                  <Faceoffs game={game} zones={data.faceoffZones} stats={data.playerStats} periodStats={data.periodStats} box={data.box} photos={data.photos} />
+                </Card>
+              ) : null}
+            </div>
           ) : null}
           {tab === "sestavy" ? <Lineups game={game} lineups={data.lineups} stats={data.playerStats} box={data.box} photos={data.photos} /> : null}
           {tab === "strely" && data.shots ? <ShotsTab data={data} /> : null}
@@ -232,10 +242,36 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
               <HokejczBoxScore box={data.box} />
             ) : null
           ) : null}
-          {tab === "h2h" && data.teamIds && data.h2h ? (
-            <Card title="Vzájemné zápasy" icon={Swords}>
-              <HeadToHead game={game} games={data.h2h} teamIds={data.teamIds} />
-            </Card>
+          {tab === "h2h" ? (
+            <div className="space-y-3 sm:space-y-4">
+              {data.preview ? (
+                <>
+                  {game.status !== "scheduled" ? (
+                    <Card title="Týmy před zápasem" icon={ClipboardList}>
+                      <PreviewTeams game={game} preview={data.preview} />
+                    </Card>
+                  ) : null}
+                  <Card title="H2H hráči" icon={Users}>
+                    <PreviewPlayers preview={data.preview} />
+                  </Card>
+                  {data.preview.home.goalie && data.preview.away.goalie ? (
+                    <Card title="H2H brankáři" icon={Shield}>
+                      <PreviewGoalies preview={data.preview} />
+                    </Card>
+                  ) : null}
+                </>
+              ) : null}
+              {data.nhl?.rail?.seasonSeries.length ? (
+                <Card title="Vzájemné zápasy v sezóně" icon={Swords}>
+                  <SeasonSeries rail={data.nhl.rail} game={game} />
+                </Card>
+              ) : null}
+              {data.teamIds && data.h2h ? (
+                <Card title="Vzájemné zápasy" icon={Swords}>
+                  <HeadToHead game={game} games={data.h2h} teamIds={data.teamIds} />
+                </Card>
+              ) : null}
+            </div>
           ) : null}
           {tab === "kurzy" ? (
             <div className="grid gap-4 md:grid-cols-2">
@@ -249,156 +285,225 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
   );
 }
 
+function GsaxInfo() {
+  return (
+    <InfoButton title="Góly chycené nad očekávání">
+      <p>
+        Součet xG všech neblokovaných střel, které brankář dostal, minus góly, které inkasoval. Kladné číslo znamená, že chytil víc, než by podle
+        kvality střel chytil průměrný brankář.
+      </p>
+      <p>Střely se brankářům přiřazují podle času stráveného v brance.</p>
+    </InfoButton>
+  );
+}
+
+/** Timeline and the text feed side by side under one tab. */
+function ProgressTab({ data }: { data: GameDetailResponse }) {
+  const { game } = data;
+  const [view, setView] = useState<"udalosti" | "prenos">(game.status === "scheduled" || !data.box?.goals.length ? "prenos" : "udalosti");
+  const hasEvents = Boolean(data.box?.goals.length || data.box?.penalties.length || data.goals?.length);
+  const hasFeed = Boolean(data.commentary?.length);
+  return (
+    <Card
+      title="Průběh zápasu"
+      icon={ListOrdered}
+      action={
+        hasEvents && hasFeed ? (
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "udalosti", label: "Události" },
+              { value: "prenos", label: "Textový přenos" },
+            ]}
+          />
+        ) : undefined
+      }
+    >
+      {view === "udalosti" && hasEvents ? (
+        <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} />
+      ) : data.commentary ? (
+        <Commentary comments={data.commentary} game={game} />
+      ) : (
+        <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} />
+      )}
+    </Card>
+  );
+}
+
+function xgTotals(data: GameDetailResponse): [number, number] | null {
+  const { game } = data;
+  if (!data.shots?.some((s) => s.xg !== undefined)) return null;
+  return [
+    data.shots.filter((s) => s.teamId === game.home.id).reduce((a, s) => a + (s.xg ?? 0), 0),
+    data.shots.filter((s) => s.teamId !== game.home.id).reduce((a, s) => a + (s.xg ?? 0), 0),
+  ];
+}
+
+function XgCard({ data }: { data: GameDetailResponse }) {
+  const xg = xgTotals(data);
+  if (!xg) return null;
+  const { game } = data;
+  return (
+    <Card title="xG" icon={Crosshair}>
+      <div className="flex items-end justify-between">
+        <BigNumber value={xg[0]} side="home" label={game.home.shortName} />
+        <span className="pb-2 text-xs text-muted">vs</span>
+        <BigNumber value={xg[1]} side="away" label={game.away.shortName} />
+      </div>
+    </Card>
+  );
+}
+
+function InfoCard({ data, day }: { data: GameDetailResponse; day: string }) {
+  const { game } = data;
+  return (
+    <Card title="Informace" icon={Info}>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted">Soutěž</dt>
+        <dd>{game.leagueName}</dd>
+        <dt className="text-muted">Začátek</dt>
+        <dd className="first-letter:uppercase">
+          {formatDayLong(day)}, {formatTime(game.startAt)}
+        </dd>
+        {game.series ? (
+          <>
+            <dt className="text-muted">Série</dt>
+            <dd>{game.series}</dd>
+          </>
+        ) : null}
+        {data.box?.round ? (
+          <>
+            <dt className="text-muted">Kolo</dt>
+            <dd>{data.box.round}</dd>
+          </>
+        ) : null}
+        {data.nhl ? <NhlInfoRows rail={data.nhl.rail} extras={data.nhl.extras} game={game} /> : null}
+      </dl>
+    </Card>
+  );
+}
+
+/**
+ * Overview per state. Before the game: who's favoured and how the teams compare. While it's on:
+ * the live pulse (win chance, last events, live odds). After: the report and the standouts.
+ * Detail lives in the tabs; the overview stays short enough for one or two phone screens.
+ */
 function Overview({ data, day }: { data: GameDetailResponse; day: string }) {
   const { game } = data;
-  const xg = data.shots?.some((s) => s.xg !== undefined)
-    ? [
-        data.shots.filter((s) => s.teamId === game.home.id).reduce((a, s) => a + (s.xg ?? 0), 0),
-        data.shots.filter((s) => s.teamId !== game.home.id).reduce((a, s) => a + (s.xg ?? 0), 0),
-      ]
-    : null;
+  const live = isLive(game);
+  const scheduled = game.status === "scheduled";
+  const xg = xgTotals(data);
+  const odds = game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={live ? data.liveOdds : null} game={game} /> : null;
+  const insights = data.insights ? (
+    <Card title={scheduled ? "Na koho se dívat" : "Zajímavosti"} icon={Sparkles}>
+      <Insights game={game} data={data} />
+    </Card>
+  ) : null;
+  const prediction = data.prediction ? (
+    <Card title={scheduled ? "Predikce" : "Predikce před zápasem"} icon={ChartNoAxesColumnIncreasing}>
+      <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
+    </Card>
+  ) : null;
+
+  if (scheduled) {
+    return (
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-3 sm:space-y-4">
+          {data.prediction ? (
+            <Card title="Výhrometr" icon={Gauge} action={<WinInfo />}>
+              <WinGauge game={game} homeWin={data.prediction.homeWin} />
+            </Card>
+          ) : null}
+          {data.preview ? (
+            <Card title="H2H týmy" icon={ClipboardList}>
+              <PreviewTeams game={game} preview={data.preview} />
+            </Card>
+          ) : null}
+          {data.nhl?.extras.matchup ? (
+            <Card title="Před zápasem" icon={ClipboardList}>
+              <NhlMatchup game={game} extras={data.nhl.extras} rail={data.nhl.rail} />
+            </Card>
+          ) : null}
+          {insights}
+        </div>
+        <div className="space-y-3 sm:space-y-4">
+          {prediction}
+          {data.prediction ? (
+            <Card title="Nejpravděpodobnější výsledky" icon={Grid3x3}>
+              <ScoreGrid expHome={data.prediction.expHome} expAway={data.prediction.expAway} homeLabel={game.home.abbrev} awayLabel={game.away.abbrev} />
+            </Card>
+          ) : null}
+          {odds}
+          <InfoCard data={data} day={day} />
+        </div>
+      </div>
+    );
+  }
+
+  if (live) {
+    return (
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_340px]">
+        <div className="space-y-3 sm:space-y-4">
+          {data.prediction ? (
+            <Card title="Šance na výhru teď" icon={Activity}>
+              <WinProbability game={game} goals={goalMoments(data)} expHome={data.prediction.expHome} expAway={data.prediction.expAway} elapsedNow={elapsedNow(data)} />
+            </Card>
+          ) : null}
+          <Card title="Poslední události" icon={ListOrdered}>
+            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} recent={6} />
+          </Card>
+          {insights}
+        </div>
+        <div className="space-y-3 sm:space-y-4">
+          <div className={`grid gap-3 sm:gap-4 lg:grid-cols-1 ${xg && prediction ? "grid-cols-2" : ""}`}>
+            {xg ? <XgCard data={data} /> : null}
+            {prediction}
+          </div>
+          {odds}
+          {data.box && (data.box.attendance || data.box.referees.length) ? (
+            <Card title="Zápasové info" icon={Info}>
+              <MatchInfo box={data.box} />
+            </Card>
+          ) : null}
+          <InfoCard data={data} day={day} />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-      <div className="space-y-4">
+    <div className="grid gap-3 sm:gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="space-y-3 sm:space-y-4">
+        {data.box ? (
+          <Card title="Report" icon={FileText}>
+            <Recap box={data.box} xg={xg} homeWinProb={data.prediction?.homeWin ?? null} />
+          </Card>
+        ) : null}
         {data.nhl?.extras.threeStars.length ? (
           <Card title="Tři hvězdy zápasu" icon={Star}>
             <ThreeStars stars={data.nhl.extras.threeStars} />
           </Card>
         ) : null}
-        {game.status === "scheduled" && data.preview ? (
-          <>
-            <Card title="H2H týmy" icon={ClipboardList}>
-              <PreviewTeams game={game} preview={data.preview} />
-            </Card>
-            <Card title="H2H hráči" icon={Users}>
-              <PreviewPlayers preview={data.preview} />
-            </Card>
-            {data.preview.home.goalie && data.preview.away.goalie ? (
-              <Card title="H2H brankáři" icon={Shield}>
-                <PreviewGoalies preview={data.preview} />
-              </Card>
-            ) : null}
-          </>
-        ) : null}
-        {game.status === "scheduled" && data.nhl?.extras.matchup ? (
-          <Card title="Před zápasem" icon={ClipboardList}>
-            <NhlMatchup game={game} extras={data.nhl.extras} rail={data.nhl.rail} />
-          </Card>
-        ) : null}
-        {data.box && game.status === "final" ? (
-          <Card title="Report" icon={FileText}>
-            <Recap box={data.box} xg={xg} homeWinProb={data.prediction?.homeWin ?? null} />
-          </Card>
-        ) : null}
-        {data.insights ? (
-          <Card title="Zajímavosti" icon={Sparkles}>
-            <Insights game={game} data={data} />
-          </Card>
-        ) : null}
-        {data.prediction && game.status !== "scheduled" ? (
-          <Card title="Pravděpodobnost výhry v průběhu zápasu" icon={Activity}>
-            <WinProbability
-              game={game}
-              goals={goalMoments(data)}
-              expHome={data.prediction.expHome}
-              expAway={data.prediction.expAway}
-              elapsedNow={game.status === "final" ? 3600 : elapsedNow(data)}
-            />
-          </Card>
-        ) : null}
-        {game.status !== "scheduled" ? (
-          <Card title="Průběh zápasu" icon={ListOrdered}>
-            <Timeline game={game} box={data.box} goals={data.goals} photos={data.photos ?? nhlPhotos(data)} penalties={data.nhl?.extras.penalties} />
-          </Card>
-        ) : null}
-        {data.box && game.status !== "scheduled" && data.box.goalies.home.length && data.box.goalies.away.length ? (
-          <Card
-            title="Statistiky brankářů"
-            icon={Shield}
-            action={
-              <InfoButton title="Góly chycené nad očekávání">
-                <p>
-                  Součet xG všech neblokovaných střel, které brankář dostal, minus góly, které inkasoval. Kladné číslo znamená, že chytil víc, než by
-                  podle kvality střel chytil průměrný brankář.
-                </p>
-                <p>Střely se brankářům přiřazují podle času stráveného v brance.</p>
-              </InfoButton>
-            }
-          >
-            <GoalieDuel game={game} box={data.box} shots={data.shots} photos={data.photos} />
-          </Card>
-        ) : null}
-        {data.box && game.status === "final" ? (
+        {data.box ? (
           <Card title="Nejlepší hráči zápasu" icon={Award}>
             <BestPlayers box={data.box} photos={data.photos} />
           </Card>
         ) : null}
+        {insights}
       </div>
-      <div className="space-y-4">
-        {xg ? (
-          <Card title="Očekávané góly (xG)" icon={Crosshair}>
-            <div className="flex items-end justify-between">
-              <BigNumber value={xg[0]!} side="home" label={game.home.shortName} />
-              <span className="pb-2 text-xs text-muted">vs</span>
-              <BigNumber value={xg[1]!} side="away" label={game.away.shortName} />
-            </div>
-            <p className="mt-2 text-[11px] text-muted">Součet pravděpodobností gólu všech střel podle místa, úhlu a herní situace.</p>
-          </Card>
-        ) : null}
-        {data.prediction && game.status === "scheduled" ? (
-          <Card title="Výhrometr" icon={Gauge} action={<WinInfo />}>
-            <WinGauge game={game} homeWin={data.prediction.homeWin} />
-          </Card>
-        ) : null}
-        {data.prediction ? (
-          <Card title={game.status === "scheduled" ? "Predikce" : "Predikce před zápasem"} icon={ChartNoAxesColumnIncreasing}>
-            <PredictionCard game={game} prediction={data.prediction} odds={game.preOdds} />
-          </Card>
-        ) : null}
-        {data.prediction && game.status === "scheduled" ? (
-          <Card title="Nejpravděpodobnější výsledky" icon={Grid3x3}>
-            <ScoreGrid
-              expHome={data.prediction.expHome}
-              expAway={data.prediction.expAway}
-              homeLabel={game.home.abbrev}
-              awayLabel={game.away.abbrev}
-            />
-          </Card>
-        ) : null}
-        {data.nhl?.rail?.seasonSeries.length ? (
-          <Card title="Vzájemné zápasy v sezóně" icon={Swords}>
-            <SeasonSeries rail={data.nhl.rail} game={game} />
-          </Card>
-        ) : null}
+      <div className="space-y-3 sm:space-y-4">
+        <div className={`grid gap-3 sm:gap-4 lg:grid-cols-1 ${xg && prediction ? "grid-cols-2" : ""}`}>
+          {xg ? <XgCard data={data} /> : null}
+          {prediction}
+        </div>
         {data.box && (data.box.attendance || data.box.referees.length) ? (
           <Card title="Zápasové info" icon={Info}>
             <MatchInfo box={data.box} />
           </Card>
         ) : null}
-        {game.preOdds || data.liveOdds ? <OddsCard pre={game.preOdds} live={isLive(game) ? data.liveOdds : null} game={game} /> : null}
-        <Card title="Informace" icon={Info}>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-muted">Soutěž</dt>
-            <dd>{game.leagueName}</dd>
-            <dt className="text-muted">Začátek</dt>
-            <dd className="first-letter:uppercase">
-              {formatDayLong(day)}, {formatTime(game.startAt)}
-            </dd>
-            {game.series ? (
-              <>
-                <dt className="text-muted">Série</dt>
-                <dd>{game.series}</dd>
-              </>
-            ) : null}
-            {data.box?.round ? (
-              <>
-                <dt className="text-muted">Kolo</dt>
-                <dd>{data.box.round}</dd>
-              </>
-            ) : null}
-            {data.nhl ? <NhlInfoRows rail={data.nhl.rail} extras={data.nhl.extras} game={game} /> : null}
-          </dl>
-        </Card>
+        {odds}
+        <InfoCard data={data} day={day} />
       </div>
     </div>
   );

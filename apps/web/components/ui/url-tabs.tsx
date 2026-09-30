@@ -9,7 +9,7 @@ export function UrlTabs({ tabs, active, layoutId }: { tabs: { id: string; label:
   const pathname = usePathname();
   const params = useSearchParams();
   return (
-    <nav className="no-scrollbar sticky top-14 z-20 -mx-4 flex gap-1 overflow-x-auto border-b border-line bg-bg/85 px-4 backdrop-blur-xl sm:mx-0 sm:px-0">
+    <nav className="no-scrollbar sticky top-14 z-20 -mx-3 flex gap-0.5 overflow-x-auto border-b border-line bg-bg/85 px-3 backdrop-blur-xl sm:mx-0 sm:gap-1 sm:px-0">
       {tabs.map((t, i) => {
         const next = new URLSearchParams(params);
         if (i === 0) next.delete("tab");
@@ -21,7 +21,7 @@ export function UrlTabs({ tabs, active, layoutId }: { tabs: { id: string; label:
             href={qs ? `${pathname}?${qs}` : pathname}
             scroll={false}
             prefetch
-            className={`label relative shrink-0 px-3 py-3.5 transition-colors ${
+            className={`label relative shrink-0 px-2.5 py-3 !text-[13px] transition-colors sm:px-3 sm:py-3.5 sm:!text-[15px] ${
               active === t.id ? "text-fg" : "text-muted hover:text-fg"
             }`}
           >

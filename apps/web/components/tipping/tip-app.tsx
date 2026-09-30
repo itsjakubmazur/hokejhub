@@ -45,7 +45,7 @@ export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: str
         <Trophy className="pointer-events-none absolute -right-6 -top-6 size-48 text-led opacity-[0.07]" aria-hidden />
         <p className="label text-board-muted">Extraliga + NHL</p>
         <h1 className="mt-1 text-board-text">Tipovačka</h1>
-        <p className="mt-2 max-w-prose text-sm text-board-muted">
+        <p className="mt-1.5 max-w-prose text-[13px] leading-snug text-board-muted sm:mt-2 sm:text-sm sm:leading-normal">
           Tipuj přesné skóre po 60 minutách. Přesný výsledek 5 bodů, vítěz i rozdíl 3 body, jen vítěz 2 body. Prodloužení a nájezdy se počítají jako
           remíza. Jednou za hrací den můžeš vsadit žolíka na dvojnásobek bodů. K tomu tipy na celou sezónu, skupiny s kamarády a náš model jako
           soupeř. Tip se uzamkne začátkem zápasu.
@@ -507,7 +507,7 @@ function Leaderboard({ me }: { me: User }) {
         </div>
         {board.isLoading ? <Empty>Načítám…</Empty> : rows.length === 0 ? <Empty>V tomhle období zatím nikdo nebodoval.</Empty> : null}
         {rows.length ? (
-          <div className="-mx-4 overflow-x-auto px-4">
+          <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
             <table className="w-full min-w-[560px] text-sm tabular">
               <thead>
                 <tr className="border-b border-line text-xs text-muted">

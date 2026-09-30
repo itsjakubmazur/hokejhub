@@ -16,7 +16,7 @@ export function PageHero({
   aside?: ReactNode;
 }) {
   return (
-    <header className="arena-lights rise relative overflow-hidden bg-board p-5 text-board-text sm:p-7">
+    <header className="arena-lights rise relative overflow-hidden bg-board p-4 text-board-text sm:p-7">
       {Icon ? (
         <Icon
           className="hero-float pointer-events-none absolute -right-6 -top-6 size-48 text-led opacity-[0.07]"
@@ -29,7 +29,7 @@ export function PageHero({
           {kicker ? <p className="label text-board-muted">{kicker}</p> : null}
           <h1 className="mt-1 text-board-text">{title}</h1>
           {children ? (
-            <div className="mt-2 max-w-prose text-sm text-board-muted [&_a]:text-led">
+            <div className="mt-1.5 max-w-prose text-[13px] leading-snug text-board-muted sm:mt-2 sm:text-sm sm:leading-normal [&_a]:text-led">
               {children}
             </div>
           ) : null}

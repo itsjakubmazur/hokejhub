@@ -141,6 +141,12 @@ body {
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
 }
+/* Phones: one notch denser. Tailwind sizes and spacing are rem-based, so this scales both. */
+@media (max-width: 639px) {
+  html {
+    font-size: 15px;
+  }
+}
 
 .tabular {
   font-variant-numeric: tabular-nums;

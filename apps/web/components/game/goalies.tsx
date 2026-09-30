@@ -198,13 +198,13 @@ export function BestPlayers({ box, photos }: { box: HokejczMatch; photos: Record
 /** Crowd, fill rate, venue and officials. */
 export function MatchInfo({ box }: { box: HokejczMatch }) {
   const fill = box.attendance && box.capacity ? Math.min(1, box.attendance / box.capacity) : null;
-  const row = "border-b border-line py-4 text-center last:border-b-0";
+  const row = "border-b border-line py-3 text-center last:border-b-0 sm:py-4";
   return (
     <div>
       {box.attendance ? (
         <div className={row}>
           <h3 className="label text-[11px] text-fg">Počet diváků</h3>
-          <div className="display mt-1 text-4xl tabular">{box.attendance.toLocaleString("cs-CZ")}</div>
+          <div className="display mt-1 text-3xl tabular sm:text-4xl">{box.attendance.toLocaleString("cs-CZ")}</div>
           {box.venue ? <div className="text-sm text-muted">{box.venue}</div> : null}
           {fill !== null ? (
             <>

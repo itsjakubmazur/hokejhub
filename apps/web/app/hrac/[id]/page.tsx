@@ -161,7 +161,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
         <div className="space-y-4">
           {seasons.length ? (
             <Card title="Bruslař – po sezónách">
-              <div className="-mx-4 overflow-x-auto px-4">
+              <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
                 <table className="w-full min-w-[720px] text-sm tabular">
                   <thead>
                     <tr className="border-b border-line text-xs text-muted">
@@ -263,7 +263,7 @@ async function GameLog({ id, season }: { id: string; season: number }) {
   if (!log.length) return <Empty>Žádné zápasy v této sezóně.</Empty>;
   return (
     <Card title={`Zápasy ${seasonLabel(season)}`}>
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         <table className="w-full min-w-[560px] text-sm tabular">
           <thead>
             <tr className="border-b border-line text-xs text-muted">

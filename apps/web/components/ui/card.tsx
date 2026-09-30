@@ -17,9 +17,9 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rise border border-line bg-surface p-4 sm:p-5 ${className}`}>
+    <section className={`rise border border-line bg-surface p-3.5 sm:p-5 ${className}`}>
       {title || action ? (
-        <div className="mb-4 flex items-baseline justify-between gap-3">
+        <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
           {title ? (
             <h2 className="label flex items-center gap-2 text-fg">
               {Icon ? <Icon className="size-4 text-muted" strokeWidth={2.25} aria-hidden /> : null}

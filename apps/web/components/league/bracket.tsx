@@ -77,7 +77,7 @@ export function PlayoffBracket({ stages, logos }: { stages: BracketStage[]; logo
   const champId = champ?.winner ?? null;
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:thin]">
+    <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0 pb-2 pt-1 [scrollbar-width:thin]">
       <div className="flex min-w-max gap-10">
         {main.map((stage, col) => {
           const next = main[col + 1];

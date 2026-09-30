@@ -62,17 +62,17 @@ export function GameRow({
     <Link
       href={gameHref(game, date)}
       key={flash.home + flash.away}
-      className={`puck-rail group grid grid-cols-[64px_1fr_auto] items-center gap-2 border-b border-line px-2 py-1.5 transition-colors last:border-b-0 hover:bg-surface-2 sm:grid-cols-[72px_1fr_auto_auto] ${
+      className={`puck-rail group grid grid-cols-[64px_1fr_auto] items-center gap-2 border-b border-line px-2 py-1 transition-colors sm:py-1.5 last:border-b-0 hover:bg-surface-2 sm:grid-cols-[72px_1fr_auto_auto] ${
         flash.home + flash.away > 0 ? "goal-sweep" : ""
       }`}
     >
       <StatusCell game={game} />
-      <div className="min-w-0 space-y-1">
+      <div className="min-w-0 space-y-0.5 sm:space-y-1">
         {(["home", "away"] as const).map((side) => (
           <div key={side} className="flex items-center gap-2">
-            <TeamLogo team={game[side]} size={30} />
+            <TeamLogo team={game[side]} size={30} className="!size-[26px] sm:!size-[30px]" />
             <span
-              className={`truncate text-[15px] ${winner === side ? "font-bold" : winner ? "text-muted" : "font-medium"}`}
+              className={`truncate text-sm sm:text-[15px] ${winner === side ? "font-bold" : winner ? "text-muted" : "font-medium"}`}
             >
               {game[side].shortName}
             </span>
@@ -80,13 +80,13 @@ export function GameRow({
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <div className="space-y-1 text-right">
+        <div className="space-y-0.5 text-right sm:space-y-1">
           {(["home", "away"] as const).map((side) => {
             const score = side === "home" ? game.homeScore : game.awayScore;
             return (
               <div
                 key={`${side}${flash[side]}`}
-                className={`display text-[19px] leading-[30px] tabular ${live ? "text-live" : ""} ${flash[side] ? "goal-pop" : ""} ${
+                className={`display text-[17px] leading-[26px] tabular sm:text-[19px] sm:leading-[30px] ${live ? "text-live" : ""} ${flash[side] ? "goal-pop" : ""} ${
                   winner && winner !== side ? "font-medium text-muted" : ""
                 }`}
               >

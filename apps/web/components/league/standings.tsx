@@ -126,7 +126,7 @@ export function Standings({
           />
         )}
       </div>
-      <div className="-mx-4 overflow-x-auto px-4">
+      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         {mode === "table" ? (
           <table className="w-full min-w-[560px] text-sm tabular">
             <thead>
@@ -170,9 +170,9 @@ export function Standings({
                     ) : null}
                     </span>
                   </td>
-                  <td className="py-2 pr-2 font-medium">
+                  <td className="whitespace-nowrap py-2 pr-2 font-medium">
                     <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={28} className="mr-2 align-middle" />
-                    <Link href={`/tym/${r.teamId}`} className="hover:text-accent">
+                    <Link href={`/tym/${r.teamId}`} className="inline-block max-w-[8.5rem] truncate align-middle hover:text-accent sm:max-w-none">
                       {r.teamName}
                     </Link>
                     {useLive && liveBy.get(r.teamId) ? (

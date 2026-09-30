@@ -50,22 +50,22 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {teams.map(({ side, team, s }) => {
           const items = streakItems(s);
           return (
-            <div key={side} className="border border-line p-3">
-              <div className="flex items-center gap-3">
-                <span className="grid size-11 shrink-0 place-items-center bg-white p-1">
+            <div key={side} className="border border-line p-2.5 sm:p-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="grid size-9 shrink-0 place-items-center bg-white p-1 sm:size-11">
                   <TeamLogo team={team} size={36} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="display truncate text-xl">{team.shortName}</div>
+                  <div className="display truncate text-base sm:text-xl">{team.shortName}</div>
                   <FormBadges form={s.last10.slice(0, 5) as never} />
                 </div>
               </div>
-              <ul className="mt-3 space-y-1.5 text-sm">
+              <ul className="mt-2 space-y-1 text-[13px] sm:mt-3 sm:space-y-1.5 sm:text-sm">
                 {items.map(({ icon: Icon, text, tone }) => (
                   <li key={text} className="flex items-center gap-2">
                     <Icon className={`size-4 shrink-0 ${tone === "good" ? "text-win" : "text-live"}`} strokeWidth={2.25} aria-hidden />
@@ -85,15 +85,15 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
             <Award className="size-4" aria-hidden />
             Milníky v tomto zápase
           </h3>
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-2 sm:grid-cols-2 sm:gap-3">
             {ins.reached.map((m) => {
               const label = MILESTONE[m.kind]?.(m.value) ?? m.kind;
               const unit = label.replace(/^\d+\.\s*/, "");
               return (
-                <li key={`${m.player_id}-${m.kind}`} className="flex gap-4 border border-gold/50 bg-gold/5 p-3">
-                  <Portrait src={m.headshot} alt={m.name} width={84} side={sideOf(m.team_id)} />
+                <li key={`${m.player_id}-${m.kind}`} className="flex gap-3 border border-gold/50 bg-gold/5 p-2.5 sm:gap-4 sm:p-3">
+                  <Portrait src={m.headshot} alt={m.name} width={60} side={sideOf(m.team_id)} className="sm:!w-[84px] sm:!h-[112px]" />
                   <div className="flex min-w-0 flex-col justify-center">
-                    <span className="display text-5xl leading-none text-gold tabular">{m.value}.</span>
+                    <span className="display text-4xl leading-none text-gold tabular sm:text-5xl">{m.value}.</span>
                     <span className="mt-1 text-sm text-muted">{unit}</span>
                     <Link href={`/hrac/${m.player_id}`} className="mt-2 truncate font-semibold hover:text-accent">
                       {m.name}
@@ -109,18 +109,18 @@ export function Insights({ game, data }: { game: Game; data: GameDetailResponse 
       {ins.notes.length > 0 ? (
         <div>
           <h3 className="label mb-3 text-muted">{game.status === "final" ? "Jak šli hráči do zápasu" : "Na koho se dívat"}</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {(["home", "away"] as const).map((side) => (
-              <ul key={side} className="space-y-2">
+              <ul key={side} className="space-y-1.5 sm:space-y-2">
                 {notesBy(side).map((n) => (
-                  <li key={n.player_id} className="flex gap-3 border-b border-line pb-2 last:border-b-0">
-                    <Portrait src={n.photo} alt={n.name} width={52} side={side} />
+                  <li key={n.player_id} className="flex gap-2 border-b border-line pb-1.5 last:border-b-0 sm:gap-3 sm:pb-2">
+                    <Portrait src={n.photo} alt={n.name} width={40} side={side} className="sm:!w-[52px] sm:!h-[69px]" />
                     <div className="min-w-0 self-center">
-                      <Link href={`/hrac/${n.player_id}`} className="block truncate font-semibold hover:text-accent">
+                      <Link href={`/hrac/${n.player_id}`} className="block truncate text-[13px] font-semibold hover:text-accent sm:text-base">
                         {n.name}
                       </Link>
                       {n.texts.map((t) => (
-                        <span key={t} className="block text-xs text-muted">
+                        <span key={t} className="block text-[11px] leading-snug text-muted sm:text-xs">
                           {t}
                         </span>
                       ))}

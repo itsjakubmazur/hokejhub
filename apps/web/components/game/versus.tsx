@@ -48,13 +48,13 @@ export function VersusBar({
   const homeLeads = lowerIsBetter ? home < away : home > away;
   const awayLeads = lowerIsBetter ? away < home : away > home;
   return (
-    <div className="py-2">
+    <div className="py-1.5 sm:py-2">
       <div className="flex items-baseline justify-between gap-2">
-        <span className={`display text-2xl tabular text-home ${homeLeads ? "" : "opacity-70"}`}>{homeText ?? home}</span>
-        <span className="label text-center text-[11px] text-fg">{label}</span>
-        <span className={`display text-2xl tabular text-away ${awayLeads ? "" : "opacity-70"}`}>{awayText ?? away}</span>
+        <span className={`display text-xl tabular text-home sm:text-2xl ${homeLeads ? "" : "opacity-70"}`}>{homeText ?? home}</span>
+        <span className="label text-center text-[10px] text-fg sm:text-[11px]">{label}</span>
+        <span className={`display text-xl tabular text-away sm:text-2xl ${awayLeads ? "" : "opacity-70"}`}>{awayText ?? away}</span>
       </div>
-      <div className="mt-1.5 flex h-2.5 gap-1">
+      <div className="mt-1 flex h-2 gap-1 sm:mt-1.5 sm:h-2.5">
         <motion.span
           className="h-full origin-right rounded-l-full bg-home"
           initial={{ scaleX: 0 }}
@@ -96,7 +96,7 @@ export function FormRings({ form, align = "start" }: { form: FormResult[]; align
             whileInView={{ scale: 1 }}
             viewport={{ once: true }}
             transition={{ delay: i * 0.05, type: "spring", stiffness: 500, damping: 22 }}
-            className={`grid size-7 place-items-center rounded-full border-2 text-[10px] font-bold ${cls}`}
+            className={`grid size-6 place-items-center rounded-full border-2 text-[9px] font-bold sm:size-7 sm:text-[10px] ${cls}`}
           >
             {t}
           </motion.span>
@@ -120,24 +120,24 @@ export function Duel({ title, home, away }: { title?: string; home: DuelSide | n
   const side = (p: DuelSide | null, s: "home" | "away") =>
     p ? (
       <div className="flex min-w-0 flex-col items-center text-center">
-        <Portrait src={p.photo} alt={p.name} width={76} side={s} />
+        <Portrait src={p.photo} alt={p.name} width={60} side={s} className="sm:!w-[76px] sm:!h-[101px]" />
         {p.id ? (
-          <Link href={`/hrac/${p.id}`} className="mt-2 max-w-full truncate font-semibold hover:text-accent">
+          <Link href={`/hrac/${p.id}`} className="mt-1.5 max-w-full truncate text-sm font-semibold hover:text-accent sm:mt-2 sm:text-base">
             {p.number != null ? <b className="mr-1 tabular">{p.number}</b> : null}
             {p.name}
           </Link>
         ) : (
-          <span className="mt-2 max-w-full truncate font-semibold">{p.name}</span>
+          <span className="mt-1.5 max-w-full truncate text-sm font-semibold sm:mt-2 sm:text-base">{p.name}</span>
         )}
         {p.sub ? <span className="text-xs text-muted">{p.sub}</span> : null}
-        <span className={`display mt-1 text-2xl tabular ${s === "home" ? "text-home" : "text-away"}`}>{p.value}</span>
+        <span className={`display mt-0.5 text-xl tabular sm:mt-1 sm:text-2xl ${s === "home" ? "text-home" : "text-away"}`}>{p.value}</span>
       </div>
     ) : (
       <span className="text-center text-sm text-muted">–</span>
     );
   return (
-    <div className="border-b border-line py-4 last:border-b-0">
-      {title ? <h3 className="label mb-3 text-center text-[11px] text-fg">{title}</h3> : null}
+    <div className="border-b border-line py-3 last:border-b-0 sm:py-4">
+      {title ? <h3 className="label mb-2 text-center text-[11px] text-fg sm:mb-3">{title}</h3> : null}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         {side(home, "home")}
         <X className="size-7 text-muted/50" strokeWidth={3} aria-hidden />

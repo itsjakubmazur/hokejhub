@@ -43,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <NavProgress />
           </Suspense>
           <Header />
-          <main className="mx-auto w-full max-w-6xl px-4 pb-28 pt-4 sm:px-6 sm:pb-24">{children}</main>
+          <main className="mx-auto w-full max-w-6xl px-3 pb-28 pt-3 sm:px-6 sm:pb-24 sm:pt-4">{children}</main>
           <BottomNav />
         </Providers>
         <SwRegister />

@@ -108,15 +108,15 @@ function EventRow({ e, index, photos }: { e: TimelineEvent; index: number; photo
       initial={{ opacity: 0.4, x: home ? -8 : 8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: Math.min(index * 0.01, 0.15), duration: 0.2 }}
-      className={`flex items-center gap-3 py-2.5 ${home ? "" : "flex-row-reverse text-right"}`}
+      className={`flex items-center gap-2 py-1.5 sm:gap-3 sm:py-2.5 ${home ? "" : "flex-row-reverse text-right"}`}
     >
-      <span className="w-11 shrink-0 text-xs font-semibold text-muted tabular">{e.clock}</span>
+      <span className="w-9 shrink-0 text-[11px] font-semibold text-muted tabular sm:w-11 sm:text-xs">{e.clock}</span>
       {goal ? (
         <>
-          <span className={`display grid h-8 min-w-12 place-items-center px-2 text-xl tabular ${home ? "bg-home text-white" : "bg-away text-white"}`}>
+          <span className={`display grid h-7 min-w-10 place-items-center px-1.5 text-lg tabular sm:h-8 sm:min-w-12 sm:text-xl ${home ? "bg-home text-white" : "bg-away text-white"}`}>
             {e.score}
           </span>
-          <Portrait src={e.playerId ? photos?.[e.playerId] : null} alt={e.title} width={46} side={e.side} />
+          <Portrait src={e.playerId ? photos?.[e.playerId] : null} alt={e.title} width={34} side={e.side} className="sm:!w-[46px] sm:!h-[61px]" />
         </>
       ) : (
         <span
@@ -130,15 +130,15 @@ function EventRow({ e, index, photos }: { e: TimelineEvent; index: number; photo
         <span className={`flex items-center gap-1.5 ${home ? "" : "flex-row-reverse"}`}>
           {goal ? null : <OctagonAlert className="size-3.5 shrink-0 text-muted" aria-hidden />}
           {e.href ? (
-            <Link href={e.href} className={`truncate ${goal ? "text-base font-bold" : "text-sm font-medium"} hover:text-accent`}>
+            <Link href={e.href} className={`truncate ${goal ? "text-sm font-bold sm:text-base" : "text-[13px] font-medium sm:text-sm"} hover:text-accent`}>
               {e.title}
             </Link>
           ) : (
-            <span className={`truncate ${goal ? "text-base font-bold" : "text-sm font-medium"}`}>{e.title}</span>
+            <span className={`truncate ${goal ? "text-sm font-bold sm:text-base" : "text-[13px] font-medium sm:text-sm"}`}>{e.title}</span>
           )}
           {e.badge ? <span className="shrink-0 bg-accent-soft px-1.5 py-px text-[10px] font-semibold uppercase text-accent">{e.badge}</span> : null}
         </span>
-        {e.sub ? <span className="block truncate text-xs text-muted">{goal ? `asistence: ${e.sub}` : e.sub}</span> : null}
+        {e.sub ? <span className="block truncate text-[11px] text-muted sm:text-xs">{goal ? `asistence: ${e.sub}` : e.sub}</span> : null}
       </span>
     </motion.li>
   );
@@ -151,27 +151,31 @@ export function Timeline({
   goals,
   photos = null,
   penalties = [],
+  recent,
 }: {
   game: Game;
   box: HokejczMatch | null;
   goals: GoalSummary[] | null;
   photos?: Record<string, string> | null;
   penalties?: NhlPenalty[];
+  /** Show only the last N events, newest first (live overview). */
+  recent?: number;
 }) {
-  const events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game, penalties) : [];
+  let events = box ? fromHokejcz(box) : goals ? fromNhl(goals, game, penalties) : [];
+  if (recent) events = events.slice(-recent).reverse();
   if (events.length === 0) {
     return <p className="py-8 text-center text-sm text-muted">Zatím žádné události.</p>;
   }
   const periods = [...new Set(events.map((e) => e.period))];
   let index = 0;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 sm:space-y-3">
       {periods.map((period, pi) => {
         const list = events.filter((e) => e.period === period);
         const score = game.periods[pi];
         return (
           <section key={period}>
-            <div className="flex items-center justify-between rounded-lg bg-surface-2 px-3 py-1.5 label text-muted">
+            <div className="flex items-center justify-between rounded-lg bg-surface-2 px-2.5 py-1 label text-[11px] text-muted sm:px-3 sm:py-1.5 sm:text-[13px]">
               <span>{period}</span>
               {score ? (
                 <span className="tabular text-fg">
