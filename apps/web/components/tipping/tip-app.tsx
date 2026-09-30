@@ -1,7 +1,22 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, Check, ClipboardCopy, Crown, History, ListChecks, LogOut, Trophy, Users } from "lucide-react";
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  ClipboardCopy,
+  Crown,
+  History,
+  ListChecks,
+  LogOut,
+  MessagesSquare,
+  Sparkles,
+  Star,
+  Trophy,
+  Users,
+  Wand2,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveTip as saveLocalTip, useTips } from "@/lib/tips";
@@ -9,61 +24,15 @@ import { ClubLogo } from "../club-logo";
 import { Segmented } from "../game/segmented";
 import { Card, Empty } from "../ui/card";
 import { CS, csCount } from "@hokejhub/core";
-
-// ---------- API ----------
-
-interface User {
-  id: string;
-  nickname: string;
-  club_id: string | null;
-  club_logo: string | null;
-  club_name: string | null;
-}
-interface TipGame {
-  id: string;
-  league: string;
-  leagueName: string;
-  playDate: string;
-  startAt: string;
-  home: { name: string; logo: string | null };
-  away: { name: string; logo: string | null };
-  model: { home: number; away: number } | null;
-  odds: { home: number | null; draw: number | null; away: number | null } | null;
-}
-interface LeaderRow {
-  user_id: string;
-  nickname: string;
-  club_logo: string | null;
-  points: number;
-  tips: number;
-  exact: number;
-  winners: number;
-  last7: number;
-}
-interface Group {
-  id: string;
-  name: string;
-  code: string;
-  members: number;
-  owner: boolean;
-}
-
-async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const res = await fetch(`/api/tip/${path}`, {
-    method: init?.method ?? "GET",
-    headers: init?.body ? { "content-type": "application/json" } : undefined,
-    body: init?.body ? JSON.stringify(init.body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
-  return data as T;
-}
-
-const LEAGUE_TAG: Record<string, string> = { "cz-elh": "ELH", nhl: "NHL" };
+import { api, LEAGUE_TAG, pointsCls, type Group, type LeaderRow, type MyTip, type Split, type TipGame, type User } from "./api";
+import { BonusQuestions } from "./bonus";
+import { CrowdTips, SplitBar } from "./crowd";
+import { MyStats } from "./stats";
+import { GroupWall } from "./wall";
 
 // ---------- root ----------
 
-type Tab = "tipovat" | "zebricek" | "moje" | "skupiny";
+type Tab = "tipovat" | "zebricek" | "bonusy" | "moje" | "skupiny";
 
 export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: string | null }[] }) {
   const me = useQuery({ queryKey: ["tip", "me"], queryFn: () => api<{ user: User | null }>("me") });
@@ -78,7 +47,8 @@ export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: str
         <h1 className="mt-1 text-board-text">Tipovačka</h1>
         <p className="mt-2 max-w-prose text-sm text-board-muted">
           Tipuj přesné skóre po 60 minutách. Přesný výsledek 5 bodů, vítěz i rozdíl 3 body, jen vítěz 2 body. Prodloužení a nájezdy se počítají jako
-          remíza. Tip se uzamkne začátkem zápasu. Hraješ proti kamarádům i proti našemu modelu.
+          remíza. Jednou za hrací den můžeš vsadit žolíka na dvojnásobek bodů. K tomu tipy na celou sezónu, skupiny s kamarády a náš model jako
+          soupeř. Tip se uzamkne začátkem zápasu.
         </p>
         {user ? <UserBar user={user} /> : null}
       </header>
@@ -98,12 +68,14 @@ export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: str
             options={[
               { value: "tipovat", label: "Tipovat" },
               { value: "zebricek", label: "Žebříček" },
-              { value: "moje", label: "Moje tipy" },
+              { value: "bonusy", label: "Sezóna" },
+              { value: "moje", label: "Moje" },
               { value: "skupiny", label: "Skupiny" },
             ]}
           />
           {tab === "tipovat" ? <TipGames /> : null}
           {tab === "zebricek" ? <Leaderboard me={user} /> : null}
+          {tab === "bonusy" ? <BonusQuestions loggedIn /> : null}
           {tab === "moje" ? <MyHistory /> : null}
           {tab === "skupiny" ? <Groups /> : null}
         </>
@@ -246,11 +218,13 @@ function ImportLocalTips() {
 // ---------- tipping ----------
 
 function TipGames() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["tip", "games"],
-    queryFn: () => api<{ games: TipGame[]; tips: Record<string, { home: number; away: number }> }>("games"),
+    queryFn: () => api<{ games: TipGame[]; tips: Record<string, MyTip>; splits: Record<string, Split> }>("games"),
   });
   const [league, setLeague] = useState<"all" | "cz-elh" | "nhl">("all");
+  const [filling, setFilling] = useState<string | null>(null);
   const days = useMemo(() => {
     const map = new Map<string, TipGame[]>();
     for (const g of data?.games ?? []) {
@@ -260,6 +234,18 @@ function TipGames() {
     }
     return [...map.entries()];
   }, [data, league]);
+
+  /** Kicktipp-style quick fill: every game of the day without a tip gets the model's score. */
+  const fillFromModel = async (day: string, games: TipGame[]) => {
+    setFilling(day);
+    for (const g of games) {
+      if (data?.tips[g.id] || !g.model) continue;
+      await api("tip", { method: "POST", body: { gameId: g.id, playDate: g.playDate, home: g.model.home, away: g.model.away } }).catch(() => null);
+    }
+    setFilling(null);
+    qc.invalidateQueries({ queryKey: ["tip", "games"] });
+  };
+
   if (isLoading)
     return (
       <Card>
@@ -282,16 +268,42 @@ function TipGames() {
           <Empty>V příštích dnech nejsou zápasy k tipování.</Empty>
         </Card>
       ) : null}
-      {days.map(([day, games]) => (
-        <section key={day} className="border border-line bg-surface">
-          <h2 className="label border-b border-line px-4 pb-2 pt-3 first-letter:uppercase">{day}</h2>
-          <ul className="divide-y divide-line">
-            {games.map((g) => (
-              <TipRow key={g.id} game={g} initial={data?.tips[g.id] ?? null} />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {days.map(([day, games]) => {
+        const open = games.filter((g) => !data?.tips[g.id]);
+        const jokerOn = games.find((g) => data?.tips[g.id]?.joker);
+        return (
+          <section key={day} className="rise border border-line bg-surface">
+            <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-4 pb-2 pt-3">
+              <h2 className="label flex-1 first-letter:uppercase">{day}</h2>
+              <span className={`flex items-center gap-1 text-[11px] ${jokerOn ? "text-gold" : "text-muted"}`}>
+                <Sparkles className="size-3.5" aria-hidden /> {jokerOn ? `žolík: ${jokerOn.home.name}–${jokerOn.away.name}` : "žolík nevsazen"}
+              </span>
+              {open.length ? (
+                <>
+                  <span className="text-[11px] font-semibold text-live">{csCount(open.length, CS.zapas)} bez tipu</span>
+                  <button
+                    onClick={() => fillFromModel(day, games)}
+                    disabled={filling !== null}
+                    className="flex items-center gap-1 border border-line px-2 py-1 text-[11px] font-semibold hover:border-fg disabled:opacity-50"
+                  >
+                    <Wand2 className="size-3.5" aria-hidden /> {filling === day ? "doplňuji…" : "doplnit podle modelu"}
+                  </button>
+                </>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] text-win">
+                  <Check className="size-3.5" aria-hidden /> vše otipováno
+                </span>
+              )}
+            </header>
+            <ul className="divide-y divide-line">
+              {games.map((g) => {
+                const t = data?.tips[g.id] ?? null;
+                return <TipRow key={`${g.id}-${t ? `${t.home}:${t.away}` : "x"}`} game={g} initial={t} split={data?.splits[g.id]} />;
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -320,13 +332,24 @@ function Stepper({ value, onChange, label }: { value: number | null; onChange: (
   );
 }
 
-function TipRow({ game, initial }: { game: TipGame; initial: { home: number; away: number } | null }) {
+function TipRow({ game, initial, split }: { game: TipGame; initial: MyTip | null; split: Split | undefined }) {
   const qc = useQueryClient();
   const [h, setH] = useState<number | null>(initial?.home ?? null);
   const [a, setA] = useState<number | null>(initial?.away ?? null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(initial ? "saved" : "idle");
   const [err, setErr] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [joker, setJoker] = useState(initial?.joker ?? false);
+  const jokerMut = useMutation({
+    mutationFn: (on: boolean) => api("joker", { method: "POST", body: { gameId: game.id, on } }),
+    onMutate: (on) => setJoker(on),
+    onError: (e) => {
+      setJoker(!joker);
+      setErr((e as Error).message);
+      setStatus("error");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tip", "games"] }),
+  });
   const time = new Date(game.startAt).toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Prague" });
 
   useEffect(() => () => (timer.current ? clearTimeout(timer.current) : undefined), []);
@@ -391,6 +414,21 @@ function TipRow({ game, initial }: { game: TipGame; initial: { home: number; awa
             </span>
           ) : null}
         </span>
+        {h !== null && a !== null && status !== "saving" ? (
+          <motion.button
+            type="button"
+            onClick={() => jokerMut.mutate(!joker)}
+            whileTap={{ scale: 0.9, rotate: -8 }}
+            animate={joker ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+            className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
+              joker ? "bg-gold text-black shadow-[0_0_14px_var(--gold)]" : "border border-line text-muted hover:text-fg"
+            }`}
+            title="Žolík: dvojnásobek bodů, jeden na hrací den"
+          >
+            <Sparkles className="size-3" aria-hidden /> {joker ? "žolík ×2" : "žolík"}
+          </motion.button>
+        ) : null}
+        <SplitBar split={split} className="w-32" />
       </div>
       <div className="flex min-w-0 flex-col items-center gap-1.5 text-center sm:flex-row sm:text-left">
         <span className="grid size-12 shrink-0 place-items-center bg-white p-1">
@@ -407,109 +445,145 @@ function TipRow({ game, initial }: { game: TipGame; initial: { home: number; awa
 function Leaderboard({ me }: { me: User }) {
   const groups = useQuery({ queryKey: ["tip", "groups"], queryFn: () => api<{ groups: Group[] }>("groups") });
   const [group, setGroup] = useState("");
+  const [period, setPeriod] = useState<"all" | "30" | "7">("all");
   const board = useQuery({
-    queryKey: ["tip", "leaderboard", group],
-    queryFn: () => api<{ rows: LeaderRow[]; model: { points: number; tips: number; exact: number } }>(`leaderboard${group ? `?group=${group}` : ""}`),
+    queryKey: ["tip", "leaderboard", group, period],
+    queryFn: () =>
+      api<{
+        rows: LeaderRow[];
+        model: { points: number; tips: number; exact: number };
+        dayWinners: { play_date: string; nickname: string; club_logo: string | null; points: number }[];
+      }>(`leaderboard?period=${period}${group ? `&group=${group}` : ""}`),
   });
   const rows = board.data?.rows ?? [];
   const model = board.data?.model;
+  const winners = board.data?.dayWinners ?? [];
   return (
-    <Card title="Žebříček" icon={Crown}>
-      {groups.data?.groups.length ? (
-        <select
-          id="tip-group"
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-          className="mb-4 border border-line bg-surface-2 px-2.5 py-1.5 text-sm"
-        >
-          <option value="">Všichni hráči</option>
-          {groups.data.groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
+    <div className="space-y-4">
+      {winners.length ? (
+        <div className="rise flex gap-2 overflow-x-auto pb-1">
+          {winners.map((w) => (
+            <div key={w.play_date + w.nickname} className="flex min-w-44 items-center gap-2.5 bg-board px-3 py-2 text-board-text">
+              <Star className="size-4 shrink-0 text-gold" aria-hidden />
+              <ClubLogo src={w.club_logo} alt="" size={26} />
+              <div className="min-w-0">
+                <div className="label text-[10px] text-board-muted">
+                  Tipér dne {new Date(w.play_date).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric" })}
+                </div>
+                <div className="truncate text-sm font-bold">
+                  {w.nickname} <span className="text-led">{w.points}</span>
+                </div>
+              </div>
+            </div>
           ))}
-        </select>
-      ) : null}
-      {board.isLoading ? <Empty>Načítám…</Empty> : rows.length === 0 ? <Empty>Zatím nikdo netipoval. Buď první!</Empty> : null}
-      {rows.length ? (
-        <div className="-mx-4 overflow-x-auto px-4">
-          <table className="w-full min-w-[520px] text-sm tabular">
-            <thead>
-              <tr className="border-b border-line text-xs text-muted">
-                <th className="w-10 py-2 text-left font-medium">#</th>
-                <th className="py-2 text-left font-medium">Hráč</th>
-                <th className="text-right font-medium">Body</th>
-                <th className="text-right font-medium" title="Vyhodnocené tipy">
-                  Tipů
-                </th>
-                <th className="text-right font-medium" title="Přesné výsledky">
-                  Přesně
-                </th>
-                <th className="text-right font-medium" title="Uhodnutý vítěz">
-                  Vítěz
-                </th>
-                <th className="pr-1 text-right font-medium" title="Body za posledních 7 dní">
-                  7 dní
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((r, i) => (
-                <motion.tr
-                  key={r.user_id}
-                  initial={{ opacity: 0.5 }}
-                  animate={{ opacity: 1 }}
-                  className={r.user_id === me.id ? "bg-accent-soft" : ""}
-                >
-                  <td className={`display py-2 text-xl ${i === 0 ? "text-gold" : "text-muted"}`}>{i + 1}.</td>
-                  <td className="py-2">
-                    <span className="flex items-center gap-2.5">
-                      <span className="grid size-9 shrink-0 place-items-center bg-white p-0.5">
-                        {r.club_logo ? <ClubLogo src={r.club_logo} alt="" size={32} /> : <Trophy className="size-4 text-black/40" aria-hidden />}
-                      </span>
-                      <span className="font-semibold">{r.nickname}</span>
-                    </span>
-                  </td>
-                  <td className="display text-right text-2xl">{r.points}</td>
-                  <td className="text-right">{r.tips}</td>
-                  <td className="text-right">{r.exact}</td>
-                  <td className="text-right">{r.tips ? `${Math.round((r.winners / r.tips) * 100)} %` : "–"}</td>
-                  <td className="pr-1 text-right text-muted">{r.last7}</td>
-                </motion.tr>
-              ))}
-              {model ? (
-                <tr className="border-t-2 border-line">
-                  <td className="py-2 text-muted">
-                    <Bot className="size-5" aria-hidden />
-                  </td>
-                  <td className="py-2 font-semibold">Model HokejHub</td>
-                  <td className="display text-right text-2xl">{model.points}</td>
-                  <td className="text-right">{model.tips}</td>
-                  <td className="text-right">{model.exact}</td>
-                  <td className="text-right text-muted">–</td>
-                  <td className="pr-1 text-right text-muted">–</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
         </div>
       ) : null}
-    </Card>
+      <Card title="Žebříček" icon={Crown}>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Segmented
+            value={period}
+            onChange={setPeriod}
+            options={[
+              { value: "all", label: "Celkem" },
+              { value: "30", label: "30 dní" },
+              { value: "7", label: "7 dní" },
+            ]}
+          />
+          {groups.data?.groups.length ? (
+            <select
+              id="tip-group"
+              value={group}
+              onChange={(e) => setGroup(e.target.value)}
+              className="border border-line bg-surface-2 px-2.5 py-1.5 text-sm"
+            >
+              <option value="">Všichni hráči</option>
+              {groups.data.groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+        {board.isLoading ? <Empty>Načítám…</Empty> : rows.length === 0 ? <Empty>V tomhle období zatím nikdo nebodoval.</Empty> : null}
+        {rows.length ? (
+          <div className="-mx-4 overflow-x-auto px-4">
+            <table className="w-full min-w-[560px] text-sm tabular">
+              <thead>
+                <tr className="border-b border-line text-xs text-muted">
+                  <th className="w-10 py-2 text-left font-medium">#</th>
+                  <th className="py-2 text-left font-medium">Hráč</th>
+                  <th className="text-right font-medium">Body</th>
+                  <th className="text-right font-medium" title="Vyhodnocené tipy">
+                    Tipů
+                  </th>
+                  <th className="text-right font-medium" title="Přesné výsledky">
+                    Přesně
+                  </th>
+                  <th className="text-right font-medium" title="Uhodnutý vítěz">
+                    Vítěz
+                  </th>
+                  <th className="text-right font-medium" title="Vyhodnocení žolíci">
+                    Žolíci
+                  </th>
+                  <th className="pr-1 text-right font-medium" title="Body za sezónní otázky">
+                    Bonus
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((r, i) => (
+                  <motion.tr
+                    key={r.user_id}
+                    layout
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: Math.min(i, 12) * 0.03 }}
+                    className={r.user_id === me.id ? "bg-accent-soft" : ""}
+                  >
+                    <td className={`display py-2 text-xl ${i === 0 ? "text-gold" : i < 3 ? "text-fg" : "text-muted"}`}>{i + 1}.</td>
+                    <td className="py-2">
+                      <span className="flex items-center gap-2.5">
+                        <span className="grid size-9 shrink-0 place-items-center bg-white p-0.5">
+                          {r.club_logo ? <ClubLogo src={r.club_logo} alt="" size={32} /> : <Trophy className="size-4 text-black/40" aria-hidden />}
+                        </span>
+                        <span className="font-semibold">{r.nickname}</span>
+                        {i === 0 ? <Crown className="size-4 text-gold" aria-label="lídr" /> : null}
+                      </span>
+                    </td>
+                    <td className="display text-right text-2xl">{r.points}</td>
+                    <td className="text-right">{r.tips}</td>
+                    <td className="text-right">{r.exact}</td>
+                    <td className="text-right">{r.tips ? `${Math.round((r.winners / r.tips) * 100)} %` : "–"}</td>
+                    <td className="text-right">{r.jokers}</td>
+                    <td className="pr-1 text-right text-muted">{r.bonus || "–"}</td>
+                  </motion.tr>
+                ))}
+                {model ? (
+                  <tr className="border-t-2 border-line">
+                    <td className="py-2 text-muted">
+                      <Bot className="size-5" aria-hidden />
+                    </td>
+                    <td className="py-2 font-semibold">Model HokejHub</td>
+                    <td className="display text-right text-2xl">{model.points}</td>
+                    <td className="text-right">{model.tips}</td>
+                    <td className="text-right">{model.exact}</td>
+                    <td className="text-right text-muted">–</td>
+                    <td className="text-right text-muted">–</td>
+                    <td className="pr-1 text-right text-muted">–</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        <p className="mt-3 text-[11px] text-muted">Při shodě bodů rozhoduje počet přesných tipů, pak uhodnutých vítězů, pak méně tipů.</p>
+      </Card>
+    </div>
   );
 }
 
 // ---------- history ----------
-
-const pointsCls = (p: number | null) =>
-  p === null
-    ? "border border-line text-muted"
-    : p === 5
-      ? "bg-gold text-black"
-      : p >= 3
-        ? "bg-win text-white"
-        : p > 0
-          ? "bg-win/40"
-          : "bg-surface-2 text-muted";
 
 function MyHistory() {
   const { data, isLoading } = useQuery({
@@ -532,53 +606,76 @@ function MyHistory() {
           decided_in: string | null;
           points: number | null;
           model_points: number | null;
+          joker: boolean;
         }[];
       }>("history"),
   });
+  const [open, setOpen] = useState<string | null>(null);
   const list = data?.history ?? [];
   const mine = list.reduce((s, r) => s + (r.points ?? 0), 0);
   const bot = list.reduce((s, r) => s + (r.model_points ?? 0), 0);
   return (
-    <Card title="Moje tipy" icon={History}>
-      {isLoading ? <Empty>Načítám…</Empty> : list.length === 0 ? <Empty>Zatím žádné tipy.</Empty> : null}
-      {list.length ? (
-        <>
-          <p className="mb-3 text-sm">
-            Ty <b className="display text-xl">{mine}</b> b. · model <b className="display text-xl">{bot}</b> b. na stejných zápasech
-          </p>
-          <ul className="divide-y divide-line">
-            {list.map((r) => (
-              <li key={r.game_id} className="grid grid-cols-[1fr_auto] items-center gap-3 py-2.5 sm:grid-cols-[70px_1fr_auto_auto_auto]">
-                <span className="hidden text-xs text-muted tabular sm:block">
-                  {new Date(r.start_at).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric" })}
-                </span>
-                <span className="flex min-w-0 items-center gap-2 text-sm">
-                  <ClubLogo src={r.home_logo} alt="" size={26} />
-                  <span className="truncate">
-                    {r.home_name} – {r.away_name}
-                  </span>
-                  <ClubLogo src={r.away_logo} alt="" size={26} />
-                </span>
-                <span className="display text-right text-xl tabular">
-                  {r.home_score !== null
-                    ? `${r.home_score}:${r.away_score}${r.decided_in === "OT" ? " pp" : r.decided_in === "SO" ? " sn" : ""}`
-                    : "–"}
-                </span>
-                <span className={`px-2 py-0.5 text-center text-xs font-semibold tabular ${pointsCls(r.points)}`} title="Tvůj tip">
-                  {r.home}:{r.away}
-                  {r.points !== null ? ` · ${r.points} b.` : ""}
-                </span>
-                <span className={`flex items-center gap-1 px-2 py-0.5 text-center text-xs tabular ${pointsCls(r.model_points)}`} title="Tip modelu">
-                  <Bot className="size-3" aria-hidden />
-                  {r.model_home !== null ? `${r.model_home}:${r.model_away}` : "–"}
-                  {r.model_points !== null ? ` · ${r.model_points}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      ) : null}
-    </Card>
+    <div className="space-y-4">
+      <MyStats />
+      <Card title="Moje tipy" icon={History}>
+        {isLoading ? <Empty>Načítám…</Empty> : list.length === 0 ? <Empty>Zatím žádné tipy.</Empty> : null}
+        {list.length ? (
+          <>
+            <p className="mb-3 text-sm">
+              Ty <b className="display text-xl">{mine}</b> b. · model <b className="display text-xl">{bot}</b> b. na stejných zápasech
+            </p>
+            <ul className="divide-y divide-line">
+              {list.map((r) => (
+                <li key={r.game_id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(open === r.game_id ? null : r.game_id)}
+                    className="grid w-full grid-cols-[1fr_auto] items-center gap-3 py-2.5 text-left sm:grid-cols-[70px_1fr_auto_auto_auto_16px]"
+                  >
+                    <span className="hidden text-xs text-muted tabular sm:block">
+                      {new Date(r.start_at).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", timeZone: "Europe/Prague" })}
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2 text-sm">
+                      <ClubLogo src={r.home_logo} alt="" size={26} />
+                      <span className="truncate">
+                        {r.home_name} – {r.away_name}
+                      </span>
+                      <ClubLogo src={r.away_logo} alt="" size={26} />
+                    </span>
+                    <span className="display text-right text-xl tabular">
+                      {r.home_score !== null
+                        ? `${r.home_score}:${r.away_score}${r.decided_in === "OT" ? " pp" : r.decided_in === "SO" ? " sn" : ""}`
+                        : "–"}
+                    </span>
+                    <span
+                      className={`flex items-center gap-1 px-2 py-0.5 text-center text-xs font-semibold tabular ${pointsCls(r.points, r.joker)}`}
+                      title="Tvůj tip"
+                    >
+                      {r.joker ? <Sparkles className="size-3" aria-label="žolík" /> : null}
+                      {r.home}:{r.away}
+                      {r.points !== null ? ` · ${r.points} b.` : ""}
+                    </span>
+                    <span
+                      className={`flex items-center gap-1 px-2 py-0.5 text-center text-xs tabular ${pointsCls(r.model_points)}`}
+                      title="Tip modelu"
+                    >
+                      <Bot className="size-3" aria-hidden />
+                      {r.model_home !== null ? `${r.model_home}:${r.model_away}` : "–"}
+                      {r.model_points !== null ? ` · ${r.model_points}` : ""}
+                    </span>
+                    <ChevronDown
+                      className={`hidden size-4 text-muted transition-transform sm:block ${open === r.game_id ? "rotate-180" : ""}`}
+                      aria-hidden
+                    />
+                  </button>
+                  {open === r.game_id ? <CrowdTips gameId={r.game_id} group="" /> : null}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </Card>
+    </div>
   );
 }
 
@@ -590,6 +687,7 @@ function Groups() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [wall, setWall] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: () => api<{ code: string }>("group", { method: "POST", body: { name } }),
     onSuccess: (r) => {
@@ -614,15 +712,24 @@ function Groups() {
         {groups.data?.groups.length ? (
           <ul className="divide-y divide-line">
             {groups.data.groups.map((g) => (
-              <li key={g.id} className="flex items-center gap-3 py-2.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-semibold">{g.name}</span>
-                  <span className="text-xs text-muted">
-                    {csCount(g.members, CS.hrac)}
-                    {g.owner ? " · zakladatel" : ""}
+              <li key={g.id} className="py-2.5">
+                <div className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold">{g.name}</span>
+                    <span className="text-xs text-muted">
+                      {csCount(g.members, CS.hrac)}
+                      {g.owner ? " · zakladatel" : ""}
+                    </span>
                   </span>
-                </span>
-                <CopyCode code={g.code} />
+                  <button
+                    onClick={() => setWall(wall === g.id ? null : g.id)}
+                    className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm ${wall === g.id ? "border-fg" : "border-line hover:border-fg"}`}
+                  >
+                    <MessagesSquare className="size-4" aria-hidden /> Kabina
+                  </button>
+                  <CopyCode code={g.code} />
+                </div>
+                {wall === g.id ? <GroupWall group={g.id} /> : null}
               </li>
             ))}
           </ul>

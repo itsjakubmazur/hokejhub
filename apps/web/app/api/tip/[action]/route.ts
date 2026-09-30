@@ -1,5 +1,15 @@
 import {
+  bonusQuestions,
   createGroup,
+  crowd,
+  crowdSplits,
+  dayWinners,
+  messages,
+  postMessage,
+  saveBonus,
+  setJoker,
+  stats,
+  type Period,
   currentUser,
   history,
   joinGroup,
@@ -17,8 +27,8 @@ import {
 
 /**
  * Tipping league API.
- *   GET  me | games | leaderboard?group= | history | groups
- *   POST register | login | logout | tip | tips (bulk import) | group | join
+ *   GET  me | games | leaderboard?group=&period=&day= | history | groups | stats | bonus | crowd?game=&group= | wall?group=
+ *   POST register | login | logout | tip | tips (bulk import) | joker | bonus | group | join | wall
  */
 export const dynamic = "force-dynamic";
 
@@ -38,14 +48,33 @@ export async function GET(req: Request, ctx: RouteContext<"/api/tip/[action]">) 
         return ok({ user });
       case "games": {
         const [games, tips] = await Promise.all([upcomingGames(7), user ? myTips(user.id) : []]);
-        return ok({ games, tips: Object.fromEntries(tips.map((t) => [t.game_id, { home: t.home, away: t.away }])) });
+        const splits = await crowdSplits(games.map((g) => g.id));
+        return ok({ games, splits, tips: Object.fromEntries(tips.map((t) => [t.game_id, { home: t.home, away: t.away, joker: t.joker }])) });
       }
       case "leaderboard": {
         await settle().catch((e) => console.error("[tip] settle", e));
-        const group = new URL(req.url).searchParams.get("group");
+        const sp = new URL(req.url).searchParams;
+        const group = sp.get("group");
         if (group && (!user || !(await myGroups(user.id)).some((g) => g.id === group))) return fail("Do této skupiny nepatříš.", 403);
-        return ok(await leaderboard(group || null));
+        const period = (["all", "30", "7", "day"].includes(sp.get("period") ?? "") ? sp.get("period") : "all") as Period;
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(sp.get("day") ?? "") ? sp.get("day") : null;
+        const [board, winners] = await Promise.all([leaderboard(group || null, period === "day" && !day ? "all" : period, day), dayWinners(group || null)]);
+        return ok({ ...board, dayWinners: winners });
       }
+      case "stats":
+        if (!user) return fail("Nejsi přihlášený.", 401);
+        return ok(await stats(user.id));
+      case "bonus":
+        return ok({ questions: await bonusQuestions(user?.id ?? null) });
+      case "crowd": {
+        const sp = new URL(req.url).searchParams;
+        const group = sp.get("group");
+        if (group && (!user || !(await myGroups(user.id)).some((g) => g.id === group))) return fail("Do této skupiny nepatříš.", 403);
+        return ok(await crowd(String(sp.get("game") ?? ""), group || null));
+      }
+      case "wall":
+        if (!user) return fail("Nejsi přihlášený.", 401);
+        return ok({ messages: await messages(user.id, String(new URL(req.url).searchParams.get("group") ?? "")) });
       case "history":
         if (!user) return fail("Nejsi přihlášený.", 401);
         await settle().catch((e) => console.error("[tip] settle", e));
@@ -56,6 +85,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/tip/[action]">) 
     }
     return fail("Neznámá akce.", 404);
   } catch (e) {
+    if (e instanceof TipError) return fail(e.message, 403);
     console.error("[tip]", e);
     return fail("Něco se pokazilo, zkus to znovu.", 500);
   }
@@ -99,6 +129,21 @@ export async function POST(req: Request, ctx: RouteContext<"/api/tip/[action]">)
           }
         }
         return ok({ saved });
+      }
+      case "joker": {
+        const b = await body<{ gameId: string; on: boolean }>(req);
+        await setJoker(user.id, String(b.gameId), Boolean(b.on));
+        return ok({ saved: true });
+      }
+      case "bonus": {
+        const b = await body<{ questionId: string; value: string }>(req);
+        await saveBonus(user.id, String(b.questionId), String(b.value));
+        return ok({ saved: true });
+      }
+      case "wall": {
+        const b = await body<{ group: string; body: string }>(req);
+        await postMessage(user.id, String(b.group), String(b.body ?? ""));
+        return ok({ saved: true });
       }
       case "group": {
         const b = await body<{ name: string }>(req);
