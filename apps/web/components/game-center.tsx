@@ -432,7 +432,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
       <GoalCelebration trigger={flash.home + flash.away} side={lastSide} team={game[lastSide].shortName} />
       <PeriodSiren game={game} />
       <BoardCrests game={game} />
-      <div className="relative grid grid-cols-[1fr_auto_1fr] items-start gap-2 px-3 pb-5 pt-6 sm:px-8">
+      <div className="relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 px-3 pb-5 pt-6 sm:px-8">
         <TeamBlock game={game} side="home" card={data.teamCards?.home ?? null} href={data.teamIds ? `/tym/${data.teamIds.home}` : undefined} />
         <div className="flex flex-col items-center">
           <div className="relative">
@@ -447,7 +447,7 @@ function MatchHeader({ game, data, day }: { game: Game; data: GameDetailResponse
                 {(["home", "away"] as const).map((side) => (
                   <span
                     key={`${side}${flash[side]}`}
-                    className={`led grid min-w-[1.35em] place-items-center bg-board-2 px-2 text-6xl leading-none sm:text-7xl ${flash[side] ? "goal-pop led-flip" : ""}`}
+                    className={`led grid min-w-[1.3em] place-items-center bg-board-2 px-1.5 text-5xl leading-none sm:px-2 sm:text-7xl ${flash[side] ? "goal-pop led-flip" : ""}`}
                     style={{ paddingBlock: "0.12em" }}
                   >
                     {side === "home" ? game.homeScore : game.awayScore}
@@ -601,22 +601,22 @@ function TeamBlock({ game, side, href, card }: { game: Game; side: "home" | "awa
   const team = game[side];
   const inner = (
     <motion.div
-      className="flex flex-col items-center gap-2.5 text-center"
+      className="flex w-full flex-col items-center gap-2.5 text-center"
       initial={{ opacity: 0, x: side === "home" ? -60 : 60, rotate: side === "home" ? -6 : 6 }}
       animate={{ opacity: 1, x: 0, rotate: 0 }}
       transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.15 }}
     >
-      <div className="grid size-20 place-items-center bg-white p-2 shadow-[0_10px_40px_rgb(0_0_0/0.45)] sm:size-32 sm:p-3">
+      <div className="grid size-16 place-items-center bg-white p-1.5 shadow-[0_10px_40px_rgb(0_0_0/0.45)] sm:size-32 sm:p-3">
         <TeamLogo team={team} size={104} className="!size-full" />
       </div>
-      <div className="display text-xl leading-none sm:text-3xl">{team.shortName}</div>
+      <div className="display w-full truncate text-lg leading-none sm:text-3xl">{team.shortName}</div>
       <div className={`h-[3px] w-8 ${side === "home" ? "bg-home" : "bg-away"}`} aria-hidden />
     </motion.div>
   );
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex min-w-0 flex-col items-center">
       {href ? (
-        <Link href={href} className="transition-opacity hover:opacity-80">
+        <Link href={href} className="w-full transition-opacity hover:opacity-80">
           {inner}
         </Link>
       ) : (
@@ -636,18 +636,19 @@ function TeamCardInfo({ card, side }: { card: TeamCard; side: "home" | "away" })
       transition={{ delay: 0.5, duration: 0.35 }}
       className="mt-3 flex flex-col items-center gap-1.5 text-center"
     >
-      <div className="flex items-baseline gap-1.5">
+      <div className="flex flex-wrap items-baseline justify-center gap-x-1.5">
         <span className="led text-2xl sm:text-3xl" style={{ color: "var(--led)" }}>
           {card.rank}.
         </span>
         <span className="text-[11px] text-board-muted">
-          {card.scope} · {card.pts} b.
+          <span className="hidden sm:inline">{card.scope} · </span>
+          {card.pts} b.
         </span>
       </div>
       {card.form?.length ? (
         <div className={`flex gap-0.5 ${side === "home" ? "" : ""}`} title="Forma, poslední zápas vlevo">
           {card.form.map((f, i) => (
-            <span key={i} className={`grid h-5 min-w-5 place-items-center px-0.5 text-[9px] font-bold ${FORM_CHIP[f]}`}>
+            <span key={i} className={`grid h-4 min-w-4 place-items-center px-0.5 text-[8px] font-bold sm:h-5 sm:min-w-5 sm:text-[9px] ${FORM_CHIP[f]}`}>
               {FORM_LETTER[f]}
             </span>
           ))}

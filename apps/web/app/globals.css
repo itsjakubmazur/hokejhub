@@ -487,3 +487,14 @@ body {
     animation: none !important;
   }
 }
+
+/* Grid items may shrink below their longest unbreakable line (truncated names, nowrap rows);
+   without this one long timeline row widened the whole mobile page. */
+.grid > * {
+  min-width: 0;
+}
+/* Last line of defence against sideways scrolling on phones. */
+html,
+body {
+  overflow-x: clip;
+}
