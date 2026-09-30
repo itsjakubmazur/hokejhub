@@ -11,5 +11,7 @@ supabase/.branches
 coverage
 
 # Local ML training data (downloaded, never committed)
-/data/
-ml/xg/data/
+/data/*
+!/data/samples/
+ml/xg/data/*
+!/data/samples/
