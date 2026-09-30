@@ -107,7 +107,12 @@ export default async function PredictionsPage() {
                   {(["home", "draw", "away"] as const).map((k) => {
                     const hot = edges.some((e) => e.k === k);
                     return (
-                      <div key={k} className={`rounded-lg px-1 py-1.5 ${hot ? "bg-win/15 ring-1 ring-win" : "bg-surface-2"}`}>
+                      <div
+                        key={k}
+                        title={hot ? "Value: model dává vyšší šanci než kurz" : undefined}
+                        className={`relative rounded-lg px-1 py-1.5 ${hot ? "bg-win/15 ring-1 ring-win" : "bg-surface-2"}`}
+                      >
+                        {hot ? <span className="absolute -top-2 right-1 rounded bg-win px-1 text-[9px] font-bold uppercase text-white">value</span> : null}
                         <div className="font-bold">{pct(p[k])}</div>
                         <div className="text-[10px] text-muted">
                           {m ? `trh ${pct(m[k])}` : "–"}

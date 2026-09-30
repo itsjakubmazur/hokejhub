@@ -57,11 +57,9 @@ export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: str
         <Card>
           <Empty>Načítám…</Empty>
         </Card>
-      ) : !user ? (
-        <AuthPanel clubs={clubs} />
       ) : (
         <>
-          <ImportLocalTips />
+          {user ? <ImportLocalTips /> : null}
           <Segmented
             value={tab}
             onChange={setTab}
@@ -73,11 +71,11 @@ export function TipApp({ clubs }: { clubs: { id: string; name: string; logo: str
               { value: "skupiny", label: "Skupiny" },
             ]}
           />
-          {tab === "tipovat" ? <TipGames /> : null}
+          {tab === "tipovat" ? user ? <TipGames /> : <AuthPanel clubs={clubs} /> : null}
           {tab === "zebricek" ? <Leaderboard me={user} /> : null}
-          {tab === "bonusy" ? <BonusQuestions loggedIn /> : null}
-          {tab === "moje" ? <MyHistory /> : null}
-          {tab === "skupiny" ? <Groups /> : null}
+          {tab === "bonusy" ? <BonusQuestions loggedIn={Boolean(user)} /> : null}
+          {tab === "moje" ? user ? <MyHistory /> : <AuthPanel clubs={clubs} /> : null}
+          {tab === "skupiny" ? user ? <Groups /> : <AuthPanel clubs={clubs} /> : null}
         </>
       )}
     </div>
@@ -225,6 +223,7 @@ function TipGames() {
   });
   const [league, setLeague] = useState<"all" | "cz-elh" | "nhl">("all");
   const [filling, setFilling] = useState<string | null>(null);
+  const [fillNote, setFillNote] = useState<string | null>(null);
   const days = useMemo(() => {
     const map = new Map<string, TipGame[]>();
     for (const g of data?.games ?? []) {
@@ -238,11 +237,28 @@ function TipGames() {
   /** Kicktipp-style quick fill: every game of the day without a tip gets the model's score. */
   const fillFromModel = async (day: string, games: TipGame[]) => {
     setFilling(day);
+    let saved = 0;
+    let noModel = 0;
+    let failed = 0;
     for (const g of games) {
-      if (data?.tips[g.id] || !g.model) continue;
-      await api("tip", { method: "POST", body: { gameId: g.id, playDate: g.playDate, home: g.model.home, away: g.model.away } }).catch(() => null);
+      if (data?.tips[g.id]) continue;
+      if (!g.model) {
+        noModel++;
+        continue;
+      }
+      try {
+        await api("tip", { method: "POST", body: { gameId: g.id, playDate: g.playDate, home: g.model.home, away: g.model.away } });
+        saved++;
+      } catch {
+        failed++;
+      }
     }
     setFilling(null);
+    setFillNote(
+      [saved ? `doplněno ${csCount(saved, CS.tip)}` : null, noModel ? `${noModel} bez tipu modelu` : null, failed ? `${failed} se nepodařilo uložit` : null]
+        .filter(Boolean)
+        .join(" · ") || "nic k doplnění",
+    );
     qc.invalidateQueries({ queryKey: ["tip", "games"] });
   };
 
@@ -288,6 +304,7 @@ function TipGames() {
                   >
                     <Wand2 className="size-3.5" aria-hidden /> {filling === day ? "doplňuji…" : "doplnit podle modelu"}
                   </button>
+                  {fillNote && filling === null ? <span className="text-[11px] text-muted">{fillNote}</span> : null}
                 </>
               ) : (
                 <span className="flex items-center gap-1 text-[11px] text-win">
@@ -442,7 +459,7 @@ function TipRow({ game, initial, split }: { game: TipGame; initial: MyTip | null
 
 // ---------- leaderboard ----------
 
-function Leaderboard({ me }: { me: User }) {
+function Leaderboard({ me }: { me: User | null }) {
   const groups = useQuery({ queryKey: ["tip", "groups"], queryFn: () => api<{ groups: Group[] }>("groups") });
   const [group, setGroup] = useState("");
   const [period, setPeriod] = useState<"all" | "30" | "7">("all");
@@ -478,7 +495,7 @@ function Leaderboard({ me }: { me: User }) {
           ))}
         </div>
       ) : null}
-      <Card title="Žebříček" icon={Crown}>
+      <Card title="Žebříček" icon={Crown} action={rows.length ? <span className="text-xs text-muted">{csCount(rows.length, CS.hrac)}</span> : undefined}>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <Segmented
             value={period}
@@ -539,7 +556,7 @@ function Leaderboard({ me }: { me: User }) {
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(i, 12) * 0.03 }}
-                    className={r.user_id === me.id ? "bg-accent-soft" : ""}
+                    className={r.user_id === me?.id ? "bg-accent-soft" : ""}
                   >
                     <td className={`display py-2 text-xl ${i === 0 ? "text-gold" : i < 3 ? "text-fg" : "text-muted"}`}>{i + 1}.</td>
                     <td className="py-2">

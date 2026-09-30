@@ -13,6 +13,7 @@ import {
 } from "@hokejhub/core";
 import { dbAvailable } from "./db";
 import { getEloState } from "./model";
+import { findTeamByAbbrev, getTeamLogos } from "./queries";
 import type { ScoreboardResponse } from "../types";
 import { fetchJson } from "./fetcher";
 
@@ -73,17 +74,42 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
     if (odds.data) liveOdds = Object.fromEntries(odds.data);
   }
 
-  // Model probabilities for extraliga games that have not started (needs the database).
+  // Extraliga: hokej.cz club ids (the main feed lacks them; the ELH-only variant has them, same
+  // onlajny team ids), then the model for games not started and the current crests from our
+  // database — the live feed's S3 logos lag behind rebrands.
   const predictions: NonNullable<ScoreboardResponse["predictions"]> = {};
-  const elh = games.filter((g) => g.leagueKey === "cz-elh" && g.status === "scheduled");
-  if (elh.length && dbAvailable()) {
+  const elhAll = games.filter((g) => g.leagueKey === "cz-elh");
+  const elh = elhAll.filter((g) => g.status === "scheduled");
+  if (elhAll.length && dbAvailable()) {
     try {
-      // The main feed lacks hokej.cz club ids; the ELH-only variant has them (same onlajny team ids).
       const clubOf = new Map<string, number>();
-      for (const g of elh) for (const t of [g.home, g.away]) if (t.hokejczClubId) clubOf.set(t.id, t.hokejczClubId);
-      if (elh.some((g) => !clubOf.has(g.home.id) || !clubOf.has(g.away.id))) {
+      for (const g of elhAll) for (const t of [g.home, g.away]) if (t.hokejczClubId) clubOf.set(t.id, t.hokejczClubId);
+      if (elhAll.some((g) => !clubOf.has(g.home.id) || !clubOf.has(g.away.id))) {
         const alt = await fetchJson(esportsUrls.scoreboardAlt(date), parseScoreboardAlt, { revalidate: 3600, notFoundIsEmpty: true });
         for (const g of alt.data ?? []) for (const t of [g.home, g.away]) if (t.hokejczClubId) clubOf.set(t.id, t.hokejczClubId);
+      }
+      // Games the feed lists from neighbouring days are not in that day's ELH variant: resolve
+      // the rest by abbreviation against our own team table.
+      const missing = new Set<string>();
+      for (const g of elhAll) for (const t of [g.home, g.away]) if (!clubOf.has(t.id)) missing.add(t.id);
+      if (missing.size) {
+        const byId = new Map(elhAll.flatMap((g) => [g.home, g.away]).map((t) => [t.id, t]));
+        await Promise.all(
+          [...missing].map(async (id) => {
+            const team = byId.get(id);
+            const hit = team ? await findTeamByAbbrev("cz-elh", team.abbrev).catch(() => null) : null;
+            const num = hit ? Number(/^hcz-(\d+)$/.exec(hit.id)?.[1]) : NaN;
+            if (Number.isFinite(num)) clubOf.set(id, num);
+          }),
+        );
+      }
+      const logos = await getTeamLogos("cz-elh").catch(() => ({}) as Record<string, string>);
+      for (const g of elhAll) {
+        for (const t of [g.home, g.away]) {
+          const club = clubOf.get(t.id);
+          const url = club ? logos[`hcz-${club}`] : undefined;
+          if (url) t.logoUrl = url;
+        }
       }
       const { state } = await getEloState("cz-elh");
       for (const g of elh) {
