@@ -400,3 +400,157 @@ export function parseNhlLandingExtras(json: unknown): NhlLandingExtras {
       : null,
   };
 }
+
+// ---------- per-period team stats from play-by-play ----------
+
+export type NhlPeriodKey = "1" | "2" | "3" | "OT" | "total";
+
+export interface NhlStatRow {
+  key: string;
+  label: string;
+  home: number;
+  away: number;
+  homeText?: string;
+  awayText?: string;
+  lowerIsBetter?: boolean;
+  decimals?: number;
+}
+
+interface Counts {
+  goals: number;
+  sog: number;
+  missed: number;
+  blockedBy: number; // own attempts blocked by the opponent
+  blocks: number; // opponent attempts this team blocked
+  hits: number;
+  giveaways: number;
+  takeaways: number;
+  foWon: number;
+  foOz: number;
+  foOzWon: number;
+  foDz: number;
+  foDzWon: number;
+  penalties: number;
+  pim: number;
+  cf5: number; // shot attempts at 5-on-5
+}
+
+const zero = (): Counts => ({ goals: 0, sog: 0, missed: 0, blockedBy: 0, blocks: 0, hits: 0, giveaways: 0, takeaways: 0, foWon: 0, foOz: 0, foOzWon: 0, foDz: 0, foDzWon: 0, penalties: 0, pim: 0, cf5: 0 });
+
+/**
+ * Team stats per period computed from every play: shot attempts (Corsi), misses, blocks, hits,
+ * giveaways/takeaways, faceoffs overall and by zone, penalties, 5-on-5 attempt share.
+ */
+export function nhlPeriodStats(json: unknown): { periods: NhlPeriodKey[]; rows: Partial<Record<NhlPeriodKey, NhlStatRow[]>> } {
+  const root = o(json);
+  const homeId = n(o(root.homeTeam).id);
+  const awayId = n(o(root.awayTeam).id);
+  const teamOf = new Map<number, number>();
+  for (const r of a(root.rosterSpots)) {
+    const x = o(r);
+    const pid = n(x.playerId);
+    const tid = n(x.teamId);
+    if (pid && tid) teamOf.set(pid, tid);
+  }
+  const acc = new Map<NhlPeriodKey, { home: Counts; away: Counts }>();
+  const get = (k: NhlPeriodKey) => {
+    let v = acc.get(k);
+    if (!v) acc.set(k, (v = { home: zero(), away: zero() }));
+    return v;
+  };
+  type Side = "home" | "away";
+  const sideOf = (teamId: number | null): Side | null => (teamId === homeId ? "home" : teamId === awayId ? "away" : null);
+  const other = (x: Side): Side => (x === "home" ? "away" : "home");
+
+  for (const raw of a(root.plays)) {
+    const p = o(raw);
+    const type = s(p.typeDescKey);
+    const d = o(p.details);
+    const pd = o(p.periodDescriptor);
+    const num = n(pd.number) ?? 0;
+    if (s(pd.periodType) === "SO" || num >= 5) continue;
+    const key: NhlPeriodKey = num >= 4 ? "OT" : (String(num) as NhlPeriodKey);
+    const code = s(p.situationCode);
+    const even5 = code === "1551";
+    let side = sideOf(n(d.eventOwnerTeamId));
+    // Blocked shots: attribute to the shooter's team via the roster (the owner field has changed meaning over seasons).
+    if (type === "blocked-shot") {
+      const shooter = n(d.shootingPlayerId);
+      const t = shooter ? teamOf.get(shooter) : undefined;
+      if (t) side = sideOf(t);
+    }
+    if (!side) continue;
+    for (const k of [key, "total"] as NhlPeriodKey[]) {
+      const c = get(k);
+      const me = c[side];
+      const opp = c[other(side)];
+      switch (type) {
+        case "goal":
+          me.goals++;
+          me.sog++;
+          if (even5) me.cf5++;
+          break;
+        case "shot-on-goal":
+          me.sog++;
+          if (even5) me.cf5++;
+          break;
+        case "missed-shot":
+          me.missed++;
+          if (even5) me.cf5++;
+          break;
+        case "blocked-shot":
+          me.blockedBy++;
+          opp.blocks++;
+          if (even5) me.cf5++;
+          break;
+        case "hit":
+          me.hits++;
+          break;
+        case "giveaway":
+          me.giveaways++;
+          break;
+        case "takeaway":
+          me.takeaways++;
+          break;
+        case "faceoff": {
+          me.foWon++;
+          // Zone code is from the winning team's point of view.
+          const z = s(d.zoneCode);
+          if (z === "O") (me.foOz++, me.foOzWon++, opp.foDz++);
+          else if (z === "D") (me.foDz++, me.foDzWon++, opp.foOz++);
+          break;
+        }
+        case "penalty":
+          me.penalties++;
+          me.pim += n(d.duration) ?? 0;
+          break;
+      }
+    }
+  }
+
+  const rows: Partial<Record<NhlPeriodKey, NhlStatRow[]>> = {};
+  for (const [k, { home: h, away: w }] of acc) {
+    const att = (c: Counts) => c.sog + c.missed + c.blockedBy;
+    const fo = h.foWon + w.foWon;
+    const pct = (x: number, t: number) => (t ? `${Math.round((x / t) * 100)} %` : "–");
+    const list: NhlStatRow[] = [
+      { key: "sog", label: "Střely na branku", home: h.sog, away: w.sog },
+      { key: "attempts", label: "Pokusy o střelu (Corsi)", home: att(h), away: att(w) },
+      { key: "missed", label: "Střely mimo branku", home: h.missed, away: w.missed },
+      { key: "blockedBy", label: "Střely zblokované soupeřem", home: h.blockedBy, away: w.blockedBy, lowerIsBetter: true },
+      { key: "blocks", label: "Zblokované střely soupeře", home: h.blocks, away: w.blocks },
+      { key: "cf5", label: "Podíl pokusů při hře 5 na 5", home: h.cf5, away: w.cf5, homeText: pct(h.cf5, h.cf5 + w.cf5), awayText: pct(w.cf5, h.cf5 + w.cf5) },
+      { key: "fo", label: "Vyhraná buly", home: h.foWon, away: w.foWon, homeText: `${h.foWon} (${pct(h.foWon, fo)})`, awayText: `${w.foWon} (${pct(w.foWon, fo)})` },
+      { key: "foOz", label: "Buly v útočném pásmu", home: h.foOzWon, away: w.foOzWon, homeText: `${h.foOzWon}/${h.foOz}`, awayText: `${w.foOzWon}/${w.foOz}` },
+      { key: "foDz", label: "Buly v obranném pásmu", home: h.foDzWon, away: w.foDzWon, homeText: `${h.foDzWon}/${h.foDz}`, awayText: `${w.foDzWon}/${w.foDz}` },
+      { key: "hits", label: "Hity", home: h.hits, away: w.hits },
+      { key: "takeaways", label: "Zisky puku", home: h.takeaways, away: w.takeaways },
+      { key: "giveaways", label: "Ztráty puku", home: h.giveaways, away: w.giveaways, lowerIsBetter: true },
+      { key: "penalties", label: "Vyloučení", home: h.penalties, away: w.penalties, lowerIsBetter: true },
+      { key: "pim", label: "Trestné minuty", home: h.pim, away: w.pim, lowerIsBetter: true },
+    ];
+    rows[k] = list;
+  }
+  const periods = (["total", "1", "2", "3", "OT"] as NhlPeriodKey[]).filter((k) => rows[k]);
+  return { periods, rows };
+}

@@ -27,6 +27,15 @@ function xgBy(shots: ShotEvent[] | null, homeId: string, period: PeriodKey): [nu
   return [h, a];
 }
 
+/** Unblocked attempts worth at least 0.15 xG (roughly: slot and crease chances). */
+function highDanger(shots: ShotEvent[] | null, homeId: string, period: PeriodKey): [number, number] | null {
+  if (!shots?.some((s) => s.xg !== undefined)) return null;
+  const hd = shots.filter(
+    (s) => s.type !== "blocked-shot" && (s.xg ?? 0) >= 0.15 && (period === "total" || (period === "OT" ? s.period === 4 : s.period === Number(period))),
+  );
+  return [hd.filter((s) => s.teamId === homeId).length, hd.filter((s) => s.teamId !== homeId).length];
+}
+
 function shotsBy(shots: ShotEvent[] | null, homeId: string, period: PeriodKey, types: ShotEvent["type"][]): [number, number] | null {
   if (!shots) return null;
   const inPeriod = shots.filter(
@@ -141,6 +150,7 @@ export function PeriodStats({
   box,
   shots,
   extraRows,
+  rowsByPeriod,
 }: {
   game: Game;
   stats: MatchPeriodStats | null;
@@ -148,18 +158,33 @@ export function PeriodStats({
   shots: ShotEvent[] | null;
   /** Whole-game rows from another source (e.g. NHL team stats). */
   extraRows?: StatRowData[];
+  /** Complete rows per period from another source (NHL play-by-play); replaces derived shot rows. */
+  rowsByPeriod?: Partial<Record<PeriodKey, StatRowData[]>> | null;
 }) {
   const shotPeriods: PeriodKey[] = shots?.length
     ? (["1", "2", "3", "OT"] as PeriodKey[]).filter((k) => shots.some((x) => (k === "OT" ? x.period >= 4 && x.period < 5 : x.period === Number(k))))
     : [];
-  const periods: PeriodKey[] = stats?.periods ?? ["total", ...shotPeriods];
+  const periods: PeriodKey[] = rowsByPeriod
+    ? (["total", "1", "2", "3", "OT"] as PeriodKey[]).filter((k) => rowsByPeriod[k])
+    : (stats?.periods ?? ["total", ...shotPeriods]);
   const ordered: PeriodKey[] = ["total", ...periods.filter((p) => p !== "total")];
   const [period, setPeriod] = useState<PeriodKey>("total");
   const rows = useMemo(() => {
+    if (rowsByPeriod) {
+      const xg = xgBy(shots, game.home.id, period);
+      const hd = highDanger(shots, game.home.id, period);
+      const own = rowsByPeriod[period] ?? [];
+      const out: StatRowData[] = [];
+      if (xg) out.push({ label: "Očekávané góly (xG)", home: xg[0], away: xg[1], decimals: 2 });
+      if (hd) out.push({ label: "Šance z nebezpečných míst", home: hd[0], away: hd[1] });
+      out.push(...own);
+      if (period === "total" && extraRows) out.push(...extraRows.filter((r) => !out.some((o) => o.label === r.label)));
+      return out;
+    }
     const base = rowsFor(stats, box, shots, game, period);
     if (period !== "total" || !extraRows) return base;
     return [...base, ...extraRows.filter((r) => !base.some((b) => b.label === r.label))];
-  }, [stats, box, shots, game, period, extraRows]);
+  }, [stats, box, shots, game, period, extraRows, rowsByPeriod]);
 
   if (rows.length === 0) return <p className="py-8 text-center text-sm text-muted">Statistiky zatím nejsou k dispozici.</p>;
   return (

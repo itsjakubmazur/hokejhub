@@ -124,7 +124,8 @@ export function GameCenter({ id, date, initial }: { id: string; date?: string; i
                 stats={data.periodStats}
                 box={data.box}
                 shots={data.shots}
-                extraRows={data.nhl?.rail?.teamStats.map((r) => ({
+                rowsByPeriod={data.nhl?.periods?.rows ?? null}
+                extraRows={data.nhl?.rail?.teamStats.filter((r) => r.key === "powerPlay").map((r) => ({
                   label: r.label,
                   home: r.home,
                   away: r.away,

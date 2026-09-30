@@ -31,3 +31,19 @@ describe("NHL gamecenter extras", () => {
     expect(rr.teamSeason!.home.gfPerGame).toBeCloseTo(3.27);
   });
 });
+
+describe("nhlPeriodStats", () => {
+  it("counts attempts, faceoffs and penalties per period", async () => {
+    const { nhlPeriodStats } = await import("../src/sources/nhl-gamecenter.ts");
+    const st = nhlPeriodStats(fx("nhl-gc-pbp.json"));
+    expect(st.periods).toEqual(["total", "1", "2", "3", "OT"]);
+    const total = Object.fromEntries(st.rows.total!.map((r) => [r.key, r]));
+    // Official totals for CAR–FLA 0:1 OT: shots 15–20, hits 41–43, faceoffs 58 total.
+    expect([total.sog!.home, total.sog!.away]).toEqual([15, 20]);
+    expect(total.hits!.home + total.hits!.away).toBe(84);
+    expect(total.fo!.home + total.fo!.away).toBe(58);
+    expect(total.attempts!.home + total.attempts!.away).toBe(35 + 20 + 33);
+    const byPeriod = ["1", "2", "3", "OT"].reduce((s, k) => s + st.rows[k as "1"]!.find((r) => r.key === "sog")!.home, 0);
+    expect(byPeriod).toBe(15);
+  });
+});

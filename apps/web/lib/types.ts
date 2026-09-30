@@ -44,6 +44,8 @@ export interface GameDetailResponse {
     box: import("@hokejhub/core").NhlBoxscore | null;
     rail: import("@hokejhub/core").NhlRightRail | null;
     extras: import("@hokejhub/core").NhlLandingExtras;
+    /** Team stats per period from play-by-play. */
+    periods: ReturnType<typeof import("@hokejhub/core").nhlPeriodStats> | null;
   } | null;
   /** Text commentary, newest first. */
   commentary: import("@hokejhub/core").Comment[] | null;

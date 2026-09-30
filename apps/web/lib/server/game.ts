@@ -36,6 +36,7 @@ import {
   parseScoreboardAlt,
   poisson1x2,
   type NhlRightRail,
+  nhlPeriodStats,
 } from "@hokejhub/core";
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
@@ -144,7 +145,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
       }),
       fetchJson(
         nhlUrls.playByPlay(nhlId),
-        (j) => ({ shots: parseNhlShots(j), players: Object.fromEntries(parseNhlRoster(j)) }),
+        (j) => ({ shots: parseNhlShots(j), players: Object.fromEntries(parseNhlRoster(j)), periods: nhlPeriodStats(j) }),
         { revalidate: 15 },
       ),
       fetchJson(nhlUrls.boxscore(nhlId), parseNhlBoxscore, { revalidate: 15, notFoundIsEmpty: true }),
@@ -173,6 +174,7 @@ export async function getGameDetail(id: string, date?: string): Promise<GameDeta
         box: boxscore.data && (boxscore.data.skaters.home.length || boxscore.data.goalies.home.length) ? boxscore.data : null,
         rail: rail.data,
         extras: landing.data.extras,
+        periods: pbp.data?.periods.periods.length ? pbp.data.periods : null,
       },
       shots: pbp.data ? nhlShotsWithXg(pbp.data.shots, game.home.id) : null,
       lineups: null,
