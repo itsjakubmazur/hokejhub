@@ -1,4 +1,15 @@
-import { HOKEJCZ_HISTORY_PAGES, HOKEJCZ_NATIONAL_PAGES, parseHokejczHistory, parseHokejczNational, type HistorySeason, type NationalTournament } from "@hokejhub/core";
+import {
+  czechResults,
+  HOKEJCZ_HISTORY_PAGES,
+  HOKEJCZ_NATIONAL_PAGES,
+  MODERN_WC,
+  modernTournaments,
+  parseHokejczHistory,
+  parseHokejczNational,
+  parseHokejczNationalGames,
+  type HistorySeason,
+  type NationalTournament,
+} from "@hokejhub/core";
 import { fetchJson } from "./fetcher";
 
 const ORIGIN = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
@@ -41,17 +52,35 @@ export function franchiseOf(name: string) {
   return name;
 }
 
-/** World championships (incl. Olympic tournaments) 1920–1999 from hokej.cz, cached a week. */
+/**
+ * World championships 1920 → today: the written history on hokej.cz up to 1999 (incl. Olympic
+ * tournaments), then the curated list with our results read from each tournament's match list.
+ * Cached a week.
+ */
 export async function getNationalHistory(): Promise<NationalTournament[]> {
-  const results = await Promise.all(
-    HOKEJCZ_NATIONAL_PAGES.map((p) =>
-      fetchJson(new URL(`historie/stranka/${p.id}`, ORIGIN).toString(), (html) => parseHokejczNational(html as string), {
-        revalidate: 7 * 86400,
-        text: true,
+  const [written, modernResults] = await Promise.all([
+    Promise.all(
+      HOKEJCZ_NATIONAL_PAGES.map((p) =>
+        fetchJson(new URL(`historie/stranka/${p.id}`, ORIGIN).toString(), (html) => parseHokejczNational(html as string), {
+          revalidate: 7 * 86400,
+          text: true,
+        }),
+      ),
+    ),
+    Promise.all(
+      MODERN_WC.filter((w) => w.competitionId !== null).map(async (w) => {
+        const r = await fetchJson(
+          new URL(`reprezentace/zapasy/15?competitionId=${w.competitionId}`, ORIGIN).toString(),
+          (html) => czechResults(parseHokejczNationalGames(html as string), w),
+          { revalidate: 7 * 86400, text: true },
+        );
+        return [w.year, r.data] as const;
       }),
     ),
-  );
+  ]);
   const byYear = new Map<number, NationalTournament>();
-  for (const r of results) for (const t of r.data ?? []) byYear.set(t.year, t);
+  for (const r of written) for (const t of r.data ?? []) byYear.set(t.year, t);
+  const resultsByYear = new Map(modernResults);
+  for (const t of modernTournaments()) byYear.set(t.year, { ...t, results: resultsByYear.get(t.year) ?? null });
   return [...byYear.values()].sort((a, b) => a.year - b.year);
 }

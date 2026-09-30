@@ -21,11 +21,11 @@ export default async function NationalPage({ searchParams }: { searchParams: Pro
   const selected = all.find((t) => String(t.year) === r) ?? null;
   const played = all.filter((t) => t.ourPlace);
   const medals = [1, 2, 3].map((p) => played.filter((t) => t.ourPlace === p));
-  const home = played.filter((t) => /ČSR|ČSSR|ČSFR/.test(t.place));
+  const home = played.filter((t) => /ČSR|ČSSR|ČSFR|Česko/.test(t.place));
 
   return (
     <div className="space-y-5">
-      <PageHero kicker="1920 – 1999" title="Reprezentace na mistrovství světa" icon={Medal}>
+      <PageHero kicker="1920 – dnes" title="Reprezentace na mistrovství světa" icon={Medal}>
         <p>
           Československo a od roku 1993 Česká republika na MS, včetně olympijských turnajů, které se do roku 1968 počítaly i jako mistrovství světa.
         </p>
@@ -102,13 +102,13 @@ function PlacementChart({ tournaments, selected }: { tournaments: NationalTourna
   const pad = { l: 34, r: 12, t: 12, b: 26 };
   const maxPlace = Math.max(8, ...pts.map((t) => t.ourPlace!));
   const x0 = 1920;
-  const x1 = 2000;
+  const x1 = Math.max(2000, ...tournaments.map((t) => t.year)) + 1;
   const x = (y: number) => pad.l + ((y - x0) / (x1 - x0)) * (W - pad.l - pad.r);
   const y = (p: number) => pad.t + ((p - 1) / (maxPlace - 1)) * (H - pad.t - pad.b);
   const path = pts.map((t, i) => `${i ? "L" : "M"}${x(t.year).toFixed(1)},${y(t.ourPlace!).toFixed(1)}`).join("");
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[560px]" role="img" aria-label="Umístění reprezentace na mistrovstvích světa 1920–1999">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[560px]" role="img" aria-label="Umístění reprezentace na mistrovstvích světa od roku 1920">
         {[1, 2, 3, 5, maxPlace].map((p) => (
           <g key={p}>
             <line x1={pad.l} x2={W - pad.r} y1={y(p)} y2={y(p)} stroke="var(--border)" strokeDasharray={p <= 3 ? "" : "3 4"} />
@@ -117,7 +117,7 @@ function PlacementChart({ tournaments, selected }: { tournaments: NationalTourna
             </text>
           </g>
         ))}
-        {[1920, 1940, 1960, 1980, 2000].map((yr) => (
+        {[1920, 1940, 1960, 1980, 2000, 2020].filter((yr) => yr < x1).map((yr) => (
           <text key={yr} x={x(yr)} y={H - 6} textAnchor="middle" fontSize="11" fill="var(--muted)">
             {yr}
           </text>
@@ -187,6 +187,9 @@ function TournamentDetail({ t }: { t: NationalTournament }) {
               );
             })}
           </ol>
+          {t.ourPlace && t.ourPlace > t.ranking.length ? (
+            <p className="mt-2 text-sm font-bold">Česko: {t.ourPlace}. místo</p>
+          ) : null}
         </div>
         <div className="min-w-0 space-y-3 text-sm">
           {t.results ? (
