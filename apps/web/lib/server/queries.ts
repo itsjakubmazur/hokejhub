@@ -582,3 +582,68 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
   }
   return { notes: notes.sort((a, b) => b.weight - a.weight).slice(0, 12), reached };
 }
+
+export interface UpcomingMilestone {
+  player_id: string;
+  name: string;
+  headshot: string | null;
+  /** "career" | "club" × "gp" | "g" | "pts". */
+  kind: "career_gp" | "club_gp" | "career_g" | "club_g" | "career_pts" | "club_pts";
+  current: number;
+  target: number;
+  remaining: number;
+}
+
+/**
+ * Round-number milestones the club's current skaters are closest to — players who dressed in
+ * one of the club's last five games, with their career and club counts after the latest game.
+ */
+export async function getUpcomingMilestones(teamId: string, limit = 8): Promise<UpcomingMilestone[]> {
+  const rows = await sql<{
+    player_id: string;
+    name: string;
+    headshot: string | null;
+    career_gp: number;
+    career_g: number;
+    career_pts: number;
+    club_gp: number;
+    club_g: number;
+    club_pts: number;
+  }>(
+    `with recent as (
+       select g.id from game g join box_skater b on b.game_id = g.id and b.team_id = $1
+       where g.status = 'final' group by g.id order by max(g.start_at) desc limit 5
+     ),
+     roster as (select distinct b.player_id from box_skater b join recent r on r.id = b.game_id where b.team_id = $1),
+     log as (
+       select l.*, row_number() over (partition by l.player_id order by l.start_at desc, l.game_id desc) as rn
+       from skater_career_log_for(array(select player_id from roster)) l
+     )
+     select l.player_id, p.name, p.headshot,
+       l.career_gp::int, l.career_g::int, l.career_pts::int, l.club_gp::int, l.club_g::int, l.club_pts::int
+     from log l join player p on p.id = l.player_id
+     where l.rn = 1 and l.team_id = $1`,
+    [teamId],
+  );
+  const steps: [UpcomingMilestone["kind"], number][] = [
+    ["career_gp", 100],
+    ["club_gp", 100],
+    ["career_g", 50],
+    ["club_g", 50],
+    ["career_pts", 100],
+    ["club_pts", 100],
+  ];
+  const out: UpcomingMilestone[] = [];
+  for (const r of rows)
+    for (const [kind, step] of steps) {
+      const current = r[kind];
+      if (current < step / 2) continue;
+      const target = (Math.floor(current / step) + 1) * step;
+      out.push({ player_id: r.player_id, name: r.name, headshot: r.headshot, kind, current, target, remaining: target - current });
+    }
+  // Closeness relative to the step: 3 goals to 50 beats 8 games to 100.
+  out.sort((a, b) => a.remaining / (a.kind.endsWith("_g") ? 50 : 100) - b.remaining / (b.kind.endsWith("_g") ? 50 : 100) || b.target - a.target);
+  // One line per player, so a veteran does not fill the whole card.
+  const seen = new Set<string>();
+  return out.filter((m) => !seen.has(m.player_id) && seen.add(m.player_id)).slice(0, limit);
+}

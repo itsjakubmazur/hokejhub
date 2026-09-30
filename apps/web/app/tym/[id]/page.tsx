@@ -9,6 +9,7 @@ import { Leaders } from "@/components/league/leaders";
 import { FormBadges } from "@/components/league/standings";
 import { EloChart } from "@/components/team/elo-chart";
 import { TeamResults } from "@/components/team/results";
+import { UpcomingMilestones } from "@/components/team/milestones";
 import { BarChart } from "@/components/ui/bar-chart";
 import { Card, Empty, Stat } from "@/components/ui/card";
 import { FillBar } from "@/components/ui/fill-bar";
@@ -30,6 +31,7 @@ import {
   getTeamSkaters,
   toResultGames,
   type GameRowDb,
+  getUpcomingMilestones,
 } from "@/lib/server/queries";
 import { CS, csCount } from "@hokejhub/core";
 import { imgSrc } from "@/lib/img";
@@ -123,7 +125,10 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
   const rules = rulesForSeason(season);
   // The table needs every game of the league, not only this club's — otherwise the neighbours
   // only hold the points they took from us.
-  const leagueGames = league ? toResultGames(await getSeasonGames(league, season, "regular")) : played;
+  const [leagueGames, milestones] = await Promise.all([
+    league ? getSeasonGames(league, season, "regular").then(toResultGames) : Promise.resolve(played),
+    getUpcomingMilestones(teamId).catch(() => []),
+  ]);
   const table = computeStandings(leagueGames, { rules });
   const me = table.find((r) => r.teamId === teamId) ?? computeStandings(played, { rules }).find((r) => r.teamId === teamId)!;
   const home = computeStandings(played, { split: "home", rules }).find((r) => r.teamId === teamId);
@@ -214,6 +219,7 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
           ) : null}
         </Card>
       </div>
+      <UpcomingMilestones items={milestones} />
       <Card
         title="Posledních 8 zápasů"
         action={
