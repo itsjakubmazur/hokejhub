@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { computeOverUnder, computeStandings, rulesForSeason, type FormResult, type ResultGame, type Split } from "@hokejhub/core";
 import { Segmented } from "../game/segmented";
+import { PHONE_NAMES } from "@/lib/team-names";
 import { ClubLogo } from "../club-logo";
 
 const FORM_STYLE: Record<FormResult, string> = {
@@ -186,7 +187,7 @@ export function Standings({
                     <span className="flex min-w-0 items-center gap-2">
                       <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={24} />
                       <Link href={`/tym/${r.teamId}`} className="min-w-0 truncate hover:text-accent">
-                        <span className="sm:hidden">{shortNames[r.teamId] ?? r.teamName}</span>
+                        <span className="sm:hidden">{PHONE_NAMES[r.teamId] ?? shortNames[r.teamId] ?? r.teamName}</span>
                         <span className="hidden sm:inline">{r.teamName}</span>
                       </Link>
                       {useLive && liveBy.get(r.teamId) ? (
