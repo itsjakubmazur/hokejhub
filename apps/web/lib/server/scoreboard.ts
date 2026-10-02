@@ -109,6 +109,7 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
       for (const g of elhAll) {
         for (const t of [g.home, g.away]) {
           const club = clubOf.get(t.id);
+          if (club && !t.hokejczClubId) t.hokejczClubId = club;
           const url = club ? logos[`hcz-${club}`] : undefined;
           if (url) t.logoUrl = url;
         }

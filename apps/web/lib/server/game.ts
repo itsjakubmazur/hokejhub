@@ -54,6 +54,21 @@ import { unstable_cache } from "next/cache";
  */
 const cachedPreview = unstable_cache(getElhPreview, ["elh-preview-v1"], { revalidate: 600 });
 const cachedNotes = unstable_cache(getPlayerNotes, ["player-notes-v2"], { revalidate: 600 });
+
+/**
+ * Warms the pre-game caches for a day's extraliga games, one game at a time, after a scoreboard
+ * response went out — so opening a game hits a ready preview instead of a dozen cold queries.
+ * A cache hit costs a few milliseconds, so calling this on every scoreboard view is cheap.
+ */
+export async function warmGamePreviews(games: Game[]) {
+  if (!dbAvailable()) return;
+  for (const g of games) {
+    if (g.leagueKey !== "cz-elh" || g.status !== "scheduled" || !g.home.hokejczClubId || !g.away.hokejczClubId) continue;
+    const home = `hcz-${g.home.hokejczClubId}`;
+    const away = `hcz-${g.away.hokejczClubId}`;
+    await Promise.all([cachedPreview(home, away, g.startAt), cachedNotes([home, away], g.startAt, null)]).catch(() => null);
+  }
+}
 import { getScoreboard, nhlListDate, revalidateFor } from "./scoreboard";
 
 /**
