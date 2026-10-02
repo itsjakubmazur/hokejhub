@@ -1,5 +1,5 @@
-import { addDays, esportsUrls, parseScoreboardAlt, pragueDate, type Game, type ResultGame } from "@hokejhub/core";
-import { fetchJson } from "./fetcher";
+import { addDays, pragueDate, type Game, type ResultGame } from "@hokejhub/core";
+import { getScoreboard } from "./scoreboard";
 
 const toResult = (g: Game): ResultGame => ({
   id: `feed-${g.id}`,
@@ -13,16 +13,17 @@ const toResult = (g: Game): ResultGame => ({
   decidedIn: g.decidedIn ?? (g.period && g.period > 3 ? "OT" : "REG"),
 });
 
-async function feedGames(date: string, revalidate: number) {
-  const res = await fetchJson(esportsUrls.scoreboardAlt(date), parseScoreboardAlt, { revalidate, notFoundIsEmpty: true });
-  return (res.data ?? []).filter(
+/** Today's / a day's extraliga games with hokej.cz club ids resolved by the scoreboard. */
+async function elhGames(date: string): Promise<Game[]> {
+  const board = await getScoreboard(date);
+  return board.games.filter(
     (g) => g.leagueKey === "cz-elh" && g.home.hokejczClubId && g.away.hokejczClubId && g.homeScore !== null && g.awayScore !== null,
   );
 }
 
 /** ELH games in progress right now, as provisional results keyed by our DB team ids. */
 export async function getLiveElhGames(): Promise<(ResultGame & { live: string })[]> {
-  return (await feedGames(pragueDate(), 20))
+  return (await elhGames(pragueDate()))
     .filter((g) => g.status === "live" || g.status === "intermission")
     .map((g) => ({ ...toResult(g), id: `live-${g.id}`, decidedIn: g.period && g.period > 3 ? "OT" : "REG", live: g.statusLabel }));
 }
@@ -40,7 +41,8 @@ export async function withPendingFinals(games: ResultGame[], season: number): Pr
     return m! >= 7 ? y! : y! - 1;
   };
   const days = [today, addDays(today, -1), addDays(today, -2)];
-  const lists = await Promise.all(days.map((d, i) => feedGames(d, i === 0 ? 60 : 600).catch(() => [])));
+  // The scoreboard resolves hokej.cz club ids for every game (the ELH-only feed omits some).
+  const lists = await Promise.all(days.map((d) => elhGames(d).catch(() => [] as Game[])));
   const key = (home: string, away: string, startAt: string) => `${home}|${away}|${pragueDate(new Date(startAt))}`;
   const known = new Set(games.map((g) => key(g.homeId, g.awayId, g.startAt)));
   const pending = lists
