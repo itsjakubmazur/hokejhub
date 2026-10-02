@@ -19,6 +19,7 @@ import { UrlTabs } from "@/components/ui/url-tabs";
 import { CardSkeleton } from "@/components/ui/skeletons";
 import { dbAvailable } from "@/lib/server/db";
 import { getEloState } from "@/lib/server/model";
+import { withPendingFinals } from "@/lib/server/live-table";
 import {
   getAllTeamGames,
   getAttendanceByOpponent,
@@ -126,7 +127,11 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
   // The table needs every game of the league, not only this club's — otherwise the neighbours
   // only hold the points they took from us.
   const [leagueGames, milestones] = await Promise.all([
-    league ? getSeasonGames(league, season, "regular").then(toResultGames) : Promise.resolve(played),
+    league
+      ? getSeasonGames(league, season, "regular")
+          .then(toResultGames)
+          .then((g) => (league === "cz-elh" ? withPendingFinals(g, season).catch(() => g) : g))
+      : Promise.resolve(played),
     getUpcomingMilestones(teamId).catch(() => []),
   ]);
   const table = computeStandings(leagueGames, { rules });

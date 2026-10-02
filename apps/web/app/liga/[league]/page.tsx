@@ -17,7 +17,7 @@ import { seasonLabel } from "@/lib/format";
 import { UrlTabs } from "@/components/ui/url-tabs";
 import { CardSkeleton } from "@/components/ui/skeletons";
 import { dbAvailable } from "@/lib/server/db";
-import { getLiveElhGames } from "@/lib/server/live-table";
+import { getLiveElhGames, withPendingFinals } from "@/lib/server/live-table";
 import {
   getLeagueAttendance,
   getLeagueAttendanceByTeam,
@@ -131,7 +131,9 @@ async function TableTab({ league, season, phase }: { league: string; season: num
     getTeamLogos(league),
     isCurrent && league === "cz-elh" ? getLiveElhGames().catch(() => []) : Promise.resolve([]),
   ]);
-  const games = toResultGames(rows);
+  // Results the crawler has not stored yet come from the live feed (current regular season).
+  const stored = toResultGames(rows);
+  const games = isCurrent && league === "cz-elh" && phase === "regular" ? await withPendingFinals(stored, season).catch(() => stored) : stored;
   if (games.length === 0) {
     const official = (await getOfficialStandings(league, season)).filter((r) => r.split === "overall");
     if (official.length === 0) return <Empty>Pro tuto sezónu zatím nejsou výsledky.</Empty>;

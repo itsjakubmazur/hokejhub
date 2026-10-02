@@ -46,8 +46,10 @@ function useScrollingDown() {
 }
 
 /**
- * Floating glass tab bar for phones. Reading down, it folds to a slim row of icons so the
- * content gets the screen; the first scroll back up brings the labels back.
+ * Floating glass tab bar for phones, Livesport-style: a rounded pill with large icons and bold
+ * labels, the current section in its own inner pill in the brand red. Reading down, it folds
+ * sideways into a compact capsule of icons so the content gets the screen; the first scroll back
+ * up brings the labels back.
  */
 export function BottomNav() {
   const path = usePathname();
@@ -55,45 +57,44 @@ export function BottomNav() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:hidden">
       <motion.nav
+        layout
         aria-label="Hlavní navigace"
-        animate={{ width: slim ? "72%" : "100%", y: slim ? 6 : 0 }}
-        transition={{ type: "spring", stiffness: 420, damping: 34 }}
-        className="glass-bar pointer-events-auto max-w-md rounded-[26px]"
-        style={{ width: "100%" }}
+        transition={{ type: "spring", stiffness: 420, damping: 36 }}
+        className={`glass-bar bottom-pill pointer-events-auto ${slim ? "rounded-full p-1" : "w-full max-w-md rounded-[30px] p-1.5"}`}
       >
-        <ul className="grid grid-cols-6">
+        <ul className={slim ? "flex" : "grid grid-cols-6"}>
           {ITEMS.map((it) => {
             const on = it.match(path);
             return (
-              <li key={it.href}>
+              <motion.li layout="position" key={it.href} transition={{ type: "spring", stiffness: 420, damping: 36 }}>
                 <Link
                   href={it.href}
                   aria-current={on ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-[padding] duration-200 ${
-                    slim ? "py-1.5" : "py-2.5"
-                  } ${on ? "text-accent" : "text-muted"}`}
+                  aria-label={it.label}
+                  className={`relative flex flex-col items-center justify-center rounded-full ${slim ? "size-10" : "gap-1 py-2"} ${
+                    on ? "text-live" : "text-fg/80"
+                  }`}
                 >
                   {on ? (
                     <motion.span
                       layoutId="bottom-nav"
-                      className="absolute inset-1 rounded-2xl bg-accent/12"
+                      className="absolute inset-0 rounded-[24px] bg-fg/[0.09] shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]"
                       transition={{ type: "spring", stiffness: 500, damping: 38 }}
                     />
                   ) : null}
-                  <it.icon
-                    className={`relative transition-[width,height] duration-200 ${slim ? "size-[18px]" : "size-5"}`}
-                    strokeWidth={on ? 2.2 : 1.9}
-                    aria-hidden
-                  />
-                  <motion.span
-                    className="relative overflow-hidden whitespace-nowrap leading-tight"
-                    animate={{ height: slim ? 0 : 13, opacity: slim ? 0 : 1 }}
-                    transition={{ duration: 0.18 }}
-                  >
-                    {it.label}
-                  </motion.span>
+                  <it.icon className={`relative ${slim ? "size-5" : "size-6"}`} strokeWidth={on ? 2.2 : 1.8} aria-hidden />
+                  {slim ? null : (
+                    <motion.span
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: 0.05 }}
+                      className="relative whitespace-nowrap text-[10.5px] font-semibold leading-none tracking-[-0.01em]"
+                    >
+                      {it.label}
+                    </motion.span>
+                  )}
                 </Link>
-              </li>
+              </motion.li>
             );
           })}
         </ul>
