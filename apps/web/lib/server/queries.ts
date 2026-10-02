@@ -499,14 +499,23 @@ export interface PlayerNote {
   weight: number;
 }
 
-/**
- * Player storylines for a match: point streaks entering the game and round-number milestones
- * that are one game/goal/point away (pre-game) or were reached in this game (post-game).
- */
-export async function getPlayerNotes(teamIds: string[], before: string, gameId: string | null) {
-  // Plain aggregates and a 30-game lateral per player: the planner walks box_skater by player
-  // through its index. (A set-returning function fed by a sub-select cannot be inlined and ran
-  // the whole history through a window — ~1 s per game page.)
+interface NoteRow {
+  player_id: string;
+  name: string;
+  headshot: string | null;
+  team_id: string;
+  career_gp: number;
+  career_g: number;
+  career_pts: number;
+  club_gp: number;
+  club_g: number;
+  club_pts: number;
+  streak: number;
+  goal_streak: number;
+}
+
+/** Career totals and streaks entering a game, computed from the box scores (any date). */
+async function noteRowsAt(teamIds: string[], before: string): Promise<NoteRow[]> {
   const rows = await sql<{
     player_id: string;
     name: string;
@@ -565,13 +574,56 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
     }
     return n;
   };
+  return rows.map((r) => ({ ...r, streak: run(r.recent_pts), goal_streak: run(r.recent_g) }));
 
+}
+
+/**
+ * The same entering a game that has not started: totals from the precomputed season table and
+ * streaks from the form table — a few rows per player instead of their whole history.
+ */
+async function noteRowsNow(teamIds: string[]): Promise<NoteRow[]> {
+  return sql<NoteRow>(
+    `with last_game as (
+       select b.team_id, max(g.start_at) as at
+       from box_skater b join game g on g.id = b.game_id
+       where b.team_id = any($1) and g.status = 'final'
+       group by b.team_id
+     ),
+     roster as (
+       select distinct b.player_id, b.team_id, g.league_id
+       from box_skater b join game g on g.id = b.game_id
+       join last_game lg on lg.team_id = b.team_id and g.start_at = lg.at
+     ),
+     totals as (
+       select r.player_id, r.team_id,
+         sum(s.gp)::int as career_gp, coalesce(sum(s.g), 0)::int as career_g, coalesce(sum(s.pts), 0)::int as career_pts,
+         coalesce(sum(s.gp) filter (where s.team_id = r.team_id), 0)::int as club_gp,
+         coalesce(sum(s.g) filter (where s.team_id = r.team_id), 0)::int as club_g,
+         coalesce(sum(s.pts) filter (where s.team_id = r.team_id), 0)::int as club_pts
+       from roster r join skater_season s on s.player_id = r.player_id and s.league_id = r.league_id
+       group by r.player_id, r.team_id
+     )
+     select t.*, p.name, p.headshot, coalesce(f.pts_streak, 0) as streak, coalesce(f.g_streak, 0) as goal_streak
+     from totals t join player p on p.id = t.player_id
+     left join skater_form_t f on f.player_id = t.player_id`,
+    [teamIds],
+  );
+}
+
+/**
+ * Player storylines for a match: point streaks entering the game and round-number milestones
+ * that are one game/goal/point away (pre-game) or were reached in this game (post-game).
+ * `pregame` reads the precomputed tables; otherwise the box scores up to `before`.
+ */
+export async function getPlayerNotes(teamIds: string[], before: string, gameId: string | null, pregame = false) {
+  const rows = pregame ? await noteRowsNow(teamIds) : await noteRowsAt(teamIds, before);
   const notes: PlayerNote[] = [];
   const next = (v: number, step: number) => (Math.floor(v / step) + 1) * step;
   for (const r of rows) {
     const base = { player_id: r.player_id, name: r.name, headshot: r.headshot, team_id: r.team_id };
-    const streak = run(r.recent_pts);
-    const goalStreak = run(r.recent_g);
+    const streak = r.streak;
+    const goalStreak = r.goal_streak;
     if (streak >= 3) notes.push({ ...base, text: `boduje ${csCount(streak, CS.zapas)} v řadě`, weight: streak * 2 });
     if (goalStreak >= 2) notes.push({ ...base, text: `skóroval ${goalStreak}× v řadě`, weight: goalStreak * 3 });
     const checks: [number, number, string, number][] = [
@@ -681,23 +733,18 @@ export async function getUpcomingMilestones(teamId: string, limit = 8): Promise<
      roster as (
        select b.player_id, max(r.league_id) as league_id, max(r.start_at) as last_at
        from box_skater b join recent r on r.id = b.game_id where b.team_id = $1 group by b.player_id
-     ),
-     totals as (
-       select r.player_id,
-         count(*)::int as career_gp, sum(b.g)::int as career_g, sum(b.pts)::int as career_pts,
-         (count(*) filter (where b.team_id = $1))::int as club_gp,
-         coalesce(sum(b.g) filter (where b.team_id = $1), 0)::int as club_g,
-         coalesce(sum(b.pts) filter (where b.team_id = $1), 0)::int as club_pts,
-         max(g.start_at) as latest
-       from roster r
-       join box_skater b on b.player_id = r.player_id
-       join game g on g.id = b.game_id and g.league_id = r.league_id
-       where g.status = 'final'
-       group by r.player_id, r.last_at
-       -- still with us: their latest game in the league was one of ours
-       having max(g.start_at) = r.last_at
      )
-     select t.*, p.name, p.headshot from totals t join player p on p.id = t.player_id`,
+     select r.player_id, p.name, p.headshot,
+       sum(s.gp)::int as career_gp, coalesce(sum(s.g), 0)::int as career_g, coalesce(sum(s.pts), 0)::int as career_pts,
+       coalesce(sum(s.gp) filter (where s.team_id = $1), 0)::int as club_gp,
+       coalesce(sum(s.g) filter (where s.team_id = $1), 0)::int as club_g,
+       coalesce(sum(s.pts) filter (where s.team_id = $1), 0)::int as club_pts
+     from roster r
+     -- still with us: their latest game anywhere was one of ours
+     join skater_form_t f on f.player_id = r.player_id and f.last_at = r.last_at
+     join player p on p.id = r.player_id
+     join skater_season s on s.player_id = r.player_id and s.league_id = r.league_id
+     group by r.player_id, p.name, p.headshot`,
     [teamId],
   );
   const steps: [UpcomingMilestone["kind"], number][] = [

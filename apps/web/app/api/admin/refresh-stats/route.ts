@@ -9,6 +9,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=form&offset=0&limit=500        recompute form (streaks) for a slice of players
  *   ?mode=dirty                          recompute players of games written since the last run
  *   ?mode=elo                            rewrite the Elo snapshot
+ *   ?mode=verify                         compare the tables with the live sources (slow)
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -43,6 +44,22 @@ export async function POST(req: Request) {
     return Response.json({ offset, players: ids.length, done: ids.length < limit, ms: Date.now() - t0 });
   }
   if (mode === "dirty") return Response.json(await refreshDirtyStats(45_000));
+  if (mode === "verify") {
+    const diff = async (t: string, src: string) => {
+      const [r] = await sql<{ missing: number; extra: number; rows: number }>(
+        `select (select count(*) from (select * from ${src} except select * from ${t}) a)::int as missing,
+                (select count(*) from (select * from ${t} except select * from ${src}) b)::int as extra,
+                (select count(*) from ${t})::int as rows`,
+      );
+      return r;
+    };
+    return Response.json({
+      skater: await diff("skater_season_t", "skater_season_src"),
+      goalie: await diff("goalie_season_t", "goalie_season_src"),
+      xg: await diff("player_xg_season_t", "player_xg_season_src"),
+      ms: Date.now() - t0,
+    });
+  }
   if (mode === "elo") return Response.json({ ...(await refreshEloSnapshot()), ms: Date.now() - t0 });
   return Response.json({ error: "unknown mode" }, { status: 400 });
 }

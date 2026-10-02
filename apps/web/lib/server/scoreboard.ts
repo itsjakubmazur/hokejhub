@@ -12,7 +12,7 @@ import {
   type Game,
 } from "@hokejhub/core";
 import { dbAvailable } from "./db";
-import { getEloState } from "./model";
+import { getRatings } from "./model";
 import { findTeamByAbbrev, getTeamLogos } from "./queries";
 import type { ScoreboardResponse } from "../types";
 import { fetchJson } from "./fetcher";
@@ -114,12 +114,12 @@ export async function getScoreboard(date: string): Promise<ScoreboardResponse> {
           if (url) t.logoUrl = url;
         }
       }
-      const { state } = await getEloState("cz-elh");
+      const ratings = await getRatings("cz-elh");
       for (const g of elh) {
         const h = clubOf.get(g.home.id);
         const a = clubOf.get(g.away.id);
         if (!h || !a) continue;
-        const p = predict(state.ratings.get(`hcz-${h}`) ?? 1500, state.ratings.get(`hcz-${a}`) ?? 1500);
+        const p = predict(ratings.get(`hcz-${h}`) ?? 1500, ratings.get(`hcz-${a}`) ?? 1500);
         predictions[g.id] = { home: p.home, draw: p.draw, away: p.away, expHome: p.expHome, expAway: p.expAway };
       }
     } catch {

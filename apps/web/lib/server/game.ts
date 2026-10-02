@@ -53,7 +53,7 @@ import { unstable_cache } from "next/cache";
  * minutes in the shared data cache, so the first visitor pays and everyone else reads it.
  */
 const cachedPreview = unstable_cache(getElhPreview, ["elh-preview-v1"], { revalidate: 600 });
-const cachedNotes = unstable_cache(getPlayerNotes, ["player-notes-v2"], { revalidate: 600 });
+const cachedNotes = unstable_cache(getPlayerNotes, ["player-notes-v3"], { revalidate: 600 });
 
 /**
  * Warms the pre-game caches for a day's extraliga games, one game at a time, after a scoreboard
@@ -66,7 +66,7 @@ export async function warmGamePreviews(games: Game[]) {
     if (g.leagueKey !== "cz-elh" || g.status !== "scheduled" || !g.home.hokejczClubId || !g.away.hokejczClubId) continue;
     const home = `hcz-${g.home.hokejczClubId}`;
     const away = `hcz-${g.away.hokejczClubId}`;
-    await Promise.all([cachedPreview(home, away, g.startAt), cachedNotes([home, away], g.startAt, null)]).catch(() => null);
+    await Promise.all([cachedPreview(home, away, g.startAt), cachedNotes([home, away], g.startAt, null, true)]).catch(() => null);
   }
 }
 import { getScoreboard, nhlListDate, revalidateFor } from "./scoreboard";
@@ -351,11 +351,11 @@ async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: nu
       timed(t, "h2h", getHeadToHead(home, away, 30)),
       timed(t, "streakH", getTeamStreaks(home, before)),
       timed(t, "streakA", getTeamStreaks(away, before)),
-      timed(t, "notes", cachedNotes([home, away], before, game?.status === "final" ? dbGameId : null)),
+      timed(t, "notes", cachedNotes([home, away], before, game?.status === "final" ? dbGameId : null, game?.status === "scheduled")),
     ]);
     const [extra, prediction, preview] = await Promise.all([
       timed(t, "photos", getPhotos(players.notes.map((n) => n.player_id))).catch(() => ({})),
-      timed(t, "elo", predictMatch("cz-elh", home, away, dbGameId ?? undefined)).catch(() => null),
+      timed(t, "elo", predictMatch("cz-elh", home, away, game?.status === "scheduled" ? undefined : (dbGameId ?? undefined))).catch(() => null),
       game && game.status !== "final"
         ? timed(t, "preview", cachedPreview(home, away, game.startAt)).catch((e) => (console.error("[db] preview", e), null))
         : null,
