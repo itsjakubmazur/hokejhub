@@ -187,15 +187,22 @@ export async function getLeagueSkaters(league: string, season: number, phase = "
 }
 
 export async function getTeamSkaters(teamId: string, season: number, phase = "regular") {
+  // The roster goes into player_xg_players as a literal array: a sub-select argument keeps the
+  // function from being inlined and it scanned every shot of the season.
+  const ids = await sql<{ player_id: string }>(
+    `select distinct b.player_id from box_skater b join game g on g.id = b.game_id
+     where b.team_id = $1 and g.season = $2 and g.phase = $3 and g.status = 'final'`,
+    [teamId, season, phase],
+  );
   return sql<SkaterSeasonRow>(
     `select ${SKATER_COLS}
      from skater_season s
      join player p on p.id = s.player_id
      join team t on t.id = s.team_id
-     left join player_xg_players(array(select s2.player_id from skater_season s2 where s2.team_id = $1 and s2.season = $2)) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
+     left join player_xg_players($4::text[]) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
      where s.team_id = $1 and s.season = $2 and s.phase = $3
      order by s.pts desc, s.g desc`,
-    [teamId, season, phase],
+    [teamId, season, phase, ids.map((r) => r.player_id)],
   );
 }
 
