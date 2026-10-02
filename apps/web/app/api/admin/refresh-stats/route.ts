@@ -74,8 +74,17 @@ export async function POST(req: Request) {
     await run("skater", "select count(*) from skater_season_src where player_id = any($1::text[])");
     await run("goalie", "select count(*) from goalie_season_src where player_id = any($1::text[])");
     await run("xg", "select count(*) from player_xg_season_src where player_id = any($1::text[])");
+    await run(
+      "xg_in_season",
+      `select count(*) from player_xg_season_src
+       where player_id = any($1::text[]) and (league_id, season) = (select league_id, season from game where status = 'final' order by start_at desc limit 1)`,
+    );
     await run("form", "select refresh_player_form($1::text[])");
-    await run("all", "select refresh_player_stats($1::text[])");
+    await run(
+      "all_in_season",
+      `select refresh_player_stats_in($1::text[], g.league_id, g.season)
+       from (select league_id, season from game where status = 'final' order by start_at desc limit 1) g`,
+    );
     return Response.json({ players: ids.length, steps });
   }
   if (mode === "verify") {
