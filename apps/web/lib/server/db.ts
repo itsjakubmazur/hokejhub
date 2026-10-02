@@ -32,7 +32,8 @@ function getPool(): Pool {
       ssl: url.includes("localhost") || url.includes("/var/") ? undefined : { rejectUnauthorized: false },
       max: 4,
       idleTimeoutMillis: 5_000,
-      connectionTimeoutMillis: 8_000,
+      // A healthy connect takes well under a second; a stuck one is retried (see sql()).
+      connectionTimeoutMillis: 4_000,
     });
     // Close idle connections before Vercel suspends the instance instead of leaking them.
     attachDatabasePool(pool);
