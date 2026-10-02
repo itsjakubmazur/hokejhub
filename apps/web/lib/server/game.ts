@@ -45,6 +45,15 @@ import { predictMatch } from "./model";
 import { fetchJson, type SourceState } from "./fetcher";
 import { getHeadToHead, getPhotos, getPlayerNotes, getTeamStreaks, sql } from "./queries";
 import { getElhPreview } from "./preview";
+import { unstable_cache } from "next/cache";
+
+/*
+ * Pre-game material only changes when another game is played, but it costs a dozen season-wide
+ * queries (standings, league goalies, team stats, career totals of both rosters). Cached for ten
+ * minutes in the shared data cache, so the first visitor pays and everyone else reads it.
+ */
+const cachedPreview = unstable_cache(getElhPreview, ["elh-preview-v1"], { revalidate: 600 });
+const cachedNotes = unstable_cache(getPlayerNotes, ["player-notes-v2"], { revalidate: 600 });
 import { getScoreboard, nhlListDate, revalidateFor } from "./scoreboard";
 
 /**
@@ -327,12 +336,14 @@ async function dbLinks(box: HokejczMatch | null, game?: Game, clubs?: { home: nu
       timed(t, "h2h", getHeadToHead(home, away, 30)),
       timed(t, "streakH", getTeamStreaks(home, before)),
       timed(t, "streakA", getTeamStreaks(away, before)),
-      timed(t, "notes", getPlayerNotes([home, away], before, game?.status === "final" ? dbGameId : null)),
+      timed(t, "notes", cachedNotes([home, away], before, game?.status === "final" ? dbGameId : null)),
     ]);
-    const extra = await getPhotos(players.notes.map((n) => n.player_id)).catch(() => ({}));
-    const [prediction, preview] = await Promise.all([
+    const [extra, prediction, preview] = await Promise.all([
+      timed(t, "photos", getPhotos(players.notes.map((n) => n.player_id))).catch(() => ({})),
       timed(t, "elo", predictMatch("cz-elh", home, away, dbGameId ?? undefined)).catch(() => null),
-      game && game.status !== "final" ? getElhPreview(home, away, game.startAt).catch((e) => (console.error("[db] preview", e), null)) : null,
+      game && game.status !== "final"
+        ? timed(t, "preview", cachedPreview(home, away, game.startAt)).catch((e) => (console.error("[db] preview", e), null))
+        : null,
     ]);
     return {
       preview,
