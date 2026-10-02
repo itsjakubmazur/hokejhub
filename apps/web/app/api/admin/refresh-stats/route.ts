@@ -52,8 +52,16 @@ export async function POST(req: Request) {
   if (mode === "finished") {
     const today = pragueDate();
     const boards = await Promise.all([today, addDays(today, -1)].map((d) => getScoreboard(d).catch(() => null)));
-    const r = await ingestFinishedElh(boards.flatMap((b) => b?.games ?? []));
-    return Response.json({ ...r, ms: Date.now() - t0 });
+    const games = boards.flatMap((b) => b?.games ?? []);
+    const r = await ingestFinishedElh(games);
+    const ids = games.filter((g) => g.leagueKey === "cz-elh" && g.external.hokejczId).map((g) => `hcz-${g.external.hokejczId}`);
+    const db = await sql<{ id: string; status: string; score: string; updated: string }>(
+      `select g.id, g.status, g.home_score || ':' || g.away_score as score,
+              (select to_char(j.updated_at, 'HH24:MI') from crawl_job j where j.key = 'hcz:match:' || substr(g.id, 5)) as updated
+       from game g where g.id = any($1) order by g.start_at`,
+      [ids],
+    );
+    return Response.json({ ...r, feedFinal: games.filter((g) => g.leagueKey === "cz-elh" && g.status === "final").length, db, ms: Date.now() - t0 });
   }
   if (mode === "dirty") return Response.json(await refreshDirtyStats(45_000));
   if (mode === "repair") {
