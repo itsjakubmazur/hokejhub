@@ -36,6 +36,16 @@ export function FormBadges({ form }: { form: FormResult[] }) {
 
 type Mode = "table" | "ou";
 
+/** Columns phones reach by scrolling the table sideways (in this order, after the form). */
+const MOBILE_EXTRA: { key: "w" | "otw" | "t" | "otl" | "l" | "diff"; label: string; title: string }[] = [
+  { key: "w", label: "V", title: "Výhry" },
+  { key: "otw", label: "VP", title: "Výhry po prodl./nájezdech" },
+  { key: "t", label: "R", title: "Remízy" },
+  { key: "otl", label: "PP", title: "Prohry po prodl./nájezdech" },
+  { key: "l", label: "P", title: "Prohry" },
+  { key: "diff", label: "+/−", title: "Rozdíl skóre" },
+];
+
 export function Standings({
   games,
   season,
@@ -85,6 +95,39 @@ export function Standings({
     return m;
   }, [liveGames]);
   const ties = rows.some((r) => r.t > 0);
+  const extras = MOBILE_EXTRA.filter((c) => ties || c.key !== "t");
+  type Row = (typeof rows)[number];
+  const rankCell = (r: Row) => (
+    <span className="flex items-center gap-1">
+      <span
+        className={`grid size-6 place-items-center rounded-md text-xs font-bold ${
+          r.rank <= 6 ? "bg-accent/20 text-accent" : r.rank <= 10 ? "bg-surface-2" : "text-muted"
+        }`}
+      >
+        {r.rank}
+      </span>
+      {useLive && baseRank.get(r.teamId) && baseRank.get(r.teamId) !== r.rank ? (
+        <span className={`text-[10px] font-bold ${baseRank.get(r.teamId)! > r.rank ? "text-win" : "text-live"}`}>
+          {baseRank.get(r.teamId)! > r.rank ? "▲" : "▼"}
+          {Math.abs(baseRank.get(r.teamId)! - r.rank)}
+        </span>
+      ) : null}
+    </span>
+  );
+  const teamCell = (r: Row, phone: boolean) => (
+    <span className="flex min-w-0 items-center gap-2">
+      <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={24} />
+      <Link href={`/tym/${r.teamId}`} className="min-w-0 truncate hover:text-accent">
+        {phone ? (PHONE_NAMES[r.teamId] ?? shortNames[r.teamId] ?? r.teamName) : r.teamName}
+      </Link>
+      {useLive && liveBy.get(r.teamId) ? (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded bg-live/15 px-1.5 py-0.5 text-[10px] font-bold text-live">
+          <span className="live-dot size-1.5 rounded-full bg-live" />
+          {liveBy.get(r.teamId)}
+        </span>
+      ) : null}
+    </span>
+  );
   const ou = useMemo(() => computeOverUnder(games, Number(line)), [games, line]);
 
   return (
@@ -136,89 +179,121 @@ export function Standings({
       </div>
       <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         {mode === "table" ? (
-          // Phones in portrait get rank, club, games, score, points and form; the rest of the
-          // columns appear from 640 px (a phone turned sideways, tablets, desktop).
-          <table className="w-full text-sm tabular sm:min-w-[560px]">
-            <thead>
-              <tr className="border-b border-line text-xs text-muted">
-                <th className="py-2 pr-2 text-left font-medium">#</th>
-                <th className="py-2 pr-2 text-left font-medium">Tým</th>
-                <th className="px-1.5 text-right font-medium" title="Zápasy">Z</th>
-                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Výhry">V</th>
-                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Výhry po prodl./nájezdech">VP</th>
-                {ties ? <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Remízy">R</th> : null}
-                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Prohry po prodl./nájezdech">PP</th>
-                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Prohry">P</th>
-                <th className="px-1.5 text-right font-medium">
-                  <span className="sm:hidden">G</span>
-                  <span className="hidden sm:inline">Skóre</span>
-                </th>
-                <th className="hidden sm:table-cell px-1.5 text-right font-medium">+/−</th>
-                <th className="px-1.5 text-right font-bold">B</th>
-                <th className="pl-1.5 text-left font-medium sm:pl-3">Forma</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((r) => (
-                <motion.tr
-                  key={r.teamId}
-                  layout="position"
-                  transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                  className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}
-                >
-                  <td className="py-2 pr-1.5 sm:pr-2">
-                    <span className="flex items-center gap-1">
-                    <span
-                      className={`grid size-6 place-items-center rounded-md text-xs font-bold ${
-                        r.rank <= 6 ? "bg-accent/20 text-accent" : r.rank <= 10 ? "bg-surface-2" : "text-muted"
-                      }`}
-                    >
-                      {r.rank}
-                    </span>
-                    {useLive && baseRank.get(r.teamId) && baseRank.get(r.teamId) !== r.rank ? (
-                      <span className={`text-[10px] font-bold ${baseRank.get(r.teamId)! > r.rank ? "text-win" : "text-live"}`}>
-                        {baseRank.get(r.teamId)! > r.rank ? "▲" : "▼"}
-                        {Math.abs(baseRank.get(r.teamId)! - r.rank)}
-                      </span>
-                    ) : null}
-                    </span>
-                  </td>
-                  <td className="w-full max-w-0 py-2 pr-2 font-medium sm:w-auto sm:max-w-none sm:whitespace-nowrap">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={24} />
-                      <Link href={`/tym/${r.teamId}`} className="min-w-0 truncate hover:text-accent">
-                        <span className="sm:hidden">{PHONE_NAMES[r.teamId] ?? shortNames[r.teamId] ?? r.teamName}</span>
-                        <span className="hidden sm:inline">{r.teamName}</span>
-                      </Link>
-                      {useLive && liveBy.get(r.teamId) ? (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded bg-live/15 px-1.5 py-0.5 text-[10px] font-bold text-live">
-                          <span className="live-dot size-1.5 rounded-full bg-live" />
-                          {liveBy.get(r.teamId)}
-                        </span>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="px-1.5 text-right">{r.gp}</td>
-                  <td className="hidden sm:table-cell px-1.5 text-right">{r.w}</td>
-                  <td className="hidden sm:table-cell px-1.5 text-right">{r.otw}</td>
-                  {ties ? <td className="hidden sm:table-cell px-1.5 text-right">{r.t}</td> : null}
-                  <td className="hidden sm:table-cell px-1.5 text-right">{r.otl}</td>
-                  <td className="hidden sm:table-cell px-1.5 text-right">{r.l}</td>
-                  <td className="px-1.5 text-right">
-                    {r.gf}:{r.ga}
-                  </td>
-                  <td className={`hidden px-1.5 text-right sm:table-cell ${r.gf - r.ga > 0 ? "text-win" : r.gf - r.ga < 0 ? "text-live" : ""}`}>
-                    {r.gf - r.ga > 0 ? "+" : ""}
-                    {r.gf - r.ga}
-                  </td>
-                  <td className="px-1.5 text-right font-bold">{r.pts}</td>
-                  <td className="pl-1.5 sm:pl-3">
-                    <FormBadges form={r.form} />
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Phones in portrait: a fixed-layout table that opens on rank, club, games, goals,
+                points and form at exactly the screen width; the win/loss split and goal difference
+                sit to the right and scroll in, with rank and club pinned. */}
+            <table
+              className="w-[calc(100%+var(--extra))] table-fixed text-sm tabular sm:hidden"
+              style={{ "--extra": `${extras.length * 2.4}rem` } as React.CSSProperties}
+            >
+              <colgroup>
+                <col className="w-8" />
+                <col />
+                <col className="w-7" />
+                <col className="w-[3.4rem]" />
+                <col className="w-8" />
+                <col className="w-[6.2rem]" />
+                {extras.map((c) => (
+                  <col key={c.key} className="w-[2.4rem]" />
+                ))}
+              </colgroup>
+              <thead>
+                <tr className="border-b border-line text-xs text-muted">
+                  <th className="sticky left-0 z-10 bg-surface py-2 text-left font-medium shadow-[-0.75rem_0_0_var(--surface)]">#</th>
+                  <th className="sticky left-8 z-10 bg-surface py-2 pr-2 text-left font-medium">Tým</th>
+                  <th className="text-right font-medium" title="Zápasy">Z</th>
+                  <th className="text-right font-medium" title="Skóre">G</th>
+                  <th className="text-right font-bold">B</th>
+                  <th className="pl-2 text-left font-medium">Forma</th>
+                  {extras.map((c) => (
+                    <th key={c.key} title={c.title} className="text-right font-medium">
+                      {c.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((r) => (
+                  <motion.tr
+                    key={r.teamId}
+                    layout="position"
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    className={highlight.includes(r.teamId) ? "bg-accent-soft" : ""}
+                  >
+                    <td className="sticky left-0 z-10 bg-surface py-2 shadow-[-0.75rem_0_0_var(--surface)]">{rankCell(r)}</td>
+                    <td className="sticky left-8 z-10 bg-surface py-2 pr-2 font-medium">{teamCell(r, true)}</td>
+                    <td className="text-right">{r.gp}</td>
+                    <td className="text-right">
+                      {r.gf}:{r.ga}
+                    </td>
+                    <td className="text-right font-bold">{r.pts}</td>
+                    <td className="pl-2">
+                      <FormBadges form={r.form} />
+                    </td>
+                    {extras.map((c) => {
+                      const v = c.key === "diff" ? r.gf - r.ga : r[c.key];
+                      return (
+                        <td key={c.key} className={`text-right ${c.key === "diff" ? (v > 0 ? "text-win" : v < 0 ? "text-live" : "") : ""}`}>
+                          {c.key === "diff" && v > 0 ? "+" : ""}
+                          {v}
+                        </td>
+                      );
+                    })}
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+
+            <table className="hidden w-full min-w-[560px] text-sm tabular sm:table">
+              <thead>
+                <tr className="border-b border-line text-xs text-muted">
+                  <th className="py-2 pr-2 text-left font-medium">#</th>
+                  <th className="py-2 pr-2 text-left font-medium">Tým</th>
+                  <th className="px-1.5 text-right font-medium" title="Zápasy">Z</th>
+                  <th className="px-1.5 text-right font-medium" title="Výhry">V</th>
+                  <th className="px-1.5 text-right font-medium" title="Výhry po prodl./nájezdech">VP</th>
+                  {ties ? <th className="px-1.5 text-right font-medium" title="Remízy">R</th> : null}
+                  <th className="px-1.5 text-right font-medium" title="Prohry po prodl./nájezdech">PP</th>
+                  <th className="px-1.5 text-right font-medium" title="Prohry">P</th>
+                  <th className="px-1.5 text-right font-medium">Skóre</th>
+                  <th className="px-1.5 text-right font-medium">+/−</th>
+                  <th className="px-1.5 text-right font-bold">B</th>
+                  <th className="pl-3 text-left font-medium">Forma</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {rows.map((r) => (
+                  <motion.tr
+                    key={r.teamId}
+                    layout="position"
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                    className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}
+                  >
+                    <td className="py-2 pr-2">{rankCell(r)}</td>
+                    <td className="whitespace-nowrap py-2 pr-2 font-medium">{teamCell(r, false)}</td>
+                    <td className="px-1.5 text-right">{r.gp}</td>
+                    <td className="px-1.5 text-right">{r.w}</td>
+                    <td className="px-1.5 text-right">{r.otw}</td>
+                    {ties ? <td className="px-1.5 text-right">{r.t}</td> : null}
+                    <td className="px-1.5 text-right">{r.otl}</td>
+                    <td className="px-1.5 text-right">{r.l}</td>
+                    <td className="px-1.5 text-right">
+                      {r.gf}:{r.ga}
+                    </td>
+                    <td className={`px-1.5 text-right ${r.gf - r.ga > 0 ? "text-win" : r.gf - r.ga < 0 ? "text-live" : ""}`}>
+                      {r.gf - r.ga > 0 ? "+" : ""}
+                      {r.gf - r.ga}
+                    </td>
+                    <td className="px-1.5 text-right font-bold">{r.pts}</td>
+                    <td className="pl-3">
+                      <FormBadges form={r.form} />
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         ) : (
           <table className="w-full min-w-[420px] text-sm tabular">
             <thead>
@@ -252,6 +327,7 @@ export function Standings({
         )}
       </div>
       <p className="mt-2 text-[11px] text-muted">
+        {mode === "table" ? <span className="sm:hidden">Posunutím tabulky doleva uvidíš rozpad výher a proher a rozdíl skóre. </span> : null}
         V = výhra, VP = výhra po prodloužení/nájezdech, {ties ? "R = remíza, " : ""}PP = prohra po prodloužení/nájezdech, P = prohra. Bodování této sezóny: {rules.label}.
       </p>
     </div>
