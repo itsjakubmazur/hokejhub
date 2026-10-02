@@ -42,15 +42,25 @@ export function PlayersTable({
     () => new Map((box?.skaters[side] ?? []).filter((p) => p.player.id).map((p) => [p.number, p.player.id!])),
     [box, side],
   );
+  // Goals, assists and points for the whole game follow the official game sheet (hokej.cz): the
+  // live feed sometimes credits an extra assist the league's record does not have.
+  const officialByJersey = useMemo(
+    () => new Map((box?.skaters[side] ?? []).filter((p) => p.number !== null).map((p) => [p.number, p])),
+    [box, side],
+  );
   const maxPeriods = Math.max(0, ...stats[side].map((p) => p.periods.length));
 
   const rows = useMemo(() => {
     const list = stats[side]
       .filter((p) => p.position !== "GK" && p.position !== "B")
-      .map((p) => ({ p, line: period === "all" ? (p as PlayerPeriodLine) : p.periods[Number(period)] }))
+      .map((p) => {
+        if (period !== "all") return { p, line: p.periods[Number(period)] };
+        const o = officialByJersey.get(p.jersey);
+        return { p, line: (o ? { ...p, goals: o.goals, assists: o.assists, points: o.points } : p) as PlayerPeriodLine };
+      })
       .filter((r): r is { p: PlayerMatchStats; line: PlayerPeriodLine } => Boolean(r.line));
     return list.sort((a, b) => (b.line[sort] ?? 0) - (a.line[sort] ?? 0));
-  }, [stats, side, period, sort]);
+  }, [stats, side, period, sort, officialByJersey]);
 
   return (
     <div>

@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element -- remote club logos */
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PHONE_NAMES } from "@/lib/team-names";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
@@ -82,6 +83,26 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
   const split = (k: "gp" | "g" | "a" | "pts") =>
     [`${reg[k]} zákl. část`, po[k] ? `${po[k]} play-off` : null, other[k] ? `${other[k]} baráž` : null].filter(Boolean).join(" · ");
   const currentTeam = seasons[0];
+  const teamId = player.current_team_id ?? currentTeam?.team_id ?? null;
+  const teamName = player.current_team_name ?? currentTeam?.team_name ?? "";
+  const facts = [
+    ["Věk", player.birth_date ? `${age(player.birth_date)} let` : null, player.birth_date ? new Date(player.birth_date).toLocaleDateString("cs-CZ") : null],
+    ["Výška", player.height_cm ? `${player.height_cm} cm` : null, null],
+    ["Váha", player.weight_kg ? `${player.weight_kg} kg` : null, null],
+    ["Hůl", player.shoots ? (player.shoots === "L" ? "levá" : "pravá") : null, null],
+  ].filter(([, v]) => v);
+  // Phones: one row of four under photo and name; wider screens: under the name, beside the photo.
+  const bio = (variant: "phone" | "sm") => (
+    <dl className={variant === "phone" ? "mt-4 grid grid-cols-4 gap-x-3 border-t border-white/10 pt-3" : "mt-4 grid grid-cols-4 gap-x-6 gap-y-2"}>
+      {facts.map(([k, v, sub]) => (
+        <div key={k as string} className="min-w-0">
+          <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-board-muted sm:text-[11px]">{k}</dt>
+          <dd className="display whitespace-nowrap text-xl text-led sm:text-2xl">{v}</dd>
+          {sub ? <dd className="whitespace-nowrap text-[10px] text-board-muted sm:text-xs">{sub}</dd> : null}
+        </div>
+      ))}
+    </dl>
+  );
 
   return (
     <div className="space-y-4">
@@ -94,50 +115,41 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
             className="pointer-events-none absolute -right-10 top-1/2 size-72 -translate-y-1/2 object-contain opacity-[0.08] sm:size-96"
           />
         ) : null}
-        <div className="relative flex flex-wrap items-end gap-5 p-4 sm:p-6">
-          <Portrait src={player.headshot} alt={player.name} width={150} />
-          <div className="min-w-0 flex-1">
-            <p className="label flex flex-wrap items-center gap-2 text-board-muted">
-              {player.position ? (POS[player.position] ?? player.position) : isGoalie ? "brankář" : "hráč"}
-              {player.current_team_id || currentTeam ? (
-                <Link
-                  href={`/tym/${player.current_team_id ?? currentTeam!.team_id}`}
-                  className="flex items-center gap-2 text-board-text hover:text-led"
-                >
-                  {player.current_team_logo ? (
-                    <span className="grid size-7 place-items-center bg-white p-0.5">
-                      <img src={imgSrc(player.current_team_logo)!} alt="" className="size-full object-contain" />
-                    </span>
-                  ) : null}
-                  {player.current_team_name ?? currentTeam!.team_name}
-                </Link>
+        <div className="relative p-4 sm:flex sm:items-end sm:gap-6 sm:p-6">
+          <div className="flex items-start gap-4 sm:contents">
+            <Portrait src={player.headshot} alt={player.name} width={104} className="sm:!h-[200px] sm:!w-[150px]" />
+            <div className="min-w-0 flex-1">
+              <p className="label flex flex-wrap items-center gap-x-2 gap-y-1 text-board-muted">
+                {player.position ? (POS[player.position] ?? player.position) : isGoalie ? "brankář" : "hráč"}
+                {teamId ? (
+                  <Link href={`/tym/${teamId}`} className="flex min-w-0 items-center gap-1.5 text-board-text hover:text-led">
+                    {player.current_team_logo ? (
+                      <span className="grid size-6 shrink-0 place-items-center bg-white p-0.5 sm:size-7">
+                        <img src={imgSrc(player.current_team_logo)!} alt="" className="size-full object-contain" />
+                      </span>
+                    ) : null}
+                    <span className="truncate sm:hidden">{PHONE_NAMES[teamId] ?? teamName}</span>
+                    <span className="hidden sm:inline">{teamName}</span>
+                  </Link>
+                ) : null}
+              </p>
+              <h1 className="mt-1.5 leading-[0.95] text-board-text sm:mt-2" style={{ fontSize: "clamp(1.9rem, 7vw, 4rem)" }}>
+                {player.name}
+              </h1>
+              {seasonList.length ? (
+                <div className="mt-3 sm:hidden">
+                  <SeasonSelect seasons={seasonList} value={season} />
+                </div>
               ) : null}
-            </p>
-            <h1 className="mt-2 text-board-text" style={{ fontSize: "clamp(2.4rem, 6vw, 4rem)" }}>
-              {player.name}
-            </h1>
-            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-              {[
-                [
-                  "Věk",
-                  player.birth_date ? `${age(player.birth_date)} let` : null,
-                  player.birth_date ? new Date(player.birth_date).toLocaleDateString("cs-CZ") : null,
-                ],
-                ["Výška", player.height_cm ? `${player.height_cm} cm` : null, null],
-                ["Váha", player.weight_kg ? `${player.weight_kg} kg` : null, null],
-                ["Hůl", player.shoots ? (player.shoots === "L" ? "levá" : "pravá") : null, null],
-              ]
-                .filter(([, v]) => v)
-                .map(([k, v, sub]) => (
-                  <div key={k as string}>
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-board-muted">{k}</dt>
-                    <dd className="display text-2xl text-led">{v}</dd>
-                    {sub ? <dd className="text-xs text-board-muted">{sub}</dd> : null}
-                  </div>
-                ))}
-            </dl>
+              <div className="hidden sm:block">{bio("sm")}</div>
+            </div>
           </div>
-          {seasonList.length ? <SeasonSelect seasons={seasonList} value={season} /> : null}
+          <div className="sm:hidden">{bio("phone")}</div>
+          {seasonList.length ? (
+            <div className="hidden sm:block">
+              <SeasonSelect seasons={seasonList} value={season} />
+            </div>
+          ) : null}
         </div>
       </header>
       <div className="relative">
