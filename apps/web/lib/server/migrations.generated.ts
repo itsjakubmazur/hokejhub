@@ -55,5 +55,9 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   {
     "name": "20261012000000_game_score_dirty.sql",
     "sql": "-- A corrected final score (or decision: regulation / overtime / shootout) also marks the game\n-- dirty, so the crawl refresh rewrites the Elo snapshot even when no box-score row changed.\ndrop trigger if exists game_stats_dirty on game;\ncreate trigger game_stats_dirty after update on game\n  for each row\n  when (old.status is distinct from new.status or old.phase is distinct from new.phase\n        or old.season_id is distinct from new.season_id or old.league_id is distinct from new.league_id\n        or old.home_score is distinct from new.home_score or old.away_score is distinct from new.away_score\n        or old.decided_in is distinct from new.decided_in)\n  execute function mark_stats_dirty_game();\n"
+  },
+  {
+    "name": "20261013000000_tip_play_date.sql",
+    "sql": "-- Tips saved while the scoreboard still listed Czech games under neighbouring days carry the\n-- wrong play date (an extraliga game of 2 October stored under 1 October). Settlement looked the\n-- game up by that date and never found it. Extraliga play dates follow the Prague date of the\n-- face-off; NHL keeps its own night-based dates.\nupdate tip_game\nset play_date = (start_at at time zone 'Europe/Prague')::date\nwhere league_key = 'cz-elh' and play_date <> (start_at at time zone 'Europe/Prague')::date;\n"
   }
 ];

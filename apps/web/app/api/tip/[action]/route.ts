@@ -53,6 +53,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/tip/[action]">) 
         return profile ? ok(profile) : fail("Tipér nenalezen.", 404);
       }
       case "games": {
+        await settle().catch((e) => console.error("[tip] settle", e));
         const [games, tips] = await Promise.all([upcomingGames(7), user ? myTips(user.id) : []]);
         const splits = await crowdSplits(games.map((g) => g.id));
         return ok({ games, splits, tips: Object.fromEntries(tips.map((t) => [t.game_id, { home: t.home, away: t.away, joker: t.joker }])) });

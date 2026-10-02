@@ -2,6 +2,7 @@ import { sql } from "@/lib/server/db";
 import { addDays, pragueDate } from "@hokejhub/core";
 import { ingestFinishedElh } from "@/lib/server/ingest";
 import { getScoreboard } from "@/lib/server/scoreboard";
+import { settle } from "@/lib/server/tipping";
 import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refresh";
 
 /**
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
     const boards = await Promise.all([today, addDays(today, -1)].map((d) => getScoreboard(d).catch(() => null)));
     const games = boards.flatMap((b) => b?.games ?? []);
     const r = await ingestFinishedElh(games);
+    await settle().catch((e) => console.error("[tip] settle", e));
     const ids = games.filter((g) => g.leagueKey === "cz-elh" && g.external.hokejczId).map((g) => `hcz-${g.external.hokejczId}`);
     const db = await sql<{ id: string; status: string; score: string; updated: string }>(
       `select g.id, g.status, g.home_score || ':' || g.away_score as score,

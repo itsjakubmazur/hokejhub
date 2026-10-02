@@ -276,25 +276,41 @@ async function recheckSettled() {
   return changed;
 }
 
-/** Fill in final scores for tipped games that should be over (≈ 3 h after face-off). */
+/**
+ * Fill in final scores of tipped games as soon as the feed reports them final. A game is looked
+ * up by id on the scoreboards around its start (its stored play date, its Prague date and, for
+ * NHL nights, the day after), so a play date stored wrong cannot keep it from being settled.
+ * Extraliga games also get their play date corrected to the Prague date of the face-off.
+ */
 export async function settle() {
   await recheckSettled().catch((e) => console.error("[tip] recheck", e));
-  const due = await sql<{ play_date: string }>(
-    `select distinct to_char(play_date, 'YYYY-MM-DD') as play_date from tip_game
-     where settled_at is null and start_at < now() - interval '150 minutes' limit 10`,
+  const due = await sql<{ game_id: string; league_key: string; play_date: string; start_at: string }>(
+    `select game_id, league_key, to_char(play_date, 'YYYY-MM-DD') as play_date, start_at from tip_game
+     where settled_at is null and start_at < now() - interval '90 minutes' order by start_at limit 80`,
   );
-  for (const { play_date } of due) {
-    const board = await getScoreboard(play_date).catch(() => null);
-    for (const g of board?.games ?? []) {
-      if (g.status === "final" && g.homeScore !== null && g.awayScore !== null) {
-        await sql(
-          `update tip_game set home_score = $2, away_score = $3, decided_in = $4, settled_at = now()
-           where game_id = $1 and settled_at is null`,
-          [g.id, g.homeScore, g.awayScore, g.decidedIn],
-        );
-      } else if (g.status === "postponed" || g.status === "cancelled") {
-        await sql("delete from tip_game where game_id = $1 and settled_at is null", [g.id]);
-      }
+  if (due.length === 0) return;
+  const dates = new Set<string>();
+  for (const g of due) {
+    const local = pragueDate(new Date(g.start_at));
+    dates.add(g.play_date);
+    dates.add(local);
+    dates.add(addDays(local, 1));
+  }
+  const boards = await Promise.all([...dates].map((d) => getScoreboard(d).catch(() => null)));
+  const byId = new Map<string, Game>();
+  for (const b of boards) for (const g of b?.games ?? []) byId.set(g.id, g);
+  for (const t of due) {
+    const g = byId.get(t.game_id);
+    if (!g) continue;
+    if (g.status === "final" && g.homeScore !== null && g.awayScore !== null) {
+      await sql(
+        `update tip_game set home_score = $2, away_score = $3, decided_in = $4, settled_at = now(),
+                play_date = case when league_key = 'cz-elh' then $5::date else play_date end
+         where game_id = $1 and settled_at is null`,
+        [g.id, g.homeScore, g.awayScore, g.decidedIn, pragueDate(new Date(g.startAt))],
+      );
+    } else if (g.status === "postponed" || g.status === "cancelled") {
+      await sql("delete from tip_game where game_id = $1 and settled_at is null", [g.id]);
     }
   }
 }

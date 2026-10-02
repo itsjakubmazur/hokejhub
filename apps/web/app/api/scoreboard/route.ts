@@ -2,6 +2,7 @@ import { pragueDate } from "@hokejhub/core";
 import { after } from "next/server";
 import { warmGamePreviews } from "@/lib/server/game";
 import { ingestFinishedElh } from "@/lib/server/ingest";
+import { settle } from "@/lib/server/tipping";
 import { getScoreboard, revalidateFor } from "@/lib/server/scoreboard";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
   const data = await getScoreboard(date);
   after(async () => {
     await ingestFinishedElh(data.games).catch((e) => console.error("[ingest] scoreboard", e));
+    // Tips on games that just ended are scored right away, not when somebody opens the board.
+    if (data.games.some((g) => g.status === "final")) await settle().catch((e) => console.error("[tip] settle", e));
     await warmGamePreviews(data.games);
   });
   const maxAge = revalidateFor(date);

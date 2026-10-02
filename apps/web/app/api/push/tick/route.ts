@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { ingestFinishedElh } from "@/lib/server/ingest";
 import { tick, vapidConfigured } from "@/lib/server/push";
 import { getScoreboard } from "@/lib/server/scoreboard";
+import { settle } from "@/lib/server/tipping";
 
 /**
  * Rule-engine heartbeat, driven by the push-notify GitHub workflow (or any per-minute cron).
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
   after(() =>
     getScoreboard(pragueDate())
       .then((b) => ingestFinishedElh(b.games))
+      .then(() => settle())
       .catch((e) => console.error("[ingest] tick", e)),
   );
   if (!vapidConfigured()) return Response.json({ error: "VAPID not configured" }, { status: 503 });
