@@ -1,0 +1,25 @@
+name: Store finished games
+
+# Every 10 minutes through the extraliga game window: games the live feed reports as finished
+# but the database does not hold yet are stored (box scores, shots) and the statistics refreshed.
+# Visitors trigger the same thing; this covers quiet evenings. Requires repo secret CRON_SECRET.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 13-23 * * *"   # 15:00–01:50 Prague (summer time), covers afternoon and evening rounds
+
+concurrency:
+  group: ingest-finished
+  cancel-in-progress: false
+
+jobs:
+  store:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Store finished games
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -m 90 -X POST "https://hokejhub.vercel.app/api/admin/refresh-stats?mode=finished" \
+            -H "Authorization: Bearer $CRON_SECRET" | jq -c .

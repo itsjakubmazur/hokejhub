@@ -1,13 +1,5 @@
-import {
-  hokejczShotsUrl,
-  job as jobs,
-  jobPath,
-  PRIMARY_KEYS,
-  processJob,
-  WRITE_ORDER,
-  type CrawlJob,
-  type Rows,
-} from "@hokejhub/core";
+import { hokejczShotsUrl, job as jobs, jobPath, processJob } from "@hokejhub/core";
+import { enqueue, writeRows } from "@/lib/server/ingest";
 import { sql } from "@/lib/server/db";
 import { refreshAfterIngest } from "@/lib/server/stats-refresh";
 import { supabaseAdmin } from "@/lib/server/supabase";
@@ -34,35 +26,6 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function authorized(req: Request) {
   const secret = process.env.CRON_SECRET;
   return Boolean(secret) && req.headers.get("authorization") === `Bearer ${secret}`;
-}
-
-function dedupe(rows: Record<string, unknown>[], pk: string) {
-  const keys = pk.split(",");
-  const map = new Map<string, Record<string, unknown>>();
-  for (const r of rows) map.set(keys.map((k) => String(r[k])).join("|"), r);
-  return [...map.values()];
-}
-
-async function writeRows(rows: Rows) {
-  const db = supabaseAdmin();
-  for (const table of WRITE_ORDER) {
-    const list = rows[table];
-    if (list.length === 0) continue;
-    const pk = PRIMARY_KEYS[table];
-    const { error } = await db.from(table).upsert(dedupe(list, pk), { onConflict: pk });
-    if (error) throw new Error(`${table}: ${error.message}`);
-  }
-}
-
-async function enqueue(list: CrawlJob[]) {
-  if (list.length === 0) return;
-  const { error } = await supabaseAdmin()
-    .from("crawl_job")
-    .upsert(
-      list.map((j) => ({ key: j.key, kind: j.kind, params: j.params, priority: j.priority })),
-      { onConflict: "key", ignoreDuplicates: true },
-    );
-  if (error) throw new Error(`crawl_job: ${error.message}`);
 }
 
 export async function GET() {

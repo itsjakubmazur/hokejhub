@@ -1,4 +1,7 @@
 import { sql } from "@/lib/server/db";
+import { addDays, pragueDate } from "@hokejhub/core";
+import { ingestFinishedElh } from "@/lib/server/ingest";
+import { getScoreboard } from "@/lib/server/scoreboard";
 import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refresh";
 
 /**
@@ -8,6 +11,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=season&league=cz-elh&season=N  recompute one league season
  *   ?mode=form&offset=0&limit=500        recompute form (streaks) for a slice of players
  *   ?mode=dirty                          recompute players of games written since the last run
+ *   ?mode=finished                       store today's and yesterday's finished games the database lacks
  *   ?mode=elo                            rewrite the Elo snapshot
  *   ?mode=verify                         compare the tables with the live sources (slow)
  *   ?mode=repair&league=cz-elh&season=N  compare one season with its source and rebuild it if it drifted
@@ -44,6 +48,12 @@ export async function POST(req: Request) {
     );
     if (ids.length) await sql("select refresh_player_form($1::text[])", [ids.map((r) => r.player_id)]);
     return Response.json({ offset, players: ids.length, done: ids.length < limit, ms: Date.now() - t0 });
+  }
+  if (mode === "finished") {
+    const today = pragueDate();
+    const boards = await Promise.all([today, addDays(today, -1)].map((d) => getScoreboard(d).catch(() => null)));
+    const r = await ingestFinishedElh(boards.flatMap((b) => b?.games ?? []));
+    return Response.json({ ...r, ms: Date.now() - t0 });
   }
   if (mode === "dirty") return Response.json(await refreshDirtyStats(45_000));
   if (mode === "repair") {

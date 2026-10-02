@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { getGameDetail, type Timings } from "@/lib/server/game";
+import { ingestFinishedElh } from "@/lib/server/ingest";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/game/[id]">) {
   const { id } = await ctx.params;
@@ -9,6 +11,7 @@ export async function GET(request: Request, ctx: RouteContext<"/api/game/[id]">)
   t.total = Math.round(performance.now() - start);
   const timing = Object.entries(t).map(([k, v]) => `${k};dur=${v}`).join(", ");
   if (!data) return Response.json({ error: "not found" }, { status: 404 });
+  if (data.game.status === "final") after(() => ingestFinishedElh([data.game]).catch((e) => console.error("[ingest] game", e)));
   const live = data.game.status === "live" || data.game.status === "intermission";
   // A response missing the DB extras (photos, insights) is degraded: never cache it for long.
   const degraded = data.game.leagueKey === "cz-elh" && data.box !== null && data.photos === null;
