@@ -57,6 +57,27 @@ export async function POST(req: Request) {
     if (ids.length) await sql("select refresh_player_stats($1::text[])", [ids.map((r) => r.player_id)]);
     return Response.json({ players: ids.length, ms: Date.now() - t0 });
   }
+  if (mode === "profile") {
+    // Times each step of refresh_player_stats for the players of the latest final games.
+    const ids = (
+      await sql<{ player_id: string }>(
+        `select distinct b.player_id from box_skater b
+         join (select id from game where status = 'final' order by start_at desc limit 3) g on g.id = b.game_id`,
+      )
+    ).map((r) => r.player_id);
+    const steps: Record<string, number> = {};
+    const run = async (name: string, text: string) => {
+      const t = Date.now();
+      await sql(text, [ids]);
+      steps[name] = Date.now() - t;
+    };
+    await run("skater", "select count(*) from skater_season_src where player_id = any($1::text[])");
+    await run("goalie", "select count(*) from goalie_season_src where player_id = any($1::text[])");
+    await run("xg", "select count(*) from player_xg_season_src where player_id = any($1::text[])");
+    await run("form", "select refresh_player_form($1::text[])");
+    await run("all", "select refresh_player_stats($1::text[])");
+    return Response.json({ players: ids.length, steps });
+  }
   if (mode === "verify") {
     const diff = async (t: string, src: string) => {
       const [r] = await sql<{ missing: number; extra: number; rows: number }>(
