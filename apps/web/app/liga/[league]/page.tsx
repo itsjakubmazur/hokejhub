@@ -26,6 +26,7 @@ import {
   getLeagueSkaters,
   getOfficialStandings,
   getSeasonGames,
+  getTeamShortNames,
   getTeamLogos,
   toResultGames,
 } from "@/lib/server/queries";
@@ -126,9 +127,10 @@ async function PlayoffTab({ league, season }: { league: string; season: number }
 async function TableTab({ league, season, phase }: { league: string; season: number; phase: string }) {
   const seasons = await getLeagueSeasons(league);
   const isCurrent = seasons[0]?.season === season;
-  const [rows, logos, live] = await Promise.all([
+  const [rows, logos, shortNames, live] = await Promise.all([
     getSeasonGames(league, season, phase),
     getTeamLogos(league),
+    getTeamShortNames(league).catch(() => ({}) as Record<string, string>),
     isCurrent && league === "cz-elh" ? getLiveElhGames().catch(() => []) : Promise.resolve([]),
   ]);
   // Results the crawler has not stored yet come from the live feed (current regular season).
@@ -141,7 +143,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
   }
   return (
     <Card title={`Tabulka ${seasonLabel(season)} · ${csCount(games.length, CS.zapas)}`} icon={ListOrdered}>
-      <Standings games={games} season={season} logos={logos} liveGames={live} />
+      <Standings games={games} season={season} logos={logos} shortNames={shortNames} liveGames={live} />
     </Card>
   );
 }

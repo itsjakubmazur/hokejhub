@@ -449,6 +449,12 @@ export async function getTeamLogos(league: string) {
   return Object.fromEntries(rows.filter((r) => r.logo_url).map((r) => [r.id, r.logo_url!])) as Record<string, string>;
 }
 
+/** Short club names ("Třinec", "Pardubice") for narrow layouts. */
+export async function getTeamShortNames(league: string) {
+  const rows = await sql<{ id: string; short_name: string }>("select id, short_name from team where league_id = $1", [league]);
+  return Object.fromEntries(rows.map((r) => [r.id, r.short_name])) as Record<string, string>;
+}
+
 // ---------- match insights (streaks, milestones) ----------
 
 export interface TeamStreak {

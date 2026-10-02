@@ -21,7 +21,11 @@ export function FormBadges({ form }: { form: FormResult[] }) {
   return (
     <span className="flex gap-0.5">
       {form.map((f, i) => (
-        <span key={i} title={FORM_LABEL[f]} className={`grid h-5 min-w-5 place-items-center rounded px-0.5 text-[9px] font-bold ${FORM_STYLE[f]}`}>
+        <span
+          key={i}
+          title={FORM_LABEL[f]}
+          className={`grid h-[18px] min-w-[18px] place-items-center rounded px-0.5 text-[8px] font-bold sm:h-5 sm:min-w-5 sm:text-[9px] ${FORM_STYLE[f]}`}
+        >
           {FORM_LABEL[f]}
         </span>
       ))}
@@ -36,11 +40,14 @@ export function Standings({
   season,
   logos = {},
   highlight = [],
+  shortNames = {},
   liveGames: initialLive = [],
 }: {
   games: ResultGame[];
   season: number;
   logos?: Record<string, string>;
+  /** Short club names shown on phones. */
+  shortNames?: Record<string, string>;
   highlight?: string[];
   /** Games in progress (provisional scores) for the live table. */
   liveGames?: (ResultGame & { live: string })[];
@@ -128,21 +135,26 @@ export function Standings({
       </div>
       <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
         {mode === "table" ? (
-          <table className="w-full min-w-[560px] text-sm tabular">
+          // Phones in portrait get rank, club, games, score, points and form; the rest of the
+          // columns appear from 640 px (a phone turned sideways, tablets, desktop).
+          <table className="w-full text-sm tabular sm:min-w-[560px]">
             <thead>
               <tr className="border-b border-line text-xs text-muted">
                 <th className="py-2 pr-2 text-left font-medium">#</th>
                 <th className="py-2 pr-2 text-left font-medium">Tým</th>
                 <th className="px-1.5 text-right font-medium" title="Zápasy">Z</th>
-                <th className="px-1.5 text-right font-medium" title="Výhry">V</th>
-                <th className="px-1.5 text-right font-medium" title="Výhry po prodl./nájezdech">VP</th>
-                {ties ? <th className="px-1.5 text-right font-medium" title="Remízy">R</th> : null}
-                <th className="px-1.5 text-right font-medium" title="Prohry po prodl./nájezdech">PP</th>
-                <th className="px-1.5 text-right font-medium" title="Prohry">P</th>
-                <th className="px-1.5 text-right font-medium">Skóre</th>
-                <th className="px-1.5 text-right font-medium">+/−</th>
+                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Výhry">V</th>
+                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Výhry po prodl./nájezdech">VP</th>
+                {ties ? <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Remízy">R</th> : null}
+                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Prohry po prodl./nájezdech">PP</th>
+                <th className="hidden sm:table-cell px-1.5 text-right font-medium" title="Prohry">P</th>
+                <th className="px-1.5 text-right font-medium">
+                  <span className="sm:hidden">G</span>
+                  <span className="hidden sm:inline">Skóre</span>
+                </th>
+                <th className="hidden sm:table-cell px-1.5 text-right font-medium">+/−</th>
                 <th className="px-1.5 text-right font-bold">B</th>
-                <th className="pl-3 text-left font-medium">Forma</th>
+                <th className="pl-2 text-left font-medium sm:pl-3">Forma</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -153,7 +165,7 @@ export function Standings({
                   transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   className={`transition-colors hover:bg-surface-2 ${highlight.includes(r.teamId) ? "bg-accent-soft" : ""}`}
                 >
-                  <td className="py-2 pr-2">
+                  <td className="py-2 pr-1.5 sm:pr-2">
                     <span className="flex items-center gap-1">
                     <span
                       className={`grid size-6 place-items-center rounded-md text-xs font-bold ${
@@ -170,33 +182,36 @@ export function Standings({
                     ) : null}
                     </span>
                   </td>
-                  <td className="whitespace-nowrap py-2 pr-2 font-medium">
-                    <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={28} className="mr-2 align-middle" />
-                    <Link href={`/tym/${r.teamId}`} className="inline-block max-w-[8.5rem] truncate align-middle hover:text-accent sm:max-w-none">
-                      {r.teamName}
-                    </Link>
-                    {useLive && liveBy.get(r.teamId) ? (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-live/15 px-1.5 py-0.5 text-[10px] font-bold text-live">
-                        <span className="live-dot size-1.5 rounded-full bg-live" />
-                        {liveBy.get(r.teamId)}
-                      </span>
-                    ) : null}
+                  <td className="w-full max-w-0 py-2 pr-2 font-medium sm:w-auto sm:max-w-none sm:whitespace-nowrap">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ClubLogo src={logos[r.teamId]} alt={r.teamName} size={24} />
+                      <Link href={`/tym/${r.teamId}`} className="min-w-0 truncate hover:text-accent">
+                        <span className="sm:hidden">{shortNames[r.teamId] ?? r.teamName}</span>
+                        <span className="hidden sm:inline">{r.teamName}</span>
+                      </Link>
+                      {useLive && liveBy.get(r.teamId) ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded bg-live/15 px-1.5 py-0.5 text-[10px] font-bold text-live">
+                          <span className="live-dot size-1.5 rounded-full bg-live" />
+                          {liveBy.get(r.teamId)}
+                        </span>
+                      ) : null}
+                    </span>
                   </td>
                   <td className="px-1.5 text-right">{r.gp}</td>
-                  <td className="px-1.5 text-right">{r.w}</td>
-                  <td className="px-1.5 text-right">{r.otw}</td>
-                  {ties ? <td className="px-1.5 text-right">{r.t}</td> : null}
-                  <td className="px-1.5 text-right">{r.otl}</td>
-                  <td className="px-1.5 text-right">{r.l}</td>
+                  <td className="hidden sm:table-cell px-1.5 text-right">{r.w}</td>
+                  <td className="hidden sm:table-cell px-1.5 text-right">{r.otw}</td>
+                  {ties ? <td className="hidden sm:table-cell px-1.5 text-right">{r.t}</td> : null}
+                  <td className="hidden sm:table-cell px-1.5 text-right">{r.otl}</td>
+                  <td className="hidden sm:table-cell px-1.5 text-right">{r.l}</td>
                   <td className="px-1.5 text-right">
                     {r.gf}:{r.ga}
                   </td>
-                  <td className={`px-1.5 text-right ${r.gf - r.ga > 0 ? "text-win" : r.gf - r.ga < 0 ? "text-live" : ""}`}>
+                  <td className={`hidden px-1.5 text-right sm:table-cell ${r.gf - r.ga > 0 ? "text-win" : r.gf - r.ga < 0 ? "text-live" : ""}`}>
                     {r.gf - r.ga > 0 ? "+" : ""}
                     {r.gf - r.ga}
                   </td>
                   <td className="px-1.5 text-right font-bold">{r.pts}</td>
-                  <td className="pl-3">
+                  <td className="pl-2 sm:pl-3">
                     <FormBadges form={r.form} />
                   </td>
                 </motion.tr>

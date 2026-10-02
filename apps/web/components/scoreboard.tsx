@@ -1,6 +1,6 @@
 "use client";
 
-import { Star } from "lucide-react";
+import { ChevronRight, Star } from "lucide-react";
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -64,6 +64,10 @@ function nhlNights(games: Game[], date: string) {
   if (next.length) out.push({ label: "Dnes večer a v noci", list: next });
   return out;
 }
+
+
+/** Competitions with a table page in the app: the scoreboard header links straight to it. */
+const TABLE_HREF: Record<string, string> = { "cz-elh": "/liga/cz-elh", nhl: "/liga/nhl" };
 
 export function Scoreboard({ date, initial }: { date: string; initial: ScoreboardResponse }) {
   const today = pragueDate();
@@ -151,12 +155,21 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
 
       {visible.map(({ league, games }) => (
         <section key={league.key} className="overflow-hidden border border-line bg-surface">
-          <h2 className="label flex items-baseline gap-2 border-b border-line px-3 pb-2 pt-3">
+          <h2 className="label flex items-center gap-2 border-b border-line px-3 pb-2 pt-3">
             {league.name}
             <span className="ml-auto font-sans text-[11px] font-medium normal-case tracking-normal text-muted tabular">
               {games.filter(isLive).length > 0 ? <span className="mr-2 text-live">{games.filter(isLive).length} živě</span> : null}
               {games.length}
             </span>
+            {TABLE_HREF[league.key] ? (
+              <Link
+                href={TABLE_HREF[league.key]!}
+                className="-my-1 flex items-center gap-0.5 rounded-full border border-line px-2.5 py-1 font-sans text-[11px] font-semibold normal-case tracking-normal text-fg hover:border-accent hover:text-accent"
+              >
+                Tabulka
+                <ChevronRight className="size-3.5" aria-hidden />
+              </Link>
+            ) : null}
           </h2>
           <div>
             {league.key === "nhl" && nhlNights(games, date).length > 1
