@@ -11,6 +11,8 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=season&league=cz-elh&season=N  recompute one league season
  *   ?mode=form&offset=0&limit=500        recompute form (streaks) for a slice of players
  *   ?mode=dirty                          recompute players of games written since the last run
+ *   ?mode=snapshot&season=N              season's games (scores) and skater/goalie totals, to diff before/after a recrawl
+ *   ?mode=recrawl&season=N               put every finished extraliga game of the season back in the crawl queue
  *   ?mode=finished                       store today's and yesterday's finished games the database lacks
  *   ?mode=elo                            rewrite the Elo snapshot
  *   ?mode=verify                         compare the tables with the live sources (slow)
@@ -48,6 +50,41 @@ export async function POST(req: Request) {
     );
     if (ids.length) await sql("select refresh_player_form($1::text[])", [ids.map((r) => r.player_id)]);
     return Response.json({ offset, players: ids.length, done: ids.length < limit, ms: Date.now() - t0 });
+  }
+  if (mode === "snapshot") {
+    const season = Number(url.searchParams.get("season"));
+    const games = await sql(
+      `select id, home_name || ' – ' || away_name as game, to_char(start_at, 'YYYY-MM-DD') as day,
+              home_score, away_score, decided_in, status
+       from game where league_id = 'cz-elh' and season = $1 order by start_at, id`,
+      [season],
+    );
+    const skaters = await sql(
+      `select s.player_id, p.name, s.team_id, s.phase, s.gp::int, s.g::int, s.a::int, s.pts::int, s.pm::int, s.pim::int
+       from skater_season_src s join player p on p.id = s.player_id where s.league_id = 'cz-elh' and s.season = $1 order by 1, 3, 4`,
+      [season],
+    );
+    const goalies = await sql(
+      `select s.player_id, p.name, s.team_id, s.phase, s.gp::int, s.saves::int, s.ga::int, s.shutouts::int
+       from goalie_season_src s join player p on p.id = s.player_id where s.league_id = 'cz-elh' and s.season = $1 order by 1, 3, 4`,
+      [season],
+    );
+    return Response.json({ season, games, skaters, goalies });
+  }
+  if (mode === "recrawl") {
+    const season = Number(url.searchParams.get("season"));
+    if (!Number.isInteger(season)) return Response.json({ error: "season required" }, { status: 400 });
+    const rows = await sql<{ n: number }>(
+      `with due as (
+         update crawl_job j set status = 'pending', attempts = 0, next_at = now(), updated_at = now() - interval '1 day'
+         from game g
+         where j.kind = 'match' and g.id = 'hcz-' || (j.params->>'id') and g.league_id = 'cz-elh' and g.season = $1
+           and g.status = 'final' and j.status <> 'running'
+         returning j.id
+       ) select count(*)::int as n from due`,
+      [season],
+    );
+    return Response.json({ season, requeued: rows[0]?.n ?? 0 });
   }
   if (mode === "finished") {
     const today = pragueDate();
