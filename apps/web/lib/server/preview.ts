@@ -1,6 +1,11 @@
 import { computeStandings, rulesForSeason, type FormResult } from "@hokejhub/core";
 import { sql } from "./db";
 import { getLeagueGoalies, getSeasonGames, getTeam, getTeamSkaters, toResultGames } from "./queries";
+import { unstable_cache } from "next/cache";
+
+// League-wide inputs shared by every game's preview: cached once for all of them.
+const seasonGames = unstable_cache((league: string, season: number) => getSeasonGames(league, season), ["season-games-v1"], { revalidate: 600 });
+const leagueGoalies = unstable_cache((league: string, season: number) => getLeagueGoalies(league, season), ["league-goalies-v1"], { revalidate: 600 });
 
 export interface PreviewTeam {
   teamId: string;
@@ -118,14 +123,14 @@ const seasonOf = (iso: string) => {
 /** Pre-game comparison of two extraliga teams from our database. */
 export async function getElhPreview(homeId: string, awayId: string, startAt: string): Promise<ElhPreview | null> {
   let season = seasonOf(startAt);
-  let rows = await getSeasonGames("cz-elh", season);
+  let rows = await seasonGames("cz-elh", season);
   let games = toResultGames(rows).filter((g) => g.startAt < startAt);
   const played = (id: string) => games.filter((g) => g.homeId === id || g.awayId === id).length;
   let previousSeason = false;
   if (played(homeId) < 3 || played(awayId) < 3) {
     season -= 1;
     previousSeason = true;
-    rows = await getSeasonGames("cz-elh", season);
+    rows = await seasonGames("cz-elh", season);
     games = toResultGames(rows);
   }
   if (games.length === 0) return null;
@@ -134,7 +139,7 @@ export async function getElhPreview(homeId: string, awayId: string, startAt: str
   const homeSplit = computeStandings(games, { split: "home", rules });
   const awaySplit = computeStandings(games, { split: "away", rules });
   const [goalies, homeTeam, awayTeam, homeSk, awaySk, stats] = await Promise.all([
-    getLeagueGoalies("cz-elh", season),
+    leagueGoalies("cz-elh", season),
     getTeam(homeId),
     getTeam(awayId),
     getTeamSkaters(homeId, season),
