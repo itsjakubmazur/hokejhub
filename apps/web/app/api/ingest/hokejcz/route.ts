@@ -8,6 +8,7 @@ import {
   type CrawlJob,
   type Rows,
 } from "@hokejhub/core";
+import { sql } from "@/lib/server/db";
 import { refreshAfterIngest } from "@/lib/server/stats-refresh";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
@@ -100,6 +101,20 @@ export async function POST(req: Request) {
   const started = Date.now();
   const log: { key: string; ok: boolean; info: string }[] = [];
 
+  // Games crawled before they were played (their round page lists the whole schedule) are never
+  // re-read on their own: put back in the queue those that should be over by now but are not
+  // final in the database. At most hourly per game, for two weeks after the start.
+  const recrawl = await sql<{ n: number }>(
+    `with due as (
+       update crawl_job j set status = 'pending', attempts = 0, next_at = now(), updated_at = now()
+       from game g
+       where j.kind = 'match' and j.status = 'done' and g.id = 'hcz-' || (j.params->>'id')
+         and g.status <> 'final' and g.start_at < now() - interval '150 minutes' and g.start_at > now() - interval '14 days'
+         and j.updated_at < now() - interval '1 hour'
+       returning j.id
+     ) select count(*)::int as n from due`,
+  ).catch(() => [{ n: -1 }]);
+
   // Jobs stuck in "running" (a crashed invocation) go back to the queue after 10 minutes.
   await db
     .from("crawl_job")
@@ -183,5 +198,5 @@ export async function POST(req: Request) {
 
   // Precomputed statistics follow the writes: players of the games just stored, then Elo.
   const stats = log.some((l) => l.ok) ? await refreshAfterIngest().catch((e) => ({ error: e instanceof Error ? e.message : String(e) })) : null;
-  return Response.json({ processed: log.length, ms: Date.now() - started, stats, log });
+  return Response.json({ processed: log.length, recrawled: recrawl[0]?.n ?? 0, ms: Date.now() - started, stats, log });
 }

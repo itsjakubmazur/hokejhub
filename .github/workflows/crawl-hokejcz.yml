@@ -1,6 +1,8 @@
 name: Crawl hokej.cz history
 
-# Drives the polite crawler on Vercel (/api/ingest/hokejcz) until the queue is empty.
+# Drives the polite crawler on Vercel (/api/ingest/hokejcz) until the queue is empty. Each call
+# first re-queues games that should be over but are not final in the database, and ends by
+# refreshing the precomputed statistics for the games it wrote.
 # Each call processes ~45 s of work (one page every ~2.5 s per worker). Two workers run in
 # parallel; when the job-time limit is near and work remains, the run re-dispatches itself,
 # so the crawl does not depend on GitHub's (unreliable) cron. Requires repo secret CRON_SECRET
@@ -9,6 +11,8 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
+    # Right after the evening extraliga round (~23:45 Prague): finished games, then the stats refresh.
+    - cron: "47 21 * * *"
 
 concurrency:
   group: crawl-hokejcz
