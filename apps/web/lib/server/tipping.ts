@@ -240,8 +240,45 @@ export async function setJoker(userId: string, gameId: string, on: boolean) {
 
 // ---------- settlement ----------
 
+let lastRecheck = 0;
+
+/**
+ * Results get corrected after the fact (a late video review, an official's report). Games
+ * settled in the last three days are compared with the feed again, at most every ten minutes
+ * per server instance; points are computed from tip_game, so updating the score re-scores
+ * every tip on that game.
+ */
+async function recheckSettled() {
+  if (Date.now() - lastRecheck < 10 * 60_000) return 0;
+  lastRecheck = Date.now();
+  const days = await sql<{ play_date: string }>(
+    `select distinct to_char(play_date, 'YYYY-MM-DD') as play_date from tip_game
+     where settled_at is not null and start_at > now() - interval '3 days'`,
+  );
+  let changed = 0;
+  for (const { play_date } of days) {
+    const board = await getScoreboard(play_date).catch(() => null);
+    for (const g of board?.games ?? []) {
+      if (g.status !== "final" || g.homeScore === null || g.awayScore === null) continue;
+      const rows = await sql<{ game_id: string }>(
+        `update tip_game set home_score = $2, away_score = $3, decided_in = $4
+         where game_id = $1 and settled_at is not null
+           and (home_score, away_score, coalesce(decided_in, '')) is distinct from ($2, $3, coalesce($4, ''))
+         returning game_id`,
+        [g.id, g.homeScore, g.awayScore, g.decidedIn],
+      );
+      if (rows.length) {
+        changed++;
+        console.warn(`[tip] corrected result of ${g.id}: ${g.homeScore}:${g.awayScore} ${g.decidedIn ?? ""}`);
+      }
+    }
+  }
+  return changed;
+}
+
 /** Fill in final scores for tipped games that should be over (≈ 3 h after face-off). */
 export async function settle() {
+  await recheckSettled().catch((e) => console.error("[tip] recheck", e));
   const due = await sql<{ play_date: string }>(
     `select distinct to_char(play_date, 'YYYY-MM-DD') as play_date from tip_game
      where settled_at is null and start_at < now() - interval '150 minutes' limit 10`,
@@ -691,3 +728,62 @@ export async function saveBonus(userId: string, questionId: string, value: strin
 export async function setBonusAnswer(questionId: string, answer: string) {
   await sql("update tip_bonus_question set answer = $2, settled_at = now() where id = $1", [questionId, answer]);
 }
+
+export interface TipsterProfile {
+  user: { id: string; nickname: string; club_logo: string | null; club_name: string | null; since: string };
+  rank: number | null;
+  players: number;
+  points: number;
+  bonus: number;
+  stats: Awaited<ReturnType<typeof stats>>;
+  /** Only games that have started: upcoming tips stay private (no copying). */
+  tips: (Awaited<ReturnType<typeof history>>[number] & { started: boolean })[];
+  bonusAnswers: { title: string; value: string; answer: string | null; points: number; correct: boolean | null }[];
+}
+
+/** What anybody can see about a tipster: standing, form, badges and their locked tips. */
+export async function tipsterProfile(userId: string, viewerId: string | null): Promise<TipsterProfile | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return null;
+  const [user] = await sql<TipsterProfile["user"]>(
+    `select u.id, u.nickname, t.logo_url as club_logo, t.name as club_name, to_char(u.created_at, 'YYYY-MM-DD') as since
+     from tip_user u left join team t on t.id = u.club_id where u.id = $1`,
+    [userId],
+  );
+  if (!user) return null;
+  const own = viewerId === userId;
+  const [board, st, hist, answers] = await Promise.all([
+    leaderboard(null, "all"),
+    stats(userId),
+    history(userId),
+    sql<{ title: string; value: string; answer: string | null; points: number; locks_at: string; options: { id: string; name: string }[] }>(
+      `select q.title, a.value, q.answer, q.points, q.locks_at, q.options
+       from tip_bonus_answer a join tip_bonus_question q on q.id = a.question_id
+       where a.user_id = $1 order by q.sort, q.id`,
+      [userId],
+    ),
+  ]);
+  const idx = board.rows.findIndex((r) => r.user_id === userId);
+  const row = idx >= 0 ? board.rows[idx]! : null;
+  const now = Date.now();
+  const name = (opts: { id: string; name: string }[], id: string | null) => (id ? (opts.find((o) => o.id === id)?.name ?? id) : null);
+  return {
+    user,
+    rank: idx >= 0 ? idx + 1 : null,
+    players: board.rows.length,
+    points: row?.points ?? 0,
+    bonus: row?.bonus ?? 0,
+    stats: st,
+    tips: hist.map((t) => ({ ...t, started: Date.parse(t.start_at) <= now })).filter((t) => own || t.started),
+    // Season picks are shown once the question has locked.
+    bonusAnswers: answers
+      .filter((a) => own || Date.parse(a.locks_at) <= now)
+      .map((a) => ({
+        title: a.title,
+        value: name(a.options, a.value) ?? a.value,
+        answer: name(a.options, a.answer),
+        points: a.points,
+        correct: a.answer === null ? null : a.answer === a.value,
+      })),
+  };
+}
+

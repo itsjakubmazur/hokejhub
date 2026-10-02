@@ -10,6 +10,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=dirty                          recompute players of games written since the last run
  *   ?mode=elo                            rewrite the Elo snapshot
  *   ?mode=verify                         compare the tables with the live sources (slow)
+ *   ?mode=repair&league=cz-elh&season=N  compare one season with its source and rebuild it if it drifted
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -45,6 +46,21 @@ export async function POST(req: Request) {
     return Response.json({ offset, players: ids.length, done: ids.length < limit, ms: Date.now() - t0 });
   }
   if (mode === "dirty") return Response.json(await refreshDirtyStats(45_000));
+  if (mode === "repair") {
+    const league = url.searchParams.get("league") ?? "";
+    const season = Number(url.searchParams.get("season"));
+    if (!league || !Number.isInteger(season)) return Response.json({ error: "league and season required" }, { status: 400 });
+    const drift = await sql<{ kind: string; missing: number; extra: number }>(
+      "select kind, missing::int, extra::int from stats_season_drift($1, $2)",
+      [league, season],
+    );
+    const drifted = drift.some((d) => d.missing || d.extra);
+    if (drifted) {
+      await sql("select refresh_stats_season($1, $2)", [league, season]);
+      console.warn(`[stats] repaired ${league} ${season}: ${JSON.stringify(drift)}`);
+    }
+    return Response.json({ league, season, drift, repaired: drifted, ms: Date.now() - t0 });
+  }
   if (mode === "unseasoned") {
     const ids = await sql<{ player_id: string }>(
       `select distinct player_id from (

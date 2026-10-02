@@ -29,6 +29,7 @@ import { BonusQuestions } from "./bonus";
 import { CrowdTips, SplitBar } from "./crowd";
 import { MyStats } from "./stats";
 import { GroupWall } from "./wall";
+import { TipsterSheet } from "./tipster";
 
 // ---------- root ----------
 
@@ -484,8 +485,10 @@ function Leaderboard({ me }: { me: User | null }) {
   const rows = board.data?.rows ?? [];
   const model = board.data?.model;
   const winners = board.data?.dayWinners ?? [];
+  const [open, setOpen] = useState<string | null>(null);
   return (
     <div className="space-y-4">
+      <TipsterSheet userId={open} onClose={() => setOpen(null)} />
       {winners.length ? (
         <div className="rise flex gap-2 overflow-x-auto pb-1">
           {winners.map((w) => (
@@ -565,7 +568,8 @@ function Leaderboard({ me }: { me: User | null }) {
                     initial={{ opacity: 0, x: -12 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: Math.min(i, 12) * 0.03 }}
-                    className={r.user_id === me?.id ? "bg-accent-soft" : ""}
+                    onClick={() => setOpen(r.user_id)}
+                    className={`cursor-pointer hover:bg-surface-2 ${r.user_id === me?.id ? "bg-accent-soft" : ""}`}
                   >
                     <td className={`display py-2 text-xl ${i === 0 ? "text-gold" : i < 3 ? "text-fg" : "text-muted"}`}>{i + 1}.</td>
                     <td className="py-2">
@@ -573,7 +577,16 @@ function Leaderboard({ me }: { me: User | null }) {
                         <span className="grid size-9 shrink-0 place-items-center bg-white p-0.5">
                           {r.club_logo ? <ClubLogo src={r.club_logo} alt="" size={32} /> : <Trophy className="size-4 text-black/40" aria-hidden />}
                         </span>
-                        <span className="font-semibold">{r.nickname}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpen(r.user_id);
+                          }}
+                          className="font-semibold underline-offset-2 hover:text-accent hover:underline"
+                        >
+                          {r.nickname}
+                        </button>
                         {i === 0 ? <Crown className="size-4 text-gold" aria-label="lídr" /> : null}
                       </span>
                     </td>
@@ -603,7 +616,10 @@ function Leaderboard({ me }: { me: User | null }) {
             </table>
           </div>
         ) : null}
-        <p className="mt-3 text-[11px] text-muted">Při shodě bodů rozhoduje počet přesných tipů, pak uhodnutých vítězů, pak méně tipů.</p>
+        <p className="mt-3 text-[11px] text-muted">
+          Klepnutím na tipéra zobrazíš jeho tipy a statistiky. Při shodě bodů rozhoduje počet přesných tipů, pak uhodnutých vítězů, pak méně
+          tipů.
+        </p>
       </Card>
     </div>
   );

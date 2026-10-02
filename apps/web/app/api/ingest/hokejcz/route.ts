@@ -101,16 +101,21 @@ export async function POST(req: Request) {
   const started = Date.now();
   const log: { key: string; ok: boolean; info: string }[] = [];
 
-  // Games crawled before they were played (their round page lists the whole schedule) are never
-  // re-read on their own: put back in the queue those that should be over by now but are not
-  // final in the database. At most hourly per game, for two weeks after the start.
+  // Games are re-read after the fact:
+  //  - crawled before they were played (round pages list the whole schedule) and not final yet
+  //    although they should be over — hourly, for two weeks;
+  //  - final, to pick up corrections (an assist reassigned, a goal credited to another player)
+  //    — daily, for a week after the game. Rows that did not change do not trigger a refresh.
   const recrawl = await sql<{ n: number }>(
     `with due as (
        update crawl_job j set status = 'pending', attempts = 0, next_at = now(), updated_at = now()
        from game g
        where j.kind = 'match' and j.status = 'done' and g.id = 'hcz-' || (j.params->>'id')
-         and g.status <> 'final' and g.start_at < now() - interval '150 minutes' and g.start_at > now() - interval '14 days'
-         and j.updated_at < now() - interval '1 hour'
+         and (
+           (g.status <> 'final' and g.start_at < now() - interval '150 minutes' and g.start_at > now() - interval '14 days'
+            and j.updated_at < now() - interval '1 hour')
+           or (g.status = 'final' and g.start_at > now() - interval '7 days' and j.updated_at < now() - interval '20 hours')
+         )
        returning j.id
      ) select count(*)::int as n from due`,
   ).catch(() => [{ n: -1 }]);

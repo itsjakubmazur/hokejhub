@@ -22,12 +22,14 @@ import {
   saveTip,
   settle,
   TipError,
+  tipsterProfile,
   upcomingGames,
 } from "@/lib/server/tipping";
 
 /**
  * Tipping league API.
  *   GET  me | games | leaderboard?group=&period=&day= | history | groups | stats | bonus | crowd?game=&group= | wall?group=
+ *        | tipster?id=   (public profile: standing, badges, tips on games that have started)
  *   POST register | login | logout | tip | tips (bulk import) | joker | bonus | group | join | wall
  */
 export const dynamic = "force-dynamic";
@@ -46,6 +48,10 @@ export async function GET(req: Request, ctx: RouteContext<"/api/tip/[action]">) 
     switch (action) {
       case "me":
         return ok({ user });
+      case "tipster": {
+        const profile = await tipsterProfile(new URL(req.url).searchParams.get("id") ?? "", user?.id ?? null);
+        return profile ? ok(profile) : fail("Tipér nenalezen.", 404);
+      }
       case "games": {
         const [games, tips] = await Promise.all([upcomingGames(7), user ? myTips(user.id) : []]);
         const splits = await crowdSplits(games.map((g) => g.id));

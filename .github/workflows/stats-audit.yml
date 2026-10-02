@@ -1,0 +1,38 @@
+name: Stats audit
+
+# Weekly check of the precomputed statistics: every league season is compared with the box
+# scores it is computed from and rebuilt if anything drifted (a correction that slipped past the
+# per-game refresh, a manual fix in the database). Then the Elo snapshot is rewritten.
+# Requires repo secret CRON_SECRET.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 3 * * 1"   # Monday ~05:23 Prague
+
+concurrency:
+  group: stats-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Compare and repair each season
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          BASE: https://hokejhub.vercel.app/api/admin/refresh-stats
+        run: |
+          auth="Authorization: Bearer $CRON_SECRET"
+          curl -sS -m 70 -X POST "$BASE?mode=dirty" -H "$auth" | jq -c .
+          seasons=$(curl -sS -m 70 -X POST "$BASE?mode=seasons" -H "$auth" | jq -r '.seasons[] | "\(.league_id) \(.season)"')
+          repaired=0
+          while read -r league season; do
+            [ -z "$league" ] && continue
+            out=$(curl -sS -m 70 -X POST "$BASE?mode=repair&league=$league&season=$season" -H "$auth" || echo '{}')
+            if [ "$(echo "$out" | jq -r '.repaired // false')" = "true" ]; then
+              repaired=$((repaired+1)); echo "repaired $league $season: $(echo "$out" | jq -c .drift)"
+            fi
+          done <<< "$seasons"
+          echo "seasons repaired: $repaired"
+          curl -sS -m 70 -X POST "$BASE?mode=elo" -H "$auth" | jq -c .
