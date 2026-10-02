@@ -144,7 +144,17 @@ body {
 /* Phones: one notch denser. Tailwind sizes and spacing are rem-based, so this scales both. */
 @media (max-width: 639px) {
   html {
-    font-size: 15px;
+    font-size: 14px;
+  }
+}
+
+/* iOS zooms the page into any field whose text is smaller than 16 px when it gets focus (and
+   leaves it zoomed). Fields on touch screens get 16 px; pinch zoom stays available. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
   }
 }
 

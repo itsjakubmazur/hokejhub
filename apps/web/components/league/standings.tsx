@@ -20,12 +20,12 @@ const FORM_LABEL: Record<FormResult, string> = { W: "V", OTW: "VP", T: "R", OTL:
 
 export function FormBadges({ form }: { form: FormResult[] }) {
   return (
-    <span className="flex gap-0.5">
+    <span className="flex gap-px sm:gap-0.5">
       {form.map((f, i) => (
         <span
           key={i}
           title={FORM_LABEL[f]}
-          className={`grid h-[18px] min-w-[18px] place-items-center rounded px-0.5 text-[8px] font-bold sm:h-5 sm:min-w-5 sm:text-[9px] ${FORM_STYLE[f]}`}
+          className={`grid h-3.5 min-w-3.5 place-items-center rounded-[3px] px-[1px] text-[0.5rem] font-bold leading-none sm:h-5 sm:min-w-5 sm:rounded sm:px-0.5 sm:text-[9px] ${FORM_STYLE[f]}`}
         >
           {FORM_LABEL[f]}
         </span>
@@ -155,7 +155,7 @@ export function Standings({
                 </th>
                 <th className="hidden sm:table-cell px-1.5 text-right font-medium">+/−</th>
                 <th className="px-1.5 text-right font-bold">B</th>
-                <th className="pl-2 text-left font-medium sm:pl-3">Forma</th>
+                <th className="pl-1.5 text-left font-medium sm:pl-3">Forma</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -212,7 +212,7 @@ export function Standings({
                     {r.gf - r.ga}
                   </td>
                   <td className="px-1.5 text-right font-bold">{r.pts}</td>
-                  <td className="pl-2 sm:pl-3">
+                  <td className="pl-1.5 sm:pl-3">
                     <FormBadges form={r.form} />
                   </td>
                 </motion.tr>
