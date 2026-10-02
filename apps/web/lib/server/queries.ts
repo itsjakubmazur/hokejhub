@@ -308,7 +308,7 @@ export async function getPlayerGameLog(id: string, season: number) {
 /** Round-number milestones this player reached (career / per club). */
 export async function getPlayerMilestones(id: string) {
   return sql<{ game_id: string; start_at: string; team_id: string; kind: string; value: number }>(
-    `with l as (select * from skater_career_log where player_id = $1)
+    `with l as (select * from skater_career_log_for(array[$1::text]))
      select m.game_id, m.start_at, m.team_id, m.kind, m.value from (
        select l.game_id, l.start_at, l.team_id, x.kind, x.value, x.prev
        from l cross join lateral (values
@@ -497,20 +497,22 @@ export interface PlayerNote {
  * that are one game/goal/point away (pre-game) or were reached in this game (post-game).
  */
 export async function getPlayerNotes(teamIds: string[], before: string, gameId: string | null) {
+  // Plain aggregates and a 30-game lateral per player: the planner walks box_skater by player
+  // through its index. (A set-returning function fed by a sub-select cannot be inlined and ran
+  // the whole history through a window — ~1 s per game page.)
   const rows = await sql<{
     player_id: string;
     name: string;
     headshot: string | null;
     team_id: string;
-    league_id: string;
     career_gp: number;
     career_g: number;
     career_pts: number;
     club_gp: number;
     club_g: number;
     club_pts: number;
-    streak: number;
-    goal_streak: number;
+    recent_pts: number[];
+    recent_g: number[];
   }>(
     `with last_game as (
        select b.team_id, max(g.start_at) as at
@@ -519,38 +521,52 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
        group by b.team_id
      ),
      roster as (
-       select distinct b.player_id, b.team_id
+       select distinct b.player_id, b.team_id, g.league_id
        from box_skater b join game g on g.id = b.game_id
        join last_game lg on lg.team_id = b.team_id and g.start_at = lg.at
      ),
-     log as (
-       select l.*, row_number() over (partition by l.player_id order by l.start_at desc) as rn
-       from skater_career_log_for(array(select player_id from roster)) l
-       where l.start_at < $2
-     ),
-     streaks as (
-       select player_id,
-         coalesce(min(rn) filter (where pts = 0), max(rn) + 1) - 1 as streak,
-         coalesce(min(rn) filter (where g = 0), max(rn) + 1) - 1 as goal_streak
-       from log where rn <= 30 group by player_id
+     totals as (
+       select r.player_id, r.team_id,
+         count(*)::int as career_gp, sum(b.g)::int as career_g, sum(b.pts)::int as career_pts,
+         (count(*) filter (where b.team_id = r.team_id))::int as club_gp,
+         coalesce(sum(b.g) filter (where b.team_id = r.team_id), 0)::int as club_g,
+         coalesce(sum(b.pts) filter (where b.team_id = r.team_id), 0)::int as club_pts
+       from roster r
+       join box_skater b on b.player_id = r.player_id
+       join game g on g.id = b.game_id and g.league_id = r.league_id
+       where g.status = 'final' and g.start_at < $2
+       group by r.player_id, r.team_id
      )
-     select l.player_id, p.name, p.headshot, r.team_id, l.league_id,
-       l.career_gp::int, l.career_g::int, l.career_pts::int, l.club_gp::int, l.club_g::int, l.club_pts::int,
-       s.streak::int, s.goal_streak::int
-     from log l
-     join roster r on r.player_id = l.player_id
-     join player p on p.id = l.player_id
-     join streaks s on s.player_id = l.player_id
-     where l.rn = 1 and l.team_id = r.team_id`,
+     select t.*, p.name, p.headshot, x.recent_pts, x.recent_g
+     from totals t
+     join player p on p.id = t.player_id
+     cross join lateral (
+       select array_agg(y.pts order by y.start_at desc) as recent_pts, array_agg(y.g order by y.start_at desc) as recent_g
+       from (
+         select b.pts, b.g, g.start_at from box_skater b join game g on g.id = b.game_id
+         where b.player_id = t.player_id and g.status = 'final' and g.start_at < $2
+         order by g.start_at desc limit 30
+       ) y
+     ) x`,
     [teamIds, before],
   );
+  const run = (xs: number[] | null) => {
+    let n = 0;
+    for (const v of xs ?? []) {
+      if (v <= 0) break;
+      n++;
+    }
+    return n;
+  };
 
   const notes: PlayerNote[] = [];
   const next = (v: number, step: number) => (Math.floor(v / step) + 1) * step;
   for (const r of rows) {
     const base = { player_id: r.player_id, name: r.name, headshot: r.headshot, team_id: r.team_id };
-    if (r.streak >= 3) notes.push({ ...base, text: `boduje ${csCount(r.streak, CS.zapas)} v řadě`, weight: r.streak * 2 });
-    if (r.goal_streak >= 2) notes.push({ ...base, text: `skóroval ${r.goal_streak}× v řadě`, weight: r.goal_streak * 3 });
+    const streak = run(r.recent_pts);
+    const goalStreak = run(r.recent_g);
+    if (streak >= 3) notes.push({ ...base, text: `boduje ${csCount(streak, CS.zapas)} v řadě`, weight: streak * 2 });
+    if (goalStreak >= 2) notes.push({ ...base, text: `skóroval ${goalStreak}× v řadě`, weight: goalStreak * 3 });
     const checks: [number, number, string, number][] = [
       [r.career_gp, 100, "zápas v extralize", 5],
       [r.club_gp, 100, "zápas za klub", 4],
@@ -574,13 +590,53 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
   }
   let reached: { player_id: string; name: string; headshot: string | null; team_id: string; kind: string; value: number }[] = [];
   if (gameId) {
-    reached = await sql(
-      `select m.player_id, p.name, p.headshot, m.team_id, m.kind, m.value
-       from game_milestones($1) m join player p on p.id = m.player_id`,
-      [gameId],
-    );
+    reached = await gameMilestones(gameId);
   }
   return { notes: notes.sort((a, b) => b.weight - a.weight).slice(0, 12), reached };
+}
+
+/**
+ * Round numbers crossed in one game (career and per club, games/goals/points). The players of the
+ * game go in as a literal array so the career-log function can be inlined and use the index.
+ */
+async function gameMilestones(gameId: string) {
+  const rows = await sql<{
+    player_id: string;
+    name: string;
+    headshot: string | null;
+    team_id: string;
+    g: number;
+    pts: number;
+    career_gp: number;
+    career_g: number;
+    career_pts: number;
+    club_gp: number;
+    club_g: number;
+    club_pts: number;
+  }>(
+    `select l.player_id, p.name, p.headshot, l.team_id, l.g, l.pts,
+       l.career_gp::int, l.career_g::int, l.career_pts::int, l.club_gp::int, l.club_g::int, l.club_pts::int
+     from skater_career_log_for($2::text[]) l join player p on p.id = l.player_id
+     where l.game_id = $1`,
+    [gameId, (await sql<{ player_id: string }>("select player_id from box_skater where game_id = $1", [gameId])).map((r) => r.player_id)],
+  );
+  const out: { player_id: string; name: string; headshot: string | null; team_id: string; kind: string; value: number }[] = [];
+  for (const r of rows) {
+    const checks: [string, number, number, number][] = [
+      ["career_gp", r.career_gp, 1, 100],
+      ["club_gp", r.club_gp, 1, 100],
+      ["career_g", r.career_g, r.g, 50],
+      ["club_g", r.club_g, r.g, 50],
+      ["career_pts", r.career_pts, r.pts, 50],
+      ["club_pts", r.club_pts, r.pts, 50],
+    ];
+    for (const [kind, value, inGame, step] of checks) {
+      if (inGame <= 0 || value < step) continue;
+      if (Math.floor(value / step) > Math.floor((value - inGame) / step))
+        out.push({ player_id: r.player_id, name: r.name, headshot: r.headshot, team_id: r.team_id, kind, value: Math.floor(value / step) * step });
+    }
+  }
+  return out;
 }
 
 export interface UpcomingMilestone {
@@ -611,18 +667,30 @@ export async function getUpcomingMilestones(teamId: string, limit = 8): Promise<
     club_pts: number;
   }>(
     `with recent as (
-       select g.id from game g join box_skater b on b.game_id = g.id and b.team_id = $1
-       where g.status = 'final' group by g.id order by max(g.start_at) desc limit 5
+       select g.id, g.league_id, g.start_at from game g
+       where (g.home_team_id = $1 or g.away_team_id = $1) and g.status = 'final'
+       order by g.start_at desc limit 5
      ),
-     roster as (select distinct b.player_id from box_skater b join recent r on r.id = b.game_id where b.team_id = $1),
-     log as (
-       select l.*, row_number() over (partition by l.player_id order by l.start_at desc, l.game_id desc) as rn
-       from skater_career_log_for(array(select player_id from roster)) l
+     roster as (
+       select b.player_id, max(r.league_id) as league_id, max(r.start_at) as last_at
+       from box_skater b join recent r on r.id = b.game_id where b.team_id = $1 group by b.player_id
+     ),
+     totals as (
+       select r.player_id,
+         count(*)::int as career_gp, sum(b.g)::int as career_g, sum(b.pts)::int as career_pts,
+         (count(*) filter (where b.team_id = $1))::int as club_gp,
+         coalesce(sum(b.g) filter (where b.team_id = $1), 0)::int as club_g,
+         coalesce(sum(b.pts) filter (where b.team_id = $1), 0)::int as club_pts,
+         max(g.start_at) as latest
+       from roster r
+       join box_skater b on b.player_id = r.player_id
+       join game g on g.id = b.game_id and g.league_id = r.league_id
+       where g.status = 'final'
+       group by r.player_id, r.last_at
+       -- still with us: their latest game in the league was one of ours
+       having max(g.start_at) = r.last_at
      )
-     select l.player_id, p.name, p.headshot,
-       l.career_gp::int, l.career_g::int, l.career_pts::int, l.club_gp::int, l.club_g::int, l.club_pts::int
-     from log l join player p on p.id = l.player_id
-     where l.rn = 1 and l.team_id = $1`,
+     select t.*, p.name, p.headshot from totals t join player p on p.id = t.player_id`,
     [teamId],
   );
   const steps: [UpcomingMilestone["kind"], number][] = [
