@@ -10,6 +10,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=dirty                          recompute players of games written since the last run
  *   ?mode=elo                            rewrite the Elo snapshot
  *   ?mode=verify                         compare the tables with the live sources (slow)
+ *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -44,6 +45,18 @@ export async function POST(req: Request) {
     return Response.json({ offset, players: ids.length, done: ids.length < limit, ms: Date.now() - t0 });
   }
   if (mode === "dirty") return Response.json(await refreshDirtyStats(45_000));
+  if (mode === "unseasoned") {
+    const ids = await sql<{ player_id: string }>(
+      `select distinct player_id from (
+         select b.player_id from box_skater b join game g on g.id = b.game_id where g.season is null or g.league_id is null
+         union select b.player_id from box_goalie b join game g on g.id = b.game_id where g.season is null or g.league_id is null
+         union select e.player_ids[1] from game_event e join game g on g.id = e.game_id
+           where e.type = 'shot' and (g.season is null or g.league_id is null)
+       ) x where player_id is not null`,
+    );
+    if (ids.length) await sql("select refresh_player_stats($1::text[])", [ids.map((r) => r.player_id)]);
+    return Response.json({ players: ids.length, ms: Date.now() - t0 });
+  }
   if (mode === "verify") {
     const diff = async (t: string, src: string) => {
       const [r] = await sql<{ missing: number; extra: number; rows: number }>(
