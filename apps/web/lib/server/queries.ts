@@ -499,6 +499,24 @@ export interface PlayerNote {
   weight: number;
 }
 
+/**
+ * Each team's latest final game (optionally before a time), found through the game table's
+ * (home_team_id, start_at) / (away_team_id, start_at) indexes — not by scanning the team's
+ * whole box-score history.
+ */
+const LAST_GAME_SQL = (extra: string) => `
+  select t.team_id, x.id as game_id, x.league_id
+  from unnest($1::text[]) as t(team_id)
+  cross join lateral (
+    select y.id, y.league_id from (
+      (select g.id, g.league_id, g.start_at from game g
+       where g.home_team_id = t.team_id and g.status = 'final' ${extra} order by g.start_at desc limit 1)
+      union all
+      (select g.id, g.league_id, g.start_at from game g
+       where g.away_team_id = t.team_id and g.status = 'final' ${extra} order by g.start_at desc limit 1)
+    ) y order by y.start_at desc limit 1
+  ) x`;
+
 interface NoteRow {
   player_id: string;
   name: string;
@@ -530,16 +548,10 @@ async function noteRowsAt(teamIds: string[], before: string): Promise<NoteRow[]>
     recent_pts: number[];
     recent_g: number[];
   }>(
-    `with last_game as (
-       select b.team_id, max(g.start_at) as at
-       from box_skater b join game g on g.id = b.game_id
-       where b.team_id = any($1) and g.status = 'final' and g.start_at < $2
-       group by b.team_id
-     ),
+    `with last_game as (${LAST_GAME_SQL("and g.start_at < $2")}),
      roster as (
-       select distinct b.player_id, b.team_id, g.league_id
-       from box_skater b join game g on g.id = b.game_id
-       join last_game lg on lg.team_id = b.team_id and g.start_at = lg.at
+       select distinct b.player_id, b.team_id, lg.league_id
+       from last_game lg join box_skater b on b.game_id = lg.game_id and b.team_id = lg.team_id
      ),
      totals as (
        select r.player_id, r.team_id,
@@ -584,16 +596,10 @@ async function noteRowsAt(teamIds: string[], before: string): Promise<NoteRow[]>
  */
 async function noteRowsNow(teamIds: string[]): Promise<NoteRow[]> {
   return sql<NoteRow>(
-    `with last_game as (
-       select b.team_id, max(g.start_at) as at
-       from box_skater b join game g on g.id = b.game_id
-       where b.team_id = any($1) and g.status = 'final'
-       group by b.team_id
-     ),
+    `with last_game as (${LAST_GAME_SQL("")}),
      roster as (
-       select distinct b.player_id, b.team_id, g.league_id
-       from box_skater b join game g on g.id = b.game_id
-       join last_game lg on lg.team_id = b.team_id and g.start_at = lg.at
+       select distinct b.player_id, b.team_id, lg.league_id
+       from last_game lg join box_skater b on b.game_id = lg.game_id and b.team_id = lg.team_id
      ),
      totals as (
        select r.player_id, r.team_id,
