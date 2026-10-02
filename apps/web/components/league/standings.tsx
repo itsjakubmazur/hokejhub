@@ -177,7 +177,9 @@ export function Standings({
           />
         )}
       </div>
-      <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+      {/* Phone table: the side padding lives in its first and last cells, so the pinned rank
+          column sits flush with the edge and nothing scrolls past it. */}
+      <div className={`-mx-3 overflow-x-auto sm:mx-0 sm:px-0 ${mode === "table" ? "" : "px-3"}`}>
         {mode === "table" ? (
           <>
             {/* Phones in portrait: a fixed-layout table that opens on rank, club, games, goals,
@@ -185,29 +187,29 @@ export function Standings({
                 sit to the right and scroll in, with rank and club pinned. */}
             <table
               className="w-[calc(100%+var(--extra))] table-fixed text-sm tabular sm:hidden"
-              style={{ "--extra": `${extras.length * 2.4}rem` } as React.CSSProperties}
+              style={{ "--extra": `${extras.length * 2.4 + 0.75}rem` } as React.CSSProperties}
             >
               <colgroup>
-                <col className="w-8" />
+                <col className="w-[2.75rem]" />
                 <col />
                 <col className="w-7" />
                 <col className="w-[3.4rem]" />
                 <col className="w-8" />
                 <col className="w-[6.2rem]" />
-                {extras.map((c) => (
-                  <col key={c.key} className="w-[2.4rem]" />
+                {extras.map((c, i) => (
+                  <col key={c.key} className={i === extras.length - 1 ? "w-[3.15rem]" : "w-[2.4rem]"} />
                 ))}
               </colgroup>
               <thead>
                 <tr className="border-b border-line text-xs text-muted">
-                  <th className="sticky left-0 z-10 bg-surface py-2 text-left font-medium shadow-[-0.75rem_0_0_var(--surface)]">#</th>
-                  <th className="sticky left-8 z-10 bg-surface py-2 pr-2 text-left font-medium">Tým</th>
+                  <th className="sticky left-0 z-10 bg-surface py-2 pl-3 text-left font-medium">#</th>
+                  <th className="sticky left-[2.75rem] z-10 bg-surface py-2 pr-2 text-left font-medium">Tým</th>
                   <th className="text-right font-medium" title="Zápasy">Z</th>
                   <th className="text-right font-medium" title="Skóre">G</th>
                   <th className="text-right font-bold">B</th>
                   <th className="pl-2 text-left font-medium">Forma</th>
                   {extras.map((c) => (
-                    <th key={c.key} title={c.title} className="text-right font-medium">
+                    <th key={c.key} title={c.title} className="text-right font-medium last:pr-3">
                       {c.label}
                     </th>
                   ))}
@@ -221,8 +223,10 @@ export function Standings({
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                     className={highlight.includes(r.teamId) ? "bg-accent-soft" : ""}
                   >
-                    <td className="sticky left-0 z-10 bg-surface py-2 shadow-[-0.75rem_0_0_var(--surface)]">{rankCell(r)}</td>
-                    <td className="sticky left-8 z-10 bg-surface py-2 pr-2 font-medium">{teamCell(r, true)}</td>
+                    <td className="sticky left-0 z-10 bg-surface py-2 pl-3 shadow-[inset_0_1px_0_var(--border)]">{rankCell(r)}</td>
+                    <td className="sticky left-[2.75rem] z-10 bg-surface py-2 pr-2 font-medium shadow-[inset_0_1px_0_var(--border)]">
+                      {teamCell(r, true)}
+                    </td>
                     <td className="text-right">{r.gp}</td>
                     <td className="text-right">
                       {r.gf}:{r.ga}
@@ -234,7 +238,7 @@ export function Standings({
                     {extras.map((c) => {
                       const v = c.key === "diff" ? r.gf - r.ga : r[c.key];
                       return (
-                        <td key={c.key} className={`text-right ${c.key === "diff" ? (v > 0 ? "text-win" : v < 0 ? "text-live" : "") : ""}`}>
+                        <td key={c.key} className={`text-right last:pr-3 ${c.key === "diff" ? (v > 0 ? "text-win" : v < 0 ? "text-live" : "") : ""}`}>
                           {c.key === "diff" && v > 0 ? "+" : ""}
                           {v}
                         </td>
