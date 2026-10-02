@@ -8,6 +8,7 @@ import {
   type CrawlJob,
   type Rows,
 } from "@hokejhub/core";
+import { refreshAfterIngest } from "@/lib/server/stats-refresh";
 import { supabaseAdmin } from "@/lib/server/supabase";
 
 /**
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
     .eq("status", "running")
     .lt("updated_at", new Date(Date.now() - 10 * 60_000).toISOString());
 
-  while (Date.now() - started < budgetMs - PAUSE_MS - 8000) {
+  while (Date.now() - started < budgetMs - PAUSE_MS - 8000 - 10_000) {
     const { data: candidates, error } = await db
       .from("crawl_job")
       .select("id,key,kind,params,priority,attempts")
@@ -180,5 +181,7 @@ export async function POST(req: Request) {
     await sleep(PAUSE_MS);
   }
 
-  return Response.json({ processed: log.length, ms: Date.now() - started, log });
+  // Precomputed statistics follow the writes: players of the games just stored, then Elo.
+  const stats = log.some((l) => l.ok) ? await refreshAfterIngest().catch((e) => ({ error: e instanceof Error ? e.message : String(e) })) : null;
+  return Response.json({ processed: log.length, ms: Date.now() - started, stats, log });
 }
