@@ -270,7 +270,10 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         });
       }
       const gameId = `hcz-${m.id}`;
-      const played = m.homeScore !== null && m.awayScore !== null && /konec/i.test(m.statusLabel ?? "");
+      // A forfeit ("Kontumováno") is a finished game with the awarded 5:0; the box score of the
+      // game as played stays, as in the official statistics.
+      const forfeit = /kontum/i.test(m.statusLabel ?? "");
+      const played = m.homeScore !== null && m.awayScore !== null && (forfeit || /konec/i.test(m.statusLabel ?? ""));
       rows.game.push({
         id: gameId,
         source: "hokejcz",
@@ -289,7 +292,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         home_score: m.homeScore,
         away_score: m.awayScore,
         periods: m.periods,
-        decided_in: played ? m.decidedIn : null,
+        decided_in: played ? (forfeit ? "REG" : m.decidedIn) : null,
         series: m.series,
         attendance: m.attendance,
         capacity: m.capacity,

@@ -20,6 +20,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=repair&league=cz-elh&season=N  compare one season with its source and rebuild it if it drifted
  *   ?mode=competitions&league=cz-elh     every competition id / phase with its game count and months, to spot friendlies
  *   ?mode=audit&check=NAME               read-only data checks (leagues, competitions, dates, duplicates, scores, boxless, gp)
+ *   ?mode=recrawl-stuck                  put games left "live" for over a day (e.g. forfeits) back in the crawl queue
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -123,6 +124,16 @@ export async function POST(req: Request) {
       [season],
     );
     return Response.json({ season, games, skaters, goalies });
+  }
+  if (mode === "recrawl-stuck") {
+    const rows = await sql<{ id: string }>(
+      `update crawl_job j set status = 'pending', attempts = 0, next_at = now(), updated_at = now() - interval '1 day'
+       from game g
+       where j.kind = 'match' and g.id = 'hcz-' || (j.params->>'id') and g.league_id = 'cz-elh'
+         and g.status = 'live' and g.start_at < now() - interval '1 day' and j.status <> 'running'
+       returning g.id`,
+    );
+    return Response.json({ requeued: rows.map((r) => r.id) });
   }
   if (mode === "recrawl") {
     const season = Number(url.searchParams.get("season"));
