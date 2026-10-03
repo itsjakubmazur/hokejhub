@@ -41,7 +41,7 @@ export interface GameRowDb {
 const GAME_SELECT = `
   g.id, g.start_at, g.season, g.phase, g.round, g.home_team_id, g.away_team_id,
   coalesce(g.home_name, th.name) as home_name, coalesce(g.away_name, ta.name) as away_name,
-  th.abbrev as home_abbrev, ta.abbrev as away_abbrev, season_logo(g.home_team_id, g.season) as home_logo, season_logo(g.away_team_id, g.season) as away_logo,
+  th.abbrev as home_abbrev, ta.abbrev as away_abbrev, th.logo_url as home_logo, ta.logo_url as away_logo,
   g.home_score, g.away_score, g.decided_in, g.status, g.attendance, g.capacity, g.venue,
   (g.team_stats->'xG'->>0)::float as xg_home, (g.team_stats->'xG'->>1)::float as xg_away`;
 
@@ -164,7 +164,7 @@ export interface SkaterSeasonRow {
 }
 
 const SKATER_COLS = `
-  s.player_id, p.name, p.headshot, s.team_id, t.abbrev as team_abbrev, season_logo(s.team_id, s.season) as team_logo, p.position,
+  s.player_id, p.name, p.headshot, s.team_id, t.abbrev as team_abbrev, t.logo_url as team_logo, p.position,
   s.gp::int, s.g::int, s.a::int, s.pts::int, s.pm::int, s.pim::int, s.sog::int, s.hits::int, s.blk::int,
   coalesce(s.fo_w,0)::int as fo_w, coalesce(s.fo_taken,0)::int as fo_taken, s.toi_avg::int,
   x.xg::float as xg`;
@@ -222,7 +222,7 @@ export interface GoalieSeasonRow {
 
 export async function getLeagueGoalies(league: string, season: number, phase = "regular") {
   return sql<GoalieSeasonRow>(
-    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, season_logo(s.team_id, s.season) as team_logo, s.gp::int, s.saves::int, s.ga::int,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, t.logo_url as team_logo, s.gp::int, s.saves::int, s.ga::int,
             s.sv_pct::float, s.gaa::float, s.shutouts::int
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.league_id = $1 and s.season = $2 and s.phase = $3 and s.gp > 0
@@ -270,7 +270,7 @@ export async function getPlayerSeasons(id: string) {
 
 export async function getPlayerGoalieSeasons(id: string) {
   return sql<GoalieSeasonRow & { season: number; phase: string }>(
-    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, season_logo(s.team_id, s.season) as team_logo, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
+    `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, t.logo_url as team_logo, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
             s.gaa::float, s.shutouts::int, s.season, s.phase
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
      where s.player_id = $1 and s.league_id = 'cz-elh' order by s.season desc, s.phase desc`,
@@ -450,7 +450,7 @@ export async function getTeamLogos(league: string, season?: number) {
   const rows = await sql<{ id: string; logo_url: string | null }>(
     season == null
       ? "select id, logo_url from team where league_id = $1"
-      : "select id, season_logo(id, $2) as logo_url from team where league_id = $1",
+      : "select id, logo_url from team where league_id = $1 and $2::int is not null",
     season == null ? [league] : [league, season],
   );
   return Object.fromEntries(rows.filter((r) => r.logo_url).map((r) => [r.id, r.logo_url!])) as Record<string, string>;
