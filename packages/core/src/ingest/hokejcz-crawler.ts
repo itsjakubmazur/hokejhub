@@ -122,7 +122,13 @@ export function jobPath(j: Pick<CrawlJob, "kind" | "params">): string {
   }
 }
 
-export const seasonId = (season: number) => `${LEAGUE_ID}-${season}`;
+/**
+ * hokej.cz lists 1992/93 among the extraliga seasons, but it was the last Czechoslovak league
+ * (with Slovak clubs); the extraliga starts in 1993/94. Its games are kept under their own league.
+ */
+export const CS_LEAGUE_ID = "cs-liga";
+export const leagueOf = (season: number | null | undefined) => (season != null && season < 1993 ? CS_LEAGUE_ID : LEAGUE_ID);
+export const seasonId = (season: number) => `${leagueOf(season)}-${season}`;
 const seasonLabel = (season: number) => `${season}/${String((season + 1) % 100).padStart(2, "0")}`;
 
 /** "David MUSIL" → "David Musil" (hokej.cz upper-cases surnames). */
@@ -196,10 +202,10 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
   switch (j.kind) {
     case "season": {
       const page = parseHokejczSchedule(html, p.season);
-      rows.season.push({ id: seasonId(p.season), league_id: LEAGUE_ID, label: seasonLabel(p.season) });
+      rows.season.push({ id: seasonId(p.season), league_id: leagueOf(p.season), label: seasonLabel(p.season) });
       for (const c of page.competitions) {
         if (!isLeagueCompetition(c.name)) continue;
-        rows.competition.push({ id: c.id, league_id: LEAGUE_ID, season: p.season, name: c.name, phase: c.phase });
+        rows.competition.push({ id: c.id, league_id: leagueOf(p.season), season: p.season, name: c.name, phase: c.phase });
         jobs.push(job.schedule(p.season, c));
       }
       jobs.push(job.table(p.season));
@@ -229,7 +235,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
       for (const split of ["overall", "home", "away"] as const) {
         for (const r of t[split]) {
           rows.standing_final.push({
-            league_id: LEAGUE_ID,
+            league_id: leagueOf(p.season),
             season: p.season,
             split,
             rank: r.rank,
@@ -277,7 +283,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
       rows.game.push({
         id: gameId,
         source: "hokejcz",
-        league_id: LEAGUE_ID,
+        league_id: leagueOf(p.season),
         season_id: p.season ? seasonId(p.season) : null,
         start_at: parseStartLocal(m.startLocal) ?? new Date(0).toISOString(),
         home_team_id: homeId,

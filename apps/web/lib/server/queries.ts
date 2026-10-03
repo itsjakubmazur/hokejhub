@@ -262,7 +262,7 @@ export async function getPlayerSeasons(id: string) {
      join player p on p.id = s.player_id
      join team t on t.id = s.team_id
      left join player_xg_players(array[$1]) x on x.player_id = s.player_id and x.league_id = s.league_id and x.season = s.season and x.phase = s.phase
-     where s.player_id = $1
+     where s.player_id = $1 and s.league_id = 'cz-elh'
      order by s.season desc, s.phase desc`,
     [id],
   );
@@ -273,7 +273,7 @@ export async function getPlayerGoalieSeasons(id: string) {
     `select s.player_id, p.name, p.headshot, t.abbrev as team_abbrev, t.logo_url as team_logo, s.gp::int, s.saves::int, s.ga::int, s.sv_pct::float,
             s.gaa::float, s.shutouts::int, s.season, s.phase
      from goalie_season s join player p on p.id = s.player_id join team t on t.id = s.team_id
-     where s.player_id = $1 order by s.season desc, s.phase desc`,
+     where s.player_id = $1 and s.league_id = 'cz-elh' order by s.season desc, s.phase desc`,
     [id],
   );
 }
@@ -327,7 +327,7 @@ export async function getPlayerMilestones(id: string) {
          ('career_pts', l.career_pts::int, l.career_pts::int - l.pts, 100),
          ('club_pts', l.club_pts::int, l.club_pts::int - l.pts, 100)
        ) as x(kind, value, prev, step)
-       where x.value >= x.step and x.value / x.step > x.prev / x.step
+       where l.league_id = 'cz-elh' and x.value >= x.step and x.value / x.step > x.prev / x.step
      ) m order by m.start_at desc`,
     [id],
   );

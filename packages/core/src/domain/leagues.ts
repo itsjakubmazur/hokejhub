@@ -20,6 +20,7 @@ const LEAGUES: LeagueInfo[] = [
   { key: "cz-u16", name: "Extraliga mladšího dorostu", shortName: "ELMD", group: "cz-youth", sort: 23 },
   { key: "cz-u16-2", name: "Liga mladšího dorostu", shortName: "LMD", group: "cz-youth", sort: 24 },
   { key: "nhl-pre", name: "NHL – příprava", shortName: "NHL př.", group: "nhl", sort: 5 },
+  { key: "cs-liga", name: "Československá liga", shortName: "ČSHL", group: "cz", sort: 90 },
   { key: "eht-women", name: "Euro Hockey Tour (ženy)", shortName: "EHT Ž", group: "intl", sort: 30 },
 ];
 
