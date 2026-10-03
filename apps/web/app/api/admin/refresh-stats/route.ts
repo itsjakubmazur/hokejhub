@@ -56,13 +56,10 @@ export async function POST(req: Request) {
       boxless: `select season, phase, count(*)::int as games, (array_agg(id order by start_at))[1:5] as sample
           from game g where league_id = $1 and status = 'final'
             and not exists (select 1 from box_skater b where b.game_id = g.id) group by 1, 2 order by 1, 2`,
-      gp: `select season, phase, team, gp from (
-            select season, phase, t as team, count(*)::int as gp,
-              count(*) over (partition by season, phase) as teams,
-              mode() within group (order by count(*)) over (partition by season, phase) as typical
-            from (select season, phase, home_team_id as t from game where league_id = $1 and status = 'final' and phase = 'regular'
-                  union all select season, phase, away_team_id from game where league_id = $1 and status = 'final' and phase = 'regular') u
-            group by season, phase, t) z order by season, team`,
+      gp: `select season, t as team, count(*)::int as gp
+          from (select season, home_team_id as t from game where league_id = $1 and status = 'final' and phase = 'regular'
+                union all select season, away_team_id from game where league_id = $1 and status = 'final' and phase = 'regular') u
+          group by 1, 2 order by 1, 2`,
       unfinished: `select id, season, phase, start_at, status, home_name, away_name from game
           where league_id = $1 and status not in ('final', 'cancelled', 'postponed') and start_at < now() - interval '1 day'
           order by start_at limit 100`,
