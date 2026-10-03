@@ -144,7 +144,7 @@ export async function POST(req: Request) {
       let shots: unknown;
       if (next.kind === "match") {
         const s = await fetch(hokejczShotsUrl(next.params.id), { cache: "no-store", signal: AbortSignal.timeout(15000) });
-        if (s.ok) shots = await s.json();
+        if (s.ok) shots = await s.json().catch(() => undefined); // some old games answer with an HTML redirect
       }
       const { rows, jobs: found } = processJob(next, html, shots);
       await writeRows(rows);
