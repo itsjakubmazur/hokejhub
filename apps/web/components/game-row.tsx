@@ -57,6 +57,12 @@ export function GameRow({
   const odds = live ? (liveOdds ?? null) : game.preOdds;
   const periods = game.periods.slice(0, 4);
   const market = prediction && game.preOdds ? impliedProbs(game.preOdds) : null;
+  const upcoming = !live && !final && game.homeScore === null && game.status !== "postponed" && game.status !== "cancelled";
+  // Chance to win the game, overtime and shootout included (a regulation tie split evenly).
+  const winPct = prediction
+    ? { home: Math.round((prediction.home + prediction.draw / 2) * 100), away: Math.round((prediction.away + prediction.draw / 2) * 100) }
+    : null;
+  const fav = winPct ? (winPct.home >= winPct.away ? "home" : "away") : null;
 
   return (
     <Link
@@ -80,7 +86,21 @@ export function GameRow({
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <div className="space-y-0.5 text-right sm:space-y-1">
+        {upcoming && (winPct || game.preOdds) ? (
+          <div className="space-y-0.5 sm:space-y-1" title={prediction ? "Šance na výhru podle modelu (vč. prodloužení) · kurz na výhru v základní době" : "Kurz na výhru v základní době"}>
+            {(["home", "away"] as const).map((side) => (
+              <div key={side} className="flex h-[26px] items-center justify-end gap-2 sm:h-[30px]">
+                {game.preOdds?.[side] ? (
+                  <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium tabular text-muted sm:hidden">{formatOdds(game.preOdds[side])}</span>
+                ) : null}
+                {winPct ? (
+                  <span className={`w-9 text-right text-[13px] tabular ${fav === side ? "font-bold text-fg" : "text-muted"}`}>{winPct[side]} %</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className={`space-y-0.5 text-right sm:space-y-1 ${upcoming ? "hidden" : ""}`}>
           {(["home", "away"] as const).map((side) => {
             const score = side === "home" ? game.homeScore : game.awayScore;
             return (
