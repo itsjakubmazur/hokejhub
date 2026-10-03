@@ -51,6 +51,20 @@ export async function POST(req: Request) {
     return Response.json({ requeued: count });
   }
 
+  // One match the crawl missed: ?match=ID&season=YYYY&competition=ID&phase=regular
+  const match = Number(url.searchParams.get("match"));
+  if (match) {
+    const j = jobs.match(match, {
+      season: Number(url.searchParams.get("season")) || undefined,
+      competition: Number(url.searchParams.get("competition")) || undefined,
+      phase: url.searchParams.get("phase") ?? undefined,
+    });
+    await enqueue([j]);
+    const { error } = await db.from("crawl_job").update({ status: "pending", attempts: 0, next_at: new Date().toISOString() }).eq("key", j.key);
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ queued: j.key });
+  }
+
   const seed = url.searchParams.get("seed");
   if (seed) {
     const [from, to] = seed.split("-").map(Number);
