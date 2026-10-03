@@ -87,5 +87,9 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   {
     "name": "20261021000000_crest_trinec_1994_redrawn.sql",
     "sql": "-- HC Železárny Třinec: the crest redrawn as a clean vector after the club puck (same layout,\n-- colours and ironworks emblem), replacing the cut-out from the photo.\nupdate team_season_logo set logo_url = '/crests/trinec-1994-v2.png'\nwhere team_id = 'hcz-11' and league_id = 'cz-elh' and season between 1994 and 1998;\n"
+  },
+  {
+    "name": "20261022000000_crest_trinec_1994_v3.sql",
+    "sql": "-- HC Železárny Třinec: a cleaner redraw after the club puck, supplied by the user.\nupdate team_season_logo set logo_url = '/crests/trinec-1994-v3.png'\nwhere team_id = 'hcz-11' and league_id = 'cz-elh' and season between 1994 and 1998;\n"
   }
 ];
