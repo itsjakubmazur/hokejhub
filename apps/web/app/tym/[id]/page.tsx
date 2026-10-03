@@ -35,6 +35,7 @@ import {
   toResultGames,
   type GameRowDb,
   getUpcomingMilestones,
+  getReachedMilestones,
 } from "@/lib/server/queries";
 import { CS, csCount } from "@hokejhub/core";
 import { imgSrc } from "@/lib/img";
@@ -134,13 +135,14 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
   const rules = rulesForSeason(season);
   // The table needs every game of the league, not only this club's — otherwise the neighbours
   // only hold the points they took from us.
-  const [leagueGames, milestones] = await Promise.all([
+  const [leagueGames, milestones, reached] = await Promise.all([
     league
       ? getSeasonGames(league, season, "regular")
           .then(toResultGames)
           .then((g) => (league === "cz-elh" ? withPendingFinals(g, season).catch(() => g) : g))
       : Promise.resolve(played),
     getUpcomingMilestones(teamId).catch(() => []),
+    getReachedMilestones(teamId).catch(() => []),
   ]);
   const table = computeStandings(leagueGames, { rules });
   const me = table.find((r) => r.teamId === teamId) ?? computeStandings(played, { rules }).find((r) => r.teamId === teamId)!;
@@ -232,7 +234,7 @@ async function Overview({ teamId, games, season, league }: { teamId: string; gam
           ) : null}
         </Card>
       </div>
-      <UpcomingMilestones items={milestones} />
+      <UpcomingMilestones items={milestones} reached={reached} />
       <Card
         title="Posledních 8 zápasů"
         action={

@@ -678,7 +678,7 @@ export async function getPlayerNotes(teamIds: string[], before: string, gameId: 
  * Round numbers crossed in one game (career and per club, games/goals/points). The players of the
  * game go in as a literal array so the career-log function can be inlined and use the index.
  */
-async function gameMilestones(gameId: string) {
+export async function gameMilestones(gameId: string) {
   const rows = await sql<{
     player_id: string;
     name: string;
@@ -794,4 +794,46 @@ export async function getUpcomingMilestones(teamId: string, limit = 8): Promise<
 export async function getTeamSeasonName(id: string, season: number) {
   const [r] = await sql<{ name: string | null }>("select season_team_name($1, $2) as name", [id, season]);
   return r?.name ?? null;
+}
+
+export interface ReachedMilestone {
+  player_id: string;
+  name: string;
+  headshot: string | null;
+  kind: UpcomingMilestone["kind"];
+  value: number;
+  game_id: string;
+  start_at: string;
+  opponent: string;
+}
+
+/** Round numbers the club's skaters reached in its games of the last `days` days, newest first. */
+export async function getReachedMilestones(teamId: string, days = 60, limit = 8): Promise<ReachedMilestone[]> {
+  const roster = await sql<{ player_id: string }>(
+    `select distinct b.player_id from box_skater b join game g on g.id = b.game_id
+     where b.team_id = $1 and g.status = 'final' and g.league_id = 'cz-elh' and g.start_at > now() - make_interval(days => $2)`,
+    [teamId, days],
+  );
+  if (roster.length === 0) return [];
+  return sql<ReachedMilestone>(
+    `select l.player_id, p.name, p.headshot, x.kind, (x.value / x.step * x.step)::int as value, l.game_id, l.start_at,
+            coalesce(season_team_name(case when g.home_team_id = $1 then g.away_team_id else g.home_team_id end, g.season),
+                     case when g.home_team_id = $1 then g.away_name else g.home_name end) as opponent
+     from skater_career_log_for($2::text[]) l
+     join player p on p.id = l.player_id
+     join game g on g.id = l.game_id
+     cross join lateral (values
+       ('career_gp', l.career_gp::int, l.career_gp::int - 1, 100),
+       ('club_gp', l.club_gp::int, l.club_gp::int - 1, 100),
+       ('career_g', l.career_g::int, l.career_g::int - l.g, 50),
+       ('club_g', l.club_g::int, l.club_g::int - l.g, 50),
+       ('career_pts', l.career_pts::int, l.career_pts::int - l.pts, 100),
+       ('club_pts', l.club_pts::int, l.club_pts::int - l.pts, 100)
+     ) as x(kind, value, prev, step)
+     where l.league_id = 'cz-elh' and l.team_id = $1 and l.start_at > now() - make_interval(days => $3)
+       and x.value >= x.step and x.value / x.step > x.prev / x.step
+     order by l.start_at desc, x.step desc
+     limit $4`,
+    [teamId, roster.map((r) => r.player_id), days, limit],
+  );
 }

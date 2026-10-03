@@ -5,17 +5,57 @@ import { getLeague } from "@hokejhub/core";
 import { PageHero } from "@/components/ui/page-hero";
 import { Card, Empty } from "@/components/ui/card";
 import { ClubLogo } from "@/components/club-logo";
-import { getOtherTable, OTHER_TABLES, type OtherTableGroup } from "@/lib/server/other-tables";
+import Link from "next/link";
+import { getNhlTable, getOtherTable, OTHER_TABLES, type NhlView, type OtherTableGroup } from "@/lib/server/other-tables";
 
 export const revalidate = 600;
 
 export async function generateMetadata(props: PageProps<"/tabulka/[league]">): Promise<Metadata> {
   const { league } = await props.params;
-  return { title: `Tabulka – ${OTHER_TABLES[league]?.name ?? getLeague(league).name}` };
+  return { title: `Tabulka – ${league === "nhl" ? "NHL" : (OTHER_TABLES[league]?.name ?? getLeague(league).name)}` };
 }
 
 /** Columns past the basic ones, scrolled to sideways on phones. */
 const EXTRA = ["V", "VP", "PP", "P"] as const;
+
+const NHL_VIEWS: [NhlView, string][] = [
+  ["divize", "Divize"],
+  ["konference", "Konference"],
+  ["liga", "Celá liga"],
+];
+
+async function NhlPage({ view }: { view: NhlView }) {
+  const groups = await getNhlTable(view);
+  return (
+    <div className="space-y-4">
+      <PageHero kicker="Tabulka" title="NHL" icon={ListOrdered}>
+        Aktuální pořadí podle NHL.
+      </PageHero>
+      <div className="flex gap-1.5">
+        {NHL_VIEWS.map(([v, label]) => (
+          <Link
+            key={v}
+            href={v === "divize" ? "/tabulka/nhl" : `/tabulka/nhl?pohled=${v}`}
+            className={`border px-3 py-1.5 text-sm font-semibold ${v === view ? "border-fg bg-fg text-bg" : "border-line text-muted hover:text-fg"}`}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+      {!groups?.length ? (
+        <Card>
+          <Empty>Tabulku se teď nepodařilo načíst.</Empty>
+        </Card>
+      ) : (
+        groups.map((g) => (
+          <Card key={g.title} title={g.title} icon={ListOrdered}>
+            <GroupTable group={g} />
+          </Card>
+        ))
+      )}
+    </div>
+  );
+}
 
 function GroupTable({ group }: { group: OtherTableGroup }) {
   const hasExtra = EXTRA.filter((k) => group.rows.some((r) => r.values[k] != null));
@@ -68,6 +108,10 @@ function GroupTable({ group }: { group: OtherTableGroup }) {
 
 export default async function OtherTablePage(props: PageProps<"/tabulka/[league]">) {
   const { league } = await props.params;
+  if (league === "nhl") {
+    const p = (await props.searchParams).pohled;
+    return <NhlPage view={p === "konference" || p === "liga" ? p : "divize"} />;
+  }
   const def = OTHER_TABLES[league];
   if (!def) notFound();
   const groups = await getOtherTable(league);

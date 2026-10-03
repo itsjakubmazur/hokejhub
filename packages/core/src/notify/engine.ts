@@ -47,6 +47,8 @@ export interface NotifyPrefs {
   teams: string[];
   /** Quiet hours in Prague time, e.g. {from: 23, to: 7}; null = off. */
   quiet: { from: number; to: number } | null;
+  /** Round numbers reached by players of followed teams (100th game, 50th goal, 100th point…). */
+  milestones: boolean;
 }
 
 export const DEFAULT_PREFS: NotifyPrefs = {
@@ -54,6 +56,7 @@ export const DEFAULT_PREFS: NotifyPrefs = {
   leagues: [],
   teams: [],
   quiet: { from: 23, to: 7 },
+  milestones: true,
 };
 
 export function snapshotOf(g: Game, prev?: GameSnapshot): GameSnapshot {

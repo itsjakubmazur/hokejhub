@@ -2,7 +2,7 @@ import { Flag } from "lucide-react";
 import Link from "next/link";
 import { Portrait } from "../portrait";
 import { Card, Empty } from "../ui/card";
-import type { UpcomingMilestone } from "@/lib/server/queries";
+import type { ReachedMilestone, UpcomingMilestone } from "@/lib/server/queries";
 import { CS, csCount } from "@hokejhub/core";
 
 const LABEL: Record<UpcomingMilestone["kind"], string> = {
@@ -17,9 +17,38 @@ const LABEL: Record<UpcomingMilestone["kind"], string> = {
 const unit = (kind: UpcomingMilestone["kind"]) => (kind.endsWith("_gp") ? CS.zapas : kind.endsWith("_g") ? CS.gol : CS.bod);
 
 /** The club's skaters closest to a round number, laid out like the milestones in the game center. */
-export function UpcomingMilestones({ items }: { items: UpcomingMilestone[] }) {
+export function UpcomingMilestones({ items, reached = [] }: { items: UpcomingMilestone[]; reached?: ReachedMilestone[] }) {
   return (
-    <Card title="Blížící se milníky" icon={Flag}>
+    <Card title="Milníky" icon={Flag}>
+      {reached.length ? (
+        <div className="mb-5">
+          <h3 className="label mb-2 text-muted">Nedávno dosažené</h3>
+          <ul className="grid gap-2 sm:grid-cols-2 sm:gap-3">
+            {reached.map((m, i) => (
+              <li
+                key={`${m.player_id}-${m.kind}-${m.game_id}`}
+                className="rise flex items-center gap-3 border border-win/40 bg-win/5 p-2.5"
+                style={{ animationDelay: `${i * 40}ms` }}
+              >
+                <Portrait src={m.headshot} alt={m.name} width={48} />
+                <div className="flex min-w-0 flex-col">
+                  <span className="flex items-baseline gap-2">
+                    <span className="display text-3xl leading-none tabular text-win">{m.value}.</span>
+                    <span className="text-sm text-muted">{LABEL[m.kind]}</span>
+                  </span>
+                  <Link href={`/hrac/${m.player_id}?tab=milniky`} className="mt-1 truncate font-semibold hover:text-accent">
+                    {m.name}
+                  </Link>
+                  <Link href={`/zapas/${m.game_id}`} className="truncate text-xs text-muted hover:text-accent">
+                    {new Date(m.start_at).toLocaleDateString("cs-CZ", { day: "numeric", month: "numeric", timeZone: "Europe/Prague" })} proti {m.opponent}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <h3 className="label mb-2 text-muted">Blížící se</h3>
       {items.length === 0 ? (
         <Empty>Nikdo z kádru není blízko kulatému číslu.</Empty>
       ) : (

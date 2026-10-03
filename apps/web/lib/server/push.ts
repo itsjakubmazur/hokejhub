@@ -2,6 +2,8 @@ import webpush from "web-push";
 import {
   DEFAULT_PREFS,
   detectEvents,
+  inQuietHours,
+  teamMatches,
   esportsUrls,
   parseScoreboard,
   pragueDate,
@@ -13,6 +15,7 @@ import {
   type NotifyPrefs,
 } from "@hokejhub/core";
 import { sql } from "./db";
+import { gameMilestones } from "./queries";
 import { fetchJson } from "./fetcher";
 
 export function vapidConfigured() {
@@ -90,6 +93,10 @@ export async function tick(): Promise<TickResult> {
   const subs = await sql<SubscriptionRow>("select id, endpoint, p256dh, auth, prefs from push_subscription where fail_count < 20");
   if (subs.length === 0) return { subs: 0, games: 0, events: 0, sent: 0, nextActive: null };
   const now = Date.now();
+  const milestoneSent = await notifyMilestones(subs, now).catch((e) => {
+    console.error("[push] milestones", e);
+    return 0;
+  });
   const games = (await loadGames()).filter((g) => g.status !== "postponed" && g.status !== "cancelled");
   const isActive = (g: Game) =>
     g.status === "live" ||
@@ -103,14 +110,14 @@ export async function tick(): Promise<TickResult> {
     .sort((a, b) => a - b);
   const live = active.some((g) => g.status !== "final");
   const nextActive = live ? new Date(now).toISOString() : upcoming[0] ? new Date(Math.max(now, upcoming[0])).toISOString() : null;
-  if (active.length === 0) return { subs: subs.length, games: 0, events: 0, sent: 0, nextActive };
+  if (active.length === 0) return { subs: subs.length, games: 0, events: 0, sent: milestoneSent, nextActive };
 
   const ids = active.map((g) => g.id);
   const rows = await sql<{ game_id: string; snapshot: GameSnapshot }>("select game_id, snapshot from push_game_state where game_id = any($1)", [ids]);
   const prev = new Map(rows.map((r) => [r.game_id, r.snapshot]));
 
   let events = 0;
-  let sent = 0;
+  let sent = milestoneSent;
   const jobs: Promise<unknown>[] = [];
   for (const g of active) {
     const p = prev.get(g.id);
@@ -147,4 +154,66 @@ export async function tick(): Promise<TickResult> {
   await sql("delete from push_game_state where updated_at < now() - interval '2 days'");
   await sql("delete from notification_outbox where created_at < now() - interval '14 days'");
   return { subs: subs.length, games: active.length, events, sent, nextActive };
+}
+
+const MILESTONE_LABEL: Record<string, (v: number, club: string) => string> = {
+  career_gp: (v) => `${v}. zápas v extralize`,
+  club_gp: (v, club) => `${v}. zápas za ${club}`,
+  career_g: (v) => `${v}. gól v extralize`,
+  club_g: (v, club) => `${v}. gól za ${club}`,
+  career_pts: (v) => `${v}. bod v extralize`,
+  club_pts: (v, club) => `${v}. bod za ${club}`,
+};
+
+/**
+ * Round numbers reached in extraliga games stored in the last hours, sent to subscribers who
+ * follow the player's team. Each game is looked at once (marker row in push_game_state).
+ */
+async function notifyMilestones(subs: SubscriptionRow[], now: number): Promise<number> {
+  const wanting = subs.filter((s) => ({ ...DEFAULT_PREFS, ...s.prefs }).milestones && (s.prefs.teams?.length ?? 0) > 0);
+  if (wanting.length === 0) return 0;
+  const games = await sql<{ id: string }>(
+    `select g.id from game g
+     where g.league_id = 'cz-elh' and g.status = 'final' and g.start_at > now() - interval '12 hours'
+       and exists (select 1 from box_skater b where b.game_id = g.id)
+       and not exists (select 1 from push_game_state s where s.game_id = 'ms:' || g.id)`,
+  );
+  let sent = 0;
+  for (const { id } of games) {
+    const [claimed] = await sql<{ game_id: string }>(
+      `insert into push_game_state (game_id, snapshot, updated_at) values ('ms:' || $1, '{}', now())
+       on conflict (game_id) do nothing returning game_id`,
+      [id],
+    );
+    if (!claimed) continue;
+    const reached = await gameMilestones(id);
+    if (reached.length === 0) continue;
+    const teams = await sql<{ id: string; name: string; short_name: string; logo_url: string | null }>(
+      "select id, name, short_name, logo_url from team where id = any($1)",
+      [[...new Set(reached.map((m) => m.team_id))]],
+    );
+    const teamOf = new Map(teams.map((t) => [t.id, t]));
+    for (const m of reached) {
+      const t = teamOf.get(m.team_id);
+      if (!t) continue;
+      const asGame = { home: { name: t.name, shortName: t.short_name }, away: { name: t.name, shortName: t.short_name } } as Game;
+      const text = MILESTONE_LABEL[m.kind]?.(m.value, t.short_name);
+      if (!text) continue;
+      for (const s of wanting) {
+        const prefs = { ...DEFAULT_PREFS, ...s.prefs } as NotifyPrefs;
+        if (!teamMatches(prefs.teams, asGame) || inQuietHours(prefs.quiet, now)) continue;
+        const url = `/hrac/${m.player_id}?tab=milniky`;
+        const [row] = await sql<{ id: number }>(
+          `insert into notification_outbox (user_id, dedupe_key, payload, url)
+           values ($1, $2, $3, $4) on conflict (dedupe_key) do nothing returning id`,
+          [s.id, `${s.id}:ms:${id}:${m.player_id}:${m.kind}`, JSON.stringify({ title: m.name, body: text }), url],
+        );
+        if (!row) continue;
+        const ok = await send(s, { title: `Milník: ${m.name}`, body: text, url, tag: `ms-${m.player_id}`, icon: m.headshot ?? t.logo_url ?? undefined });
+        if (ok) sent++;
+        await sql("update notification_outbox set sent_at = case when $2 then now() end, error = case when $2 then null else 'failed' end where id = $1", [row.id, ok]);
+      }
+    }
+  }
+  return sent;
 }

@@ -69,7 +69,7 @@ function nhlNights(games: Game[], date: string) {
 /** Competitions with a table page in the app: the scoreboard header links straight to it. */
 const TABLE_HREF: Record<string, string> = {
   "cz-elh": "/liga/cz-elh",
-  nhl: "/liga/nhl",
+  nhl: "/tabulka/nhl",
   ...Object.fromEntries(["cz-maxa", "cz-2liga", "cz-u20", "cz-u20-2", "cz-u17", "cz-u16"].map((k) => [k, `/tabulka/${k}`])),
 };
 

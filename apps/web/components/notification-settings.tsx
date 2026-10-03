@@ -217,6 +217,20 @@ function Settings({ vapidKey }: { vapidKey: string | null }) {
               </li>
             );
           })}
+          <li>
+            <button
+              onClick={() => update({ ...prefs, milestones: !(prefs.milestones ?? true) })}
+              className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${(prefs.milestones ?? true) ? "border-accent bg-accent-soft" : "border-line"}`}
+            >
+              <span className={`grid size-5 place-items-center rounded-md border text-[11px] ${(prefs.milestones ?? true) ? "border-accent bg-accent text-white" : "border-line"}`}>
+                {(prefs.milestones ?? true) ? "✓" : ""}
+              </span>
+              <span>
+                <span className="block text-sm font-medium">Milníky hráčů</span>
+                <span className="block text-xs text-muted">kulatý zápas, gól nebo bod hráče sledovaného týmu</span>
+              </span>
+            </button>
+          </li>
         </ul>
       </Card>
 

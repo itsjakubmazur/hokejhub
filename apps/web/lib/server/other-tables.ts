@@ -62,3 +62,70 @@ export async function getOtherTable(league: string): Promise<OtherTableGroup[] |
   };
   return res.data.map((g) => ({ title: g.title, rows: g.rows.map((r) => ({ ...r, logo: logoFor(r.team) })) }));
 }
+
+interface NhlStanding {
+  teamName: { default: string };
+  teamCommonName?: { default: string };
+  teamAbbrev: { default: string };
+  teamLogo: string;
+  conferenceName: string;
+  divisionName: string;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  otLosses: number;
+  points: number;
+  goalFor: number;
+  goalAgainst: number;
+  leagueSequence: number;
+  conferenceSequence: number;
+  divisionSequence: number;
+}
+
+export type NhlView = "divize" | "konference" | "liga";
+
+const CS_NAMES: Record<string, string> = {
+  Eastern: "Východní konference",
+  Western: "Západní konference",
+  Atlantic: "Atlantická divize",
+  Metropolitan: "Metropolitní divize",
+  Central: "Centrální divize",
+  Pacific: "Pacifická divize",
+};
+
+/** The NHL's current standings from the league API, grouped by division, conference or the whole league. */
+export async function getNhlTable(view: NhlView): Promise<OtherTableGroup[] | null> {
+  const res = await fetchJson(
+    "https://api-web.nhle.com/v1/standings/now",
+    (j) => ((j as { standings?: NhlStanding[] }).standings ?? []),
+    { revalidate: 600 },
+  );
+  const list = res.data;
+  if (!list?.length) return null;
+  const key = (s: NhlStanding) => (view === "divize" ? s.divisionName : view === "konference" ? s.conferenceName : "NHL");
+  const seq = (s: NhlStanding) => (view === "divize" ? s.divisionSequence : view === "konference" ? s.conferenceSequence : s.leagueSequence);
+  const groups = new Map<string, NhlStanding[]>();
+  for (const s of list) groups.set(key(s), [...(groups.get(key(s)) ?? []), s]);
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, rows]) => ({
+      title: CS_NAMES[name] ?? name,
+      rows: rows
+        .sort((a, b) => seq(a) - seq(b))
+        .map((s) => ({
+          rank: seq(s),
+          team: s.teamCommonName?.default ?? s.teamName.default,
+          values: { V: String(s.wins), PP: String(s.otLosses), P: String(s.losses), "Skóre": `${s.goalFor}:${s.goalAgainst}` },
+          gp: s.gamesPlayed,
+          w: s.wins,
+          otw: null,
+          ties: null,
+          otl: s.otLosses,
+          l: s.losses,
+          gf: s.goalFor,
+          ga: s.goalAgainst,
+          pts: s.points,
+          logo: s.teamLogo,
+        })),
+    }));
+}
