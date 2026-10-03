@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import type { ShotEvent } from "@hokejhub/core";
 import { ClubLogo } from "@/components/club-logo";
 import { Portrait } from "@/components/portrait";
+import { CareerAll } from "@/components/player/career-all";
 import { ShotMap } from "@/components/shot-map";
 import { Card, Empty, Stat } from "@/components/ui/card";
 import { SeasonSelect } from "@/components/ui/season-select";
@@ -261,6 +262,9 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
             </Card>
           ) : null}
           {!seasons.length && !goalie.length ? <Empty>Zatím žádné statistiky.</Empty> : null}
+          <Suspense fallback={<CardSkeleton rows={6} />}>
+            <CareerAll playerId={id} />
+          </Suspense>
         </div>
       ) : null}
       {tab === "zapasy" ? <GameLog id={id} season={season} /> : null}
