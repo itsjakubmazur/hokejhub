@@ -59,5 +59,9 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   {
     "name": "20261013000000_tip_play_date.sql",
     "sql": "-- Tips saved while the scoreboard still listed Czech games under neighbouring days carry the\n-- wrong play date (an extraliga game of 2 October stored under 1 October). Settlement looked the\n-- game up by that date and never found it. Extraliga play dates follow the Prague date of the\n-- face-off; NHL keeps its own night-based dates.\nupdate tip_game\nset play_date = (start_at at time zone 'Europe/Prague')::date\nwhere league_key = 'cz-elh' and play_date <> (start_at at time zone 'Europe/Prague')::date;\n"
+  },
+  {
+    "name": "20261015000000_playout_phase.sql",
+    "sql": "-- The play-out groups after the regular season (\"Extraliga - o udržení\" 1993-95, \"… – o umístění\"\n-- 2007-2019) were classified as regular season because their names contain \"extraliga\": their\n-- games inflated regular-season totals and the standings of those seasons (64 or 58 games for the\n-- bottom four). They are play-out, stored with the relegation phase. Season rows are rebuilt\n-- afterwards with refresh_stats_season.\nupdate competition set phase = 'relegation'\nwhere league_id = 'cz-elh' and phase = 'regular' and (name ilike '%o udržení%' or name ilike '%o umístění%');\n\nupdate game g set phase = 'relegation'\nfrom competition c\nwhere g.competition_id = c.id and g.league_id = 'cz-elh' and g.phase = 'regular'\n  and (c.name ilike '%o udržení%' or c.name ilike '%o umístění%');\n"
   }
 ];

@@ -421,7 +421,9 @@ export function isLeagueCompetition(name: string): boolean {
 export function competitionPhase(name: string): HokejczCompetitionOption["phase"] {
   const n = name.toLowerCase();
   if (n.includes("play") || n.includes("předkolo")) return "playoff";
-  if (n.includes("baráž") || n.includes("sestup") || n.includes("kvalifikace")) return "relegation";
+  // play-out groups after the regular season ("o udržení", "o umístění") are not regular season
+  if (n.includes("baráž") || n.includes("sestup") || n.includes("kvalifikace") || n.includes("o udržení") || n.includes("o umístění"))
+    return "relegation";
   if (n.includes("extraliga") || n.includes("liga")) return "regular";
   return "other";
 }
