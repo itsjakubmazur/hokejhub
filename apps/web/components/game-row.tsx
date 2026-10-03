@@ -58,9 +58,11 @@ export function GameRow({
   const periods = game.periods.slice(0, 4);
   const market = prediction && game.preOdds ? impliedProbs(game.preOdds) : null;
   const upcoming = !live && !final && game.homeScore === null && game.status !== "postponed" && game.status !== "cancelled";
-  // Chance to win the game, overtime and shootout included (a regulation tie split evenly).
-  const winPct = prediction
-    ? { home: Math.round((prediction.home + prediction.draw / 2) * 100), away: Math.round((prediction.away + prediction.draw / 2) * 100) }
+  // Chance to win the game, overtime and shootout included (a regulation tie split evenly): the
+  // model's where we have one (extraliga), the bookmaker's implied odds otherwise.
+  const chance = prediction ?? (game.preOdds ? impliedProbs(game.preOdds) : null);
+  const winPct = chance
+    ? { home: Math.round((chance.home + chance.draw / 2) * 100), away: Math.round((chance.away + chance.draw / 2) * 100) }
     : null;
   const fav = winPct ? (winPct.home >= winPct.away ? "home" : "away") : null;
 
@@ -87,7 +89,7 @@ export function GameRow({
       </div>
       <div className="flex items-center gap-3">
         {upcoming && (winPct || game.preOdds) ? (
-          <div className="space-y-0.5 sm:space-y-1" title={prediction ? "Šance na výhru podle modelu (vč. prodloužení) · kurz na výhru v základní době" : "Kurz na výhru v základní době"}>
+          <div className="space-y-0.5 sm:space-y-1" title={`Šance na výhru (vč. prodloužení) ${prediction ? "podle modelu" : "podle kurzů"} · kurz na výhru v základní době`}>
             {(["home", "away"] as const).map((side) => (
               <div key={side} className="flex h-[26px] items-center justify-end gap-2 sm:h-[30px]">
                 {game.preOdds?.[side] ? (
