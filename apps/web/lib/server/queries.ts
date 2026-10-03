@@ -317,7 +317,8 @@ export async function getPlayerMilestones(id: string) {
   return sql<{ game_id: string; start_at: string; team_id: string; kind: string; value: number }>(
     `with l as (select * from skater_career_log_for(array[$1::text]))
      select m.game_id, m.start_at, m.team_id, m.kind, m.value from (
-       select l.game_id, l.start_at, l.team_id, x.kind, x.value, x.prev
+       -- the round number crossed, not the total after the game (2 points from 99 is the 100th)
+       select l.game_id, l.start_at, l.team_id, x.kind, x.value / x.step * x.step as value, x.prev
        from l cross join lateral (values
          ('career_gp', l.career_gp::int, l.career_gp::int - 1, 100),
          ('club_gp', l.club_gp::int, l.club_gp::int - 1, 100),
