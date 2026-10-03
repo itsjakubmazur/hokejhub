@@ -19,6 +19,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=verify                         compare the tables with the live sources (slow)
  *   ?mode=repair&league=cz-elh&season=N  compare one season with its source and rebuild it if it drifted
  *   ?mode=competitions&league=cz-elh     every competition id / phase with its game count and months, to spot friendlies
+ *   ?mode=audit&check=NAME               read-only data checks (leagues, competitions, dates, duplicates, scores, boxless, gp)
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -30,6 +31,48 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "dirty";
   const t0 = Date.now();
+  if (mode === "audit") {
+    const AUDIT: Record<string, string> = {
+      leagues: `select league_id, count(*)::int as games, min(season) as first, max(season) as last,
+          count(*) filter (where status = 'final')::int as final from game group by 1 order by 2 desc`,
+      competitions: `select c.league_id, c.season, c.id, c.name, c.phase, count(g.id)::int as games
+          from competition c left join game g on g.competition_id = c.id group by 1, 2, 3, 4, 5 order by 1, 2, 3`,
+      phases: `select league_id, coalesce(phase, '(null)') as phase, count(*)::int as games from game group by 1, 2 order by 1, 2`,
+      dates: `select id, league_id, season, phase, competition_id, start_at, home_name, away_name, status from game
+          where season is not null and (start_at < make_date(season, 8, 1) or start_at >= make_date(season + 1, 7, 1))
+          order by start_at limit 200`,
+      duplicates: `select league_id, home_team_id, away_team_id, (start_at at time zone 'Europe/Prague')::date as day,
+          array_agg(id order by id) as ids, array_agg(status) as statuses
+          from game group by 1, 2, 3, 4 having count(*) > 1 order by 4 limit 200`,
+      scores: `select g.id, g.season, g.phase, g.home_name, g.away_name, g.home_score, g.away_score, g.decided_in, x.hg, x.ag
+          from game g cross join lateral (
+            select coalesce(sum(b.g) filter (where b.team_id = g.home_team_id), 0)::int as hg,
+                   coalesce(sum(b.g) filter (where b.team_id = g.away_team_id), 0)::int as ag, count(*) as n
+            from box_skater b where b.game_id = g.id) x
+          where g.status = 'final' and g.league_id = $1 and x.n > 0
+            and (x.hg <> g.home_score - case when g.decided_in = 'SO' and g.home_score > g.away_score then 1 else 0 end
+              or x.ag <> g.away_score - case when g.decided_in = 'SO' and g.away_score > g.home_score then 1 else 0 end)
+          order by g.start_at limit 300`,
+      boxless: `select season, phase, count(*)::int as games, (array_agg(id order by start_at))[1:5] as sample
+          from game g where league_id = $1 and status = 'final'
+            and not exists (select 1 from box_skater b where b.game_id = g.id) group by 1, 2 order by 1, 2`,
+      gp: `select season, phase, team, gp from (
+            select season, phase, t as team, count(*)::int as gp,
+              count(*) over (partition by season, phase) as teams,
+              mode() within group (order by count(*)) over (partition by season, phase) as typical
+            from (select season, phase, home_team_id as t from game where league_id = $1 and status = 'final' and phase = 'regular'
+                  union all select season, phase, away_team_id from game where league_id = $1 and status = 'final' and phase = 'regular') u
+            group by season, phase, t) z order by season, team`,
+      unfinished: `select id, season, phase, start_at, status, home_name, away_name from game
+          where league_id = $1 and status not in ('final', 'cancelled', 'postponed') and start_at < now() - interval '1 day'
+          order by start_at limit 100`,
+    };
+    const check = url.searchParams.get("check") ?? "leagues";
+    const text = AUDIT[check];
+    if (!text) return Response.json({ error: "unknown check", checks: Object.keys(AUDIT) }, { status: 400 });
+    const rows = await sql(text, text.includes("$1") ? [url.searchParams.get("league") ?? "cz-elh"] : []);
+    return Response.json({ check, rows });
+  }
   if (mode === "competitions") {
     const rows = await sql(
       `select season, competition_id, phase, count(*)::int as games,
