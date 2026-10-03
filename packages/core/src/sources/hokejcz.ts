@@ -410,6 +410,14 @@ export interface HokejczSchedulePage {
   matches: HokejczScheduleMatch[];
 }
 
+/**
+ * Pre-season cups and friendlies share the extraliga's competition list on hokej.cz (2020's
+ * "Generali Česká Cup – sk. A … play off"), but are not league games and must not count.
+ */
+export function isLeagueCompetition(name: string): boolean {
+  return !/\bcup\b|pohár|přípra|turnaj/i.test(name);
+}
+
 export function competitionPhase(name: string): HokejczCompetitionOption["phase"] {
   const n = name.toLowerCase();
   if (n.includes("play") || n.includes("předkolo")) return "playoff";

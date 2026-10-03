@@ -6,6 +6,7 @@ import { pragueToUtcIso } from "../domain/time.ts";
 import { parseHokejczShots, penaltyWindows, shotsWithXg } from "../sources/hokejcz-shots.ts";
 import {
   hokejczPaths,
+  isLeagueCompetition,
   parseHokejczMatch,
   parseHokejczPlayer,
   parseHokejczSchedule,
@@ -197,6 +198,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
       const page = parseHokejczSchedule(html, p.season);
       rows.season.push({ id: seasonId(p.season), league_id: LEAGUE_ID, label: seasonLabel(p.season) });
       for (const c of page.competitions) {
+        if (!isLeagueCompetition(c.name)) continue;
         rows.competition.push({ id: c.id, league_id: LEAGUE_ID, season: p.season, name: c.name, phase: c.phase });
         jobs.push(job.schedule(p.season, c));
       }
