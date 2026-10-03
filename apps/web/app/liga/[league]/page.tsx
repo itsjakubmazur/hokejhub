@@ -107,7 +107,7 @@ async function PlayoffTab({ league, season }: { league: string; season: number }
   const [rows, regular, logos, seasons] = await Promise.all([
     getSeasonGames(league, season, "playoff"),
     getSeasonGames(league, season, "regular"),
-    getTeamLogos(league),
+    getTeamLogos(league, season),
     getLeagueSeasons(league),
   ]);
   const games = rows
@@ -129,7 +129,7 @@ async function TableTab({ league, season, phase }: { league: string; season: num
   const isCurrent = seasons[0]?.season === season;
   const [rows, logos, shortNames, live] = await Promise.all([
     getSeasonGames(league, season, phase),
-    getTeamLogos(league),
+    getTeamLogos(league, isCurrent ? undefined : season),
     getTeamShortNames(league).catch(() => ({}) as Record<string, string>),
     isCurrent && league === "cz-elh" ? getLiveElhGames().catch(() => []) : Promise.resolve([]),
   ]);

@@ -1,5 +1,5 @@
 import { sql } from "@/lib/server/db";
-import { addDays, pragueDate } from "@hokejhub/core";
+import { addDays, parseHokejczMatch, pragueDate } from "@hokejhub/core";
 import { ingestFinishedElh } from "@/lib/server/ingest";
 import { getScoreboard } from "@/lib/server/scoreboard";
 import { settle } from "@/lib/server/tipping";
@@ -21,6 +21,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=competitions&league=cz-elh     every competition id / phase with its game count and months, to spot friendlies
  *   ?mode=audit&check=NAME               read-only data checks (leagues, competitions, dates, duplicates, scores, boxless, gp)
  *   ?mode=recrawl-stuck                  put games left "live" for over a day (e.g. forfeits) back in the crawl queue
+ *   ?mode=season-logos                   fill the crest each club wore per season from one match page per club season
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -73,6 +74,51 @@ export async function POST(req: Request) {
     if (!text) return Response.json({ error: "unknown check", checks: Object.keys(AUDIT) }, { status: 400 });
     const rows = await sql(text, text.includes("$1") ? [url.searchParams.get("league") ?? "cz-elh"] : []);
     return Response.json({ check, rows });
+  }
+  if (mode === "season-logos") {
+    const todo = await sql<{ team_id: string; league_id: string; season: number; game_id: string }>(
+      `select distinct on (x.team_id, x.league_id, x.season) x.team_id, x.league_id, x.season, x.game_id
+       from (select home_team_id as team_id, league_id, season, id as game_id, start_at from game where status = 'final' and season is not null
+             union all select away_team_id, league_id, season, id, start_at from game where status = 'final' and season is not null) x
+       where x.game_id like 'hcz-%'
+         and not exists (select 1 from team_season_logo l where l.team_id = x.team_id and l.league_id = x.league_id and l.season = x.season)
+       order by x.team_id, x.league_id, x.season, x.start_at desc`,
+    );
+    const origin = process.env.HOKEJCZ_ORIGIN ?? "https://www.hokej.cz/";
+    const done = new Set<string>();
+    let pages = 0;
+    const failed: string[] = [];
+    const queue = [...todo];
+    const worker = async () => {
+      for (let t = queue.shift(); t; t = queue.shift()) {
+        if (Date.now() - t0 > 45_000) return;
+        if (done.has(`${t.team_id}|${t.league_id}|${t.season}`)) continue;
+        try {
+          const res = await fetch(new URL(`zapas/${t.game_id.slice(4)}`, origin), {
+            headers: { "user-agent": "HokejHub/0.1 (personal, non-commercial)", accept: "text/html" },
+            cache: "no-store",
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const m = parseHokejczMatch(await res.text(), Number(t.game_id.slice(4)));
+          pages++;
+          const [g] = await sql<{ home_team_id: string; away_team_id: string }>("select home_team_id, away_team_id from game where id = $1", [t.game_id]);
+          for (const [teamId, side] of [[g!.home_team_id, m.home], [g!.away_team_id, m.away]] as const) {
+            if (!side.logoUrl) continue;
+            await sql(
+              `insert into team_season_logo (team_id, league_id, season, logo_url, name) values ($1, $2, $3, $4, $5)
+               on conflict (team_id, league_id, season) do update set logo_url = excluded.logo_url, name = excluded.name`,
+              [teamId, t.league_id, t.season, side.logoUrl, side.name],
+            );
+            done.add(`${teamId}|${t.league_id}|${t.season}`);
+          }
+        } catch (e) {
+          failed.push(`${t.game_id}: ${e instanceof Error ? e.message : e}`);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    return Response.json({ todo: todo.length, pages, filled: done.size, left: queue.length, failed: failed.slice(0, 10), ms: Date.now() - t0 });
   }
   if (mode === "competitions") {
     const rows = await sql(

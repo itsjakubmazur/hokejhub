@@ -28,6 +28,7 @@ import {
   getTeamFinalRanks,
   getSeasonGames,
   getTeamGames,
+  getTeamLogos,
   getTeamSeasons,
   getTeamSkaters,
   toResultGames,
@@ -64,13 +65,16 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
   const season = seasons.includes(Number(sp.sezona)) ? Number(sp.sezona) : (seasons[0] ?? new Date().getFullYear());
   const tab = TABS.some((t) => t.id === sp.tab) ? (sp.tab as string) : "prehled";
   const games = await getTeamGames(id, season);
+  // a past season shows the crest the club wore then
+  const logo =
+    season === seasons[0] || !team.league_id ? team.logo_url : ((await getTeamLogos(team.league_id, season))[id] ?? team.logo_url);
 
   return (
     <div className="space-y-4">
       <header className="rise relative overflow-hidden bg-board text-board-text">
-        {team.logo_url ? (
+        {logo ? (
           <img
-            src={imgSrc(team.logo_url)!}
+            src={imgSrc(logo)!}
             alt=""
             aria-hidden
             className="pointer-events-none absolute -right-12 top-1/2 size-80 -translate-y-1/2 object-contain opacity-[0.07] sm:size-[28rem]"
@@ -78,8 +82,8 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
         ) : null}
         <div className="relative flex flex-wrap items-center gap-5 p-4 sm:p-6">
           <div className="grid size-24 shrink-0 place-items-center bg-white p-2.5 sm:size-36 sm:p-4">
-            {team.logo_url ? (
-              <img src={imgSrc(team.logo_url)!} alt="" className="size-full object-contain" />
+            {logo ? (
+              <img src={imgSrc(logo)!} alt="" className="size-full object-contain" />
             ) : (
               <span className="display text-3xl text-black">{team.abbrev}</span>
             )}

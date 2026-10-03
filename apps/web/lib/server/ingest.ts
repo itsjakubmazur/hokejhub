@@ -1,4 +1,4 @@
-import { hokejczShotsUrl, jobPath, PRIMARY_KEYS, processJob, WRITE_ORDER, type CrawlJob, type Game, type Rows } from "@hokejhub/core";
+import { hokejczShotsUrl, INSERT_ONLY, jobPath, PRIMARY_KEYS, processJob, TABLE_OF, WRITE_ORDER, type CrawlJob, type Game, type Rows } from "@hokejhub/core";
 import { sql } from "./db";
 import { refreshAfterIngest } from "./stats-refresh";
 import { supabaseAdmin } from "./supabase";
@@ -21,7 +21,9 @@ export async function writeRows(rows: Rows) {
     const list = rows[table];
     if (list.length === 0) continue;
     const pk = PRIMARY_KEYS[table];
-    const { error } = await db.from(table).upsert(dedupe(list, pk), { onConflict: pk });
+    const { error } = await db
+      .from(TABLE_OF[table] ?? table)
+      .upsert(dedupe(list, pk), { onConflict: pk, ignoreDuplicates: INSERT_ONLY.includes(table) });
     if (error) throw new Error(`${table}: ${error.message}`);
   }
 }

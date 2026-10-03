@@ -36,6 +36,10 @@ export interface Rows {
   box_skater: Record<string, unknown>[];
   box_goalie: Record<string, unknown>[];
   standing_final: Record<string, unknown>[];
+  /** Name and crest from a game of the current season: the only rows that may change a team. */
+  team_current: Record<string, unknown>[];
+  /** The crest a club wore in a season, from its match pages. */
+  team_season_logo: Record<string, unknown>[];
 }
 
 export const emptyRows = (): Rows => ({
@@ -48,6 +52,8 @@ export const emptyRows = (): Rows => ({
   box_skater: [],
   box_goalie: [],
   standing_final: [],
+  team_current: [],
+  team_season_logo: [],
 });
 
 /** Order in which row groups must be written (foreign keys). */
@@ -61,7 +67,18 @@ export const WRITE_ORDER: (keyof Rows)[] = [
   "box_skater",
   "box_goalie",
   "standing_final",
+  "team_current",
+  "team_season_logo",
 ];
+
+/** Table each row group is written to, where it differs from the group's name. */
+export const TABLE_OF: Partial<Record<keyof Rows, string>> = { team_current: "team" };
+
+/**
+ * Groups written insert-only: a team row from an old match page must not rename the club or
+ * swap its crest for the one it wore back then.
+ */
+export const INSERT_ONLY: (keyof Rows)[] = ["team"];
 
 export const PRIMARY_KEYS: Record<keyof Rows, string> = {
   competition: "id",
@@ -73,7 +90,14 @@ export const PRIMARY_KEYS: Record<keyof Rows, string> = {
   box_skater: "game_id,player_id",
   box_goalie: "game_id,player_id",
   standing_final: "league_id,season,split,team_name",
+  team_current: "id",
+  team_season_logo: "team_id,league_id,season",
 };
+
+/** Season (start year) of a date: July onwards belongs to the season starting that year. */
+export function seasonOfDate(d: Date = new Date()): number {
+  return d.getUTCMonth() >= 6 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
+}
 
 export const job = {
   season: (season: number): CrawlJob => ({ key: `hcz:season:${season}`, kind: "season", params: { season }, priority: 10 }),
@@ -265,7 +289,7 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         [homeId, m.home],
         [awayId, m.away],
       ] as const) {
-        rows.team.push({
+        const team = {
           id,
           league_id: LEAGUE_ID,
           name: t.name,
@@ -273,7 +297,11 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
           abbrev: t.abbrev,
           logo_url: t.logoUrl,
           external: { hokejczClubId: t.clubId },
-        });
+        };
+        rows.team.push(team);
+        if (p.season != null && p.season >= seasonOfDate()) rows.team_current.push(team);
+        if (p.season != null && t.logoUrl)
+          rows.team_season_logo.push({ team_id: id, league_id: leagueOf(p.season), season: p.season, logo_url: t.logoUrl, name: t.name });
       }
       const gameId = `hcz-${m.id}`;
       // A forfeit ("Kontumováno") is a finished game with the awarded 5:0; the box score of the
