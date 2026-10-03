@@ -61,6 +61,9 @@ export async function POST(req: Request) {
           from (select season, home_team_id as t from game where league_id = $1 and status = 'final' and phase = 'regular'
                 union all select season, away_team_id from game where league_id = $1 and status = 'final' and phase = 'regular') u
           group by 1, 2 order by 1, 2`,
+      rounds: `select season, competition_id, round, count(*)::int as games, max(count(*)) over (partition by competition_id)::int as full_round
+          from game where league_id = $1 and phase = 'regular' and round ~ '^\\d+\\. kolo$'
+          group by 1, 2, 3 order by 1, 2, 3`,
       unfinished: `select id, season, phase, start_at, status, home_name, away_name from game
           where league_id = $1 and status not in ('final', 'cancelled', 'postponed') and start_at < now() - interval '1 day'
           order by start_at limit 100`,
