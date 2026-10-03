@@ -571,6 +571,49 @@ export function parseHokejczStandings(html: string): HokejczStandings {
   return out;
 }
 
+/**
+ * Every standings table on a hokej.cz table page with the heading above it — leagues split into
+ * groups ("2. liga – Západ", "2. liga – Východ") get one entry each. Home/away splits are left out.
+ */
+export function parseHokejczTableGroups(html: string): { title: string; rows: HokejczStandingRow[] }[] {
+  const root = parse(html);
+  const out: { title: string; rows: HokejczStandingRow[] }[] = [];
+  let heading = "";
+  for (const el of root.querySelectorAll("h2, table.table-soupiska")) {
+    if (el.tagName === "H2") {
+      heading = clean(el.text);
+      continue;
+    }
+    if (/(DOMA|VENKU)$/i.test(heading)) continue;
+    const head = headers(el);
+    const rows: HokejczStandingRow[] = [];
+    for (const tr of el.querySelectorAll("tr")) {
+      const c = cells(tr);
+      if (c.length < head.length - 1 || c.length < 4) continue;
+      const values: Record<string, string> = {};
+      head.forEach((h, i) => (values[h] = clean(c[i]?.text)));
+      const score = pair(values["Skóre"] ?? "");
+      const n = (k: string) => (k in values ? int(values[k]) : null);
+      rows.push({
+        rank: int(values["#"]),
+        team: values["Tým"] ?? "",
+        values,
+        gp: n("Z"),
+        w: n("V"),
+        otw: n("VP"),
+        ties: n("R"),
+        otl: n("PP"),
+        l: n("P"),
+        gf: score?.[0] ?? null,
+        ga: score?.[1] ?? null,
+        pts: n("B"),
+      });
+    }
+    if (rows.length) out.push({ title: heading, rows });
+  }
+  return out;
+}
+
 // ---------- player profile (/hrac/{slug}/{id}) ----------
 
 export interface HokejczPlayerProfile {
