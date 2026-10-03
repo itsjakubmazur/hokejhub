@@ -6,7 +6,7 @@ const SOURCES: Record<string, { base: string; allow: RegExp; maxAge: number; acc
   // Server-rendered HTML; hokej.cz sends no CORS headers. Cached hard to stay polite.
   hokejcz: {
     base: "https://www.hokej.cz/",
-    allow: /^(zapas\/\d+|tipsport-extraliga\/(table|zapasy|player-stats)|reprezentace\/(table|zapasy|liga)\/[\w/-]+|historie|hrac\/[^/]+\/\d+|klub\/[^/]+\/\d+)(\/|$)|^(redesign\/src\/js|webtemp|public\/js|stats-visualization(\/[\w-]+)*)\/[\w.-]+\.(js|html|json)$/,
+    allow: /^(zapas\/\d+|tipsport-extraliga\/(table|zapasy|player-stats)|(maxa-liga|druha-liga|chl)\/table|mladez\/table\/[\w-]+\/\d+|reprezentace\/(table|zapasy|liga)\/[\w/-]+|historie|hrac\/[^/]+\/\d+|klub\/[^/]+\/\d+)(\/|$)|^(redesign\/src\/js|webtemp|public\/js|stats-visualization(\/[\w-]+)*)\/[\w.-]+\.(js|html|json)$/,
     maxAge: 300,
     accept: "text/html",
   },
