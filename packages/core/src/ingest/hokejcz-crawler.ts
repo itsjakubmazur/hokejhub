@@ -78,7 +78,7 @@ export const TABLE_OF: Partial<Record<keyof Rows, string>> = { team_current: "te
  * Groups written insert-only: a team row from an old match page must not rename the club or
  * swap its crest for the one it wore back then.
  */
-export const INSERT_ONLY: (keyof Rows)[] = ["team"];
+export const INSERT_ONLY: (keyof Rows)[] = ["team", "team_season_logo"];
 
 export const PRIMARY_KEYS: Record<keyof Rows, string> = {
   competition: "id",
