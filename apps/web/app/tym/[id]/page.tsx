@@ -29,6 +29,7 @@ import {
   getSeasonGames,
   getTeamGames,
   getTeamLogos,
+  getTeamSeasonName,
   getTeamSeasons,
   getTeamSkaters,
   toResultGames,
@@ -66,8 +67,11 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
   const tab = TABS.some((t) => t.id === sp.tab) ? (sp.tab as string) : "prehled";
   const games = await getTeamGames(id, season);
   // a past season shows the crest the club wore then
-  const logo =
-    season === seasons[0] || !team.league_id ? team.logo_url : ((await getTeamLogos(team.league_id, season))[id] ?? team.logo_url);
+  const past = season !== seasons[0] && !!team.league_id;
+  const [logo, seasonName] = past
+    ? await Promise.all([getTeamLogos(team.league_id!, season).then((l) => l[id] ?? null), getTeamSeasonName(id, season)])
+    : [team.logo_url, null];
+  const name = seasonName ?? team.name;
 
   return (
     <div className="space-y-4">
@@ -93,7 +97,7 @@ export default async function TeamPage(props: PageProps<"/tym/[id]">) {
               Tipsport extraliga
             </Link>
             <h1 className="mt-1 text-board-text" style={{ fontSize: "clamp(2.2rem, 5.5vw, 3.75rem)" }}>
-              {team.name}
+              {name}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <FavoriteButton id={id} label={team.name} names={[team.short_name, team.name]} />

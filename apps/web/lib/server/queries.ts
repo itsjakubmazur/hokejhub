@@ -40,7 +40,8 @@ export interface GameRowDb {
 
 const GAME_SELECT = `
   g.id, g.start_at, g.season, g.phase, g.round, g.home_team_id, g.away_team_id,
-  coalesce(g.home_name, th.name) as home_name, coalesce(g.away_name, ta.name) as away_name,
+  coalesce(season_team_name(g.home_team_id, g.season), g.home_name, th.name) as home_name,
+  coalesce(season_team_name(g.away_team_id, g.season), g.away_name, ta.name) as away_name,
   th.abbrev as home_abbrev, ta.abbrev as away_abbrev, season_logo(g.home_team_id, g.season) as home_logo, season_logo(g.away_team_id, g.season) as away_logo,
   g.home_score, g.away_score, g.decided_in, g.status, g.attendance, g.capacity, g.venue,
   (g.team_stats->'xG'->>0)::float as xg_home, (g.team_stats->'xG'->>1)::float as xg_away`;
@@ -298,7 +299,7 @@ export async function getPlayerGameLog(id: string, season: number) {
     xg: number | null;
   }>(
     `select g.id as game_id, g.start_at, g.phase, b.team_id,
-            case when g.home_team_id = b.team_id then g.away_name else g.home_name end as opp_name,
+            case when g.home_team_id = b.team_id then coalesce(season_team_name(g.away_team_id, g.season), g.away_name) else coalesce(season_team_name(g.home_team_id, g.season), g.home_name) end as opp_name,
             g.home_team_id = b.team_id as home,
             case when g.home_team_id = b.team_id then g.home_score else g.away_score end as gf,
             case when g.home_team_id = b.team_id then g.away_score else g.home_score end as ga,
@@ -787,4 +788,10 @@ export async function getUpcomingMilestones(teamId: string, limit = 8): Promise<
   // One line per player, so a veteran does not fill the whole card.
   const seen = new Set<string>();
   return out.filter((m) => !seen.has(m.player_id) && seen.add(m.player_id)).slice(0, limit);
+}
+
+/** A club's name in a past season (null where it is the current one or unknown). */
+export async function getTeamSeasonName(id: string, season: number) {
+  const [r] = await sql<{ name: string | null }>("select season_team_name($1, $2) as name", [id, season]);
+  return r?.name ?? null;
 }

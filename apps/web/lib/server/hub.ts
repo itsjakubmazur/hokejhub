@@ -3,7 +3,8 @@ import { sql, type GameRowDb } from "./queries";
 
 const GAME_SELECT = `
   g.id, g.start_at, g.season, g.phase, g.round, g.home_team_id, g.away_team_id,
-  coalesce(g.home_name, th.name) as home_name, coalesce(g.away_name, ta.name) as away_name,
+  coalesce(season_team_name(g.home_team_id, g.season), g.home_name, th.name) as home_name,
+  coalesce(season_team_name(g.away_team_id, g.season), g.away_name, ta.name) as away_name,
   th.abbrev as home_abbrev, ta.abbrev as away_abbrev, season_logo(g.home_team_id, g.season) as home_logo, season_logo(g.away_team_id, g.season) as away_logo,
   g.home_score, g.away_score, g.decided_in, g.status, g.attendance, g.capacity, g.venue,
   (g.team_stats->'xG'->>0)::float as xg_home, (g.team_stats->'xG'->>1)::float as xg_away`;
@@ -86,8 +87,8 @@ export async function bigNightsOnThisDay(month: number, day: number) {
     opp_name: string;
   }>(
     `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.g as goals, b.a as assists,
-            case when b.team_id = g.home_team_id then g.home_name else g.away_name end as team_name,
-            case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name
+            case when b.team_id = g.home_team_id then coalesce(season_team_name(g.home_team_id, g.season), g.home_name) else coalesce(season_team_name(g.away_team_id, g.season), g.away_name) end as team_name,
+            case when b.team_id = g.home_team_id then coalesce(season_team_name(g.away_team_id, g.season), g.away_name) else coalesce(season_team_name(g.home_team_id, g.season), g.home_name) end as opp_name
      from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id
      where extract(month from g.start_at at time zone 'Europe/Prague') = $1
        and extract(day from g.start_at at time zone 'Europe/Prague') = $2
@@ -150,7 +151,7 @@ export async function recordPlayers(league: string) {
       team_logo: string | null;
     }>(
       `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.g as value,
-              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name, season_logo(b.team_id, g.season) as team_logo
+              case when b.team_id = g.home_team_id then coalesce(season_team_name(g.away_team_id, g.season), g.away_name) else coalesce(season_team_name(g.home_team_id, g.season), g.home_name) end as opp_name, season_logo(b.team_id, g.season) as team_logo
        from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id left join team t on t.id = b.team_id
        where g.league_id = $1 order by b.g desc, g.start_at limit 10`,
       [league],
@@ -166,7 +167,7 @@ export async function recordPlayers(league: string) {
       team_logo: string | null;
     }>(
       `select b.player_id, p.name, p.headshot, g.id as game_id, g.start_at, b.pts as value,
-              case when b.team_id = g.home_team_id then g.away_name else g.home_name end as opp_name, season_logo(b.team_id, g.season) as team_logo
+              case when b.team_id = g.home_team_id then coalesce(season_team_name(g.away_team_id, g.season), g.away_name) else coalesce(season_team_name(g.home_team_id, g.season), g.home_name) end as opp_name, season_logo(b.team_id, g.season) as team_logo
        from box_skater b join game g on g.id = b.game_id join player p on p.id = b.player_id left join team t on t.id = b.team_id
        where g.league_id = $1 order by b.pts desc, b.g desc, g.start_at limit 10`,
       [league],
