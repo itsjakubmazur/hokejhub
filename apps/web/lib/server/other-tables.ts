@@ -40,15 +40,25 @@ export async function getOtherTable(league: string): Promise<OtherTableGroup[] |
     ...[-3, -2, -1, 0, 1, 2, 3].map((d) => getScoreboard(addDays(pragueDate(), d)).catch(() => null)),
   ]);
   if (!res.data) return null;
-  const logos = new Map<string, string>();
+  // the competition's own games first, then any Czech club of the same name (youth feeds differ)
+  const own = new Map<string, string>();
+  const any = new Map<string, string>();
   for (const b of boards)
     for (const g of b?.games ?? [])
-      if (g.leagueKey === league) for (const t of [g.home, g.away]) if (t.logoUrl) logos.set(norm(t.name), t.logoUrl);
-  const logoFor = (team: string) => {
-    const k = norm(team);
+      if (g.leagueKey !== "nhl" && g.leagueKey !== "nhl-pre")
+        for (const t of [g.home, g.away]) {
+          if (!t.logoUrl) continue;
+          if (g.leagueKey === league) own.set(norm(t.name), t.logoUrl);
+          else if (!any.has(norm(t.name))) any.set(norm(t.name), t.logoUrl);
+        }
+  const lookup = (logos: Map<string, string>, k: string) => {
     if (logos.has(k)) return logos.get(k)!;
     for (const [name, url] of logos) if (name && (k.includes(name) || name.includes(k))) return url;
     return null;
+  };
+  const logoFor = (team: string) => {
+    const k = norm(team);
+    return lookup(own, k) ?? lookup(any, k);
   };
   return res.data.map((g) => ({ title: g.title, rows: g.rows.map((r) => ({ ...r, logo: logoFor(r.team) })) }));
 }
