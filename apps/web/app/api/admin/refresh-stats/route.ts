@@ -1,6 +1,6 @@
 import { sql } from "@/lib/server/db";
 import { addDays, parseHokejczMatch, pragueDate } from "@hokejhub/core";
-import { ingestFinishedElh } from "@/lib/server/ingest";
+import { ingestFinishedElh, ingestMatch } from "@/lib/server/ingest";
 import { getScoreboard } from "@/lib/server/scoreboard";
 import { settle } from "@/lib/server/tipping";
 import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refresh";
@@ -22,6 +22,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=audit&check=NAME               read-only data checks (leagues, competitions, dates, duplicates, scores, boxless, gp)
  *   ?mode=recrawl-stuck                  put games left "live" for over a day (e.g. forfeits) back in the crawl queue
  *   ?mode=season-logos                   fill the crest each club wore per season from one match page per club season
+ *   ?mode=current-teams                  re-read each club's latest game of the current season (current name and short name)
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -119,6 +120,27 @@ export async function POST(req: Request) {
     };
     await Promise.all(Array.from({ length: 6 }, worker));
     return Response.json({ todo: todo.length, pages, filled: done.size, left: queue.length, failed: failed.slice(0, 10), ms: Date.now() - t0 });
+  }
+  if (mode === "current-teams") {
+    const rows = await sql<{ id: string; season: number; competition_id: number | null; phase: string | null }>(
+      `select distinct on (t.team) g.id, g.season, g.competition_id, g.phase
+       from (select id, home_team_id as team from game union all select id, away_team_id from game) t
+       join game g on g.id = t.id
+       where g.league_id = 'cz-elh' and g.status = 'final' and g.id like 'hcz-%'
+         and g.season = (select max(season) from game where league_id = 'cz-elh' and status = 'final')
+       order by t.team, g.start_at desc`,
+    );
+    const done: string[] = [];
+    for (const g of [...new Map(rows.map((r) => [r.id, r])).values()]) {
+      await ingestMatch({ id: Number(g.id.slice(4)), season: g.season, competition: g.competition_id, phase: g.phase });
+      done.push(g.id);
+    }
+    const teams = await sql(
+      `select id, name, short_name, abbrev from team where id in (
+         select home_team_id from game where league_id = 'cz-elh' and season = (select max(season) from game where league_id = 'cz-elh'))
+       order by name`,
+    );
+    return Response.json({ games: done, teams });
   }
   if (mode === "competitions") {
     const rows = await sql(
