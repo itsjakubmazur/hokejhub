@@ -83,5 +83,9 @@ export const MIGRATIONS: { name: string; sql: string }[] = [
   {
     "name": "20261020000000_crest_trinec_1994.sql",
     "sql": "-- HC Železárny Třinec (1994-1999): the crest from a club puck of the time, cut out and squared\n-- (no flat copy of it is published anywhere we could find).\ninsert into team_season_logo (team_id, league_id, season, logo_url, name)\nselect 'hcz-11', 'cz-elh', s, '/crests/trinec-1994.png', 'HC Železárny Třinec' from generate_series(1994, 1998) s\non conflict (team_id, league_id, season) do update set logo_url = excluded.logo_url, name = excluded.name;\n"
+  },
+  {
+    "name": "20261021000000_crest_trinec_1994_redrawn.sql",
+    "sql": "-- HC Železárny Třinec: the crest redrawn as a clean vector after the club puck (same layout,\n-- colours and ironworks emblem), replacing the cut-out from the photo.\nupdate team_season_logo set logo_url = '/crests/trinec-1994-v2.png'\nwhere team_id = 'hcz-11' and league_id = 'cz-elh' and season between 1994 and 1998;\n"
   }
 ];
