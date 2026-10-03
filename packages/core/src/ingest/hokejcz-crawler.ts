@@ -300,7 +300,12 @@ export function processJob(j: Pick<CrawlJob, "kind" | "params">, html: string, s
         };
         rows.team.push(team);
         // the current crest comes from hokej.cz's navigation (refresh-logos), not from match headers
-        if (p.season != null && p.season >= seasonOfDate()) rows.team_current.push({ ...team, logo_url: undefined });
+        if (p.season != null && p.season >= seasonOfDate()) {
+          // no logo_url key at all: a key holding undefined is still sent as a column and nulls it
+          const current: Record<string, unknown> = { ...team };
+          delete current.logo_url;
+          rows.team_current.push(current);
+        }
         if (p.season != null && t.logoUrl)
           rows.team_season_logo.push({ team_id: id, league_id: leagueOf(p.season), season: p.season, logo_url: t.logoUrl, name: t.name });
       }
