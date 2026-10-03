@@ -18,6 +18,7 @@ import { refreshDirtyStats, refreshEloSnapshot } from "@/lib/server/stats-refres
  *   ?mode=elo                            rewrite the Elo snapshot
  *   ?mode=verify                         compare the tables with the live sources (slow)
  *   ?mode=repair&league=cz-elh&season=N  compare one season with its source and rebuild it if it drifted
+ *   ?mode=competitions&league=cz-elh     every competition id / phase with its game count and months, to spot friendlies
  *   ?mode=unseasoned                     players of games without a season / league (not covered by mode=season)
  */
 export const dynamic = "force-dynamic";
@@ -29,6 +30,17 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "dirty";
   const t0 = Date.now();
+  if (mode === "competitions") {
+    const rows = await sql(
+      `select season, competition_id, phase, count(*)::int as games,
+         min(start_at)::date as first, max(start_at)::date as last,
+         array_agg(distinct to_char(start_at at time zone 'Europe/Prague', 'MM')) as months,
+         (array_agg(round order by start_at))[1] as round_sample
+       from game where league_id = $1 group by 1, 2, 3 order by 1, 2, 3`,
+      [url.searchParams.get("league") ?? "cz-elh"],
+    );
+    return Response.json({ rows });
+  }
   if (mode === "seasons") {
     const rows = await sql<{ league_id: string; season: number; games: number }>(
       "select league_id, season, count(*)::int as games from game where season is not null group by 1, 2 order by 1, 2",
