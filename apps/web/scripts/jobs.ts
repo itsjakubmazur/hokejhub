@@ -14,6 +14,7 @@
  */
 import { addDays, pragueDate } from "@hokejhub/core";
 import { runCrawl } from "../lib/server/crawl";
+import { appDatabaseUrl, sql } from "../lib/server/db";
 import { ingestFinishedElh } from "../lib/server/ingest";
 import { tick, vapidConfigured } from "../lib/server/push";
 import { getScoreboard } from "../lib/server/scoreboard";
@@ -103,8 +104,31 @@ async function logos() {
   log("logos", { found: r.found, updated: r.updated, changed: r.changed });
 }
 
+/** Fails fast, and readably, when the database is unreachable (wrong secret, IPv6-only host…). */
+async function checkDatabase() {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) throw new Error("DATABASE_URL is not set");
+  let where = "(unparseable URL)";
+  try {
+    const u = new URL(appDatabaseUrl(raw));
+    where = `${u.username}@${u.hostname}:${u.port || 5432}${u.pathname}`;
+  } catch {
+    /* keep the placeholder */
+  }
+  try {
+    const [r] = await sql<{ now: string }>("select now()::text as now");
+    log("database ok", where, r?.now);
+  } catch (e) {
+    const hint = /db\.[a-z0-9]+\.supabase\.co/.test(where)
+      ? " — this is Supabase's direct host (IPv6 only, unreachable from GitHub runners); use the Transaction pooler URL"
+      : "";
+    throw new Error(`database unreachable at ${where}: ${e instanceof Error ? e.message : String(e)}${hint}`);
+  }
+}
+
 async function main() {
   const [cmd, arg] = process.argv.slice(2);
+  await checkDatabase();
   const minutes = Number(arg) || 330;
   if (cmd === "crawl") await crawl(minutes);
   else if (cmd === "live") await live(minutes);
