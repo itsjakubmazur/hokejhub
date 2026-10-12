@@ -1,19 +1,29 @@
 name: Refresh club crests
 
-# Clubs change crests between seasons; hokej.cz's navigation carries the current one for every
-# club. Weekly is plenty. Requires repo secret CRON_SECRET.
+# Current club crests from hokej.cz's site navigation.
 on:
   workflow_dispatch:
   schedule:
     - cron: "41 4 * * 1"
 
 jobs:
-  refresh:
+  logos:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
-      - name: Update team.logo_url from hokej.cz
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Refresh crests
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          curl -sS -m 90 -X POST https://hokejhub.vercel.app/api/admin/refresh-logos -H "Authorization: Bearer $CRON_SECRET" | jq '{found, updated, changed}'
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: pnpm -C apps/web exec tsx scripts/jobs.ts logos

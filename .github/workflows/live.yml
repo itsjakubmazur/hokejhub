@@ -1,0 +1,39 @@
+name: Live games
+
+# While games are on: push notifications (every ~20 s), finished extraliga games stored and
+# tips settled (every ~5 min). Each run sleeps until the next game and stops when nothing is
+# left to watch. Three windows: afternoon and evening Czech rounds, NHL night.
+# Secrets: DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+# NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "50 10 * * *"   # 12:50 Prague (summer time): weekend afternoon games
+    - cron: "25 16 * * *"   # 18:25 Prague: evening extraliga round
+    - cron: "35 21 * * *"   # 23:35 Prague: NHL night
+
+concurrency:
+  group: live-games
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Watch games
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: pnpm -C apps/web exec tsx scripts/jobs.ts live 335

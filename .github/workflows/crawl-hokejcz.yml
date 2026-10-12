@@ -1,66 +1,38 @@
-name: Crawl hokej.cz history
+name: Crawl hokej.cz
 
-# Drives the polite crawler on Vercel (/api/ingest/hokejcz) until the queue is empty. Each call
-# first re-queues games that should be over but are not final in the database, and ends by
-# refreshing the precomputed statistics for the games it wrote.
-# Each call processes ~45 s of work (one page every ~2.5 s per worker). Two workers run in
-# parallel; when the job-time limit is near and work remains, the run re-dispatches itself,
-# so the crawl does not depend on GitHub's (unreliable) cron. Requires repo secret CRON_SECRET
-# (same value as the Vercel env var).
+# Works through the hokej.cz crawl queue (history, corrections, games that should be over) and
+# refreshes the precomputed statistics of what it stored. Runs here rather than on Vercel, whose
+# Hobby plan caps function CPU time; Actions minutes are free for this public repository.
+# Secrets: DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 on:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
-    # Right after the evening extraliga round (~23:45 Prague): finished games, then the stats refresh.
+    # Right after the evening extraliga round (~23:45 Prague).
     - cron: "47 21 * * *"
 
 concurrency:
   group: crawl-hokejcz
   cancel-in-progress: false
 
-permissions:
-  actions: write
-  contents: read
-
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
-    strategy:
-      matrix:
-        worker: [1, 2]
+    timeout-minutes: 345
     steps:
-      - name: Drive crawler
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Crawl
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          ENDPOINT: https://hokejhub.vercel.app/api/ingest/hokejcz
-        run: |
-          # Stagger the workers so they don't hit hokej.cz at the same moment.
-          sleep $(( (${{ matrix.worker }} - 1) * 20 ))
-          end=$(( $(date +%s) + 330*60 ))
-          idle=0
-          while [ "$(date +%s)" -lt "$end" ]; do
-            out=$(curl -sS -m 70 -X POST "$ENDPOINT?budget=50" -H "Authorization: Bearer $CRON_SECRET" || echo '{"processed":-1}')
-            n=$(echo "$out" | jq -r '.processed // -1')
-            echo "$(date -u +%H:%M:%S) processed=$n $(echo "$out" | jq -c '[.log[]? | select(.ok|not)]')"
-            if [ "$n" = "0" ]; then idle=$((idle+1)); else idle=0; fi
-            # Queue empty (or everything waiting on backoff) for ~15 min → stop.
-            [ "$idle" -ge 15 ] && break
-            [ "$n" = "0" ] && sleep 60
-            [ "$n" = "-1" ] && sleep 120
-          done
-
-  continue:
-    needs: crawl
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Re-dispatch while work remains
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          left=$(curl -sS -m 30 https://hokejhub.vercel.app/api/ingest/hokejcz | jq '[.[] | (.pending // 0)] | add')
-          echo "pending jobs: $left"
-          if [ "${left:-0}" -gt 0 ]; then
-            gh workflow run crawl-hokejcz.yml --repo "${{ github.repository }}" --ref "${{ github.ref_name }}"
-          fi
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${{ secrets.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+        run: pnpm -C apps/web exec tsx scripts/jobs.ts crawl 330
