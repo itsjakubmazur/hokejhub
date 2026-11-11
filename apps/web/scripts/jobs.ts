@@ -36,6 +36,23 @@ async function callRoute(handler: (req: Request) => Promise<Response>, query: st
 
 /** What the database holds: extraliga games by month and status, overdue games, the queue. */
 async function report() {
+  // Everything stored, per competition: only hokej.cz competitions are kept here, the other
+  // leagues and the NHL are read from their feeds on demand and have nothing to catch up on.
+  const leagues = await sql<{ league_id: string; n: number; finals: number; last_final: string | null; boxes: number }>(
+    `select g.league_id, count(*)::int as n, count(*) filter (where g.status = 'final')::int as finals,
+            max(g.start_at) filter (where g.status = 'final')::date::text as last_final,
+            count(*) filter (where g.status = 'final' and g.start_at > now() - interval '60 days'
+              and exists (select 1 from box_skater b where b.game_id = g.id))::int as boxes
+     from game g group by 1 order by 1`,
+  );
+  for (const l of leagues) log("stored", l.league_id, `${l.n} games, ${l.finals} final, last final ${l.last_final}, with box score in the last 60 days ${l.boxes}`);
+  const [tips] = await sql<{ games: number; open: number; overdue: number; tips: number; last_tip: string | null }>(
+    `select count(*)::int as games, count(*) filter (where settled_at is null)::int as open,
+            count(*) filter (where settled_at is null and start_at < now() - interval '1 day')::int as overdue,
+            (select count(*)::int from tip) as tips, (select max(created_at)::date::text from tip) as last_tip
+     from tip_game`,
+  ).catch(() => []);
+  if (tips) log("tipping", `${tips.games} games tipped, ${tips.open} not settled (${tips.overdue} of them overdue), ${tips.tips} tips, last tip ${tips.last_tip}`);
   const months = await sql<{ month: string; status: string; n: number }>(
     `select to_char(date_trunc('month', start_at), 'YYYY-MM') as month, status, count(*)::int as n
      from game where league_id = 'cz-elh' and start_at > now() - interval '150 days' and start_at < now() + interval '30 days'
