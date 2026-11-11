@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element -- remote hokej.cz / NHL photos */
+ 
 "use client";
 
 import { useState } from "react";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 /**
  * Player card portrait (3:4) — the photo is the point, so it is shown large with the jersey
@@ -33,7 +33,7 @@ export function Portrait({
       style={{ width, height }}
     >
       {src && !failed ? (
-        <img src={imgSrc(src)!} alt={alt} loading="lazy" onError={() => setFailedSrc(src ?? null)} className="size-full object-cover object-top" />
+        <RemoteImg src={src} alt={alt} loading="lazy" onFail={() => setFailedSrc(src ?? null)} className="size-full object-cover object-top" />
       ) : (
         <svg viewBox="0 0 30 40" className="size-full text-muted/40" aria-label={alt}>
           <circle cx="15" cy="14" r="6.5" fill="currentColor" />

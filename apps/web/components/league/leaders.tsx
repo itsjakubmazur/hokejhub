@@ -1,14 +1,14 @@
 "use client";
-/* eslint-disable @next/next/no-img-element -- remote club logo watermark */
+ 
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { useMemo, useState } from "react";
 import { fmtToi } from "@/lib/names";
 import { ClubLogo } from "../club-logo";
 import { PlayerPhoto } from "../player-photo";
 import { Portrait } from "../portrait";
 import type { SkaterSeasonRow } from "@/lib/server/queries";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 type Key = "pts" | "g" | "a" | "pm" | "sog" | "xg" | "gax" | "hits" | "blk" | "pim" | "toi_avg" | "fo";
 
@@ -54,8 +54,8 @@ function Spotlight({ rows, sort }: { rows: SkaterSeasonRow[]; sort: Key }) {
           style={{ animationDelay: `${i * 90}ms` }}
         >
           {r.team_logo ? (
-            <img
-              src={imgSrc(r.team_logo)!}
+            <RemoteImg
+              src={r.team_logo}
               alt=""
               aria-hidden
               className="pointer-events-none absolute -right-4 -top-4 size-28 object-contain opacity-[0.09]"

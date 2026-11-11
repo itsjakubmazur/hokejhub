@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { computeOverUnder, computeStandings, rulesForSeason, type FormResult, type ResultGame, type Split } from "@hokejhub/core";

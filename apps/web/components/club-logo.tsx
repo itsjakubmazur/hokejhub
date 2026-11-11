@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element -- remote club logos */
+ 
 "use client";
 
 import { useState } from "react";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 /** Club logo on a light chip so dark logos stay visible in dark mode. */
 export function ClubLogo({
@@ -26,7 +26,7 @@ export function ClubLogo({
       title={alt}
     >
       {src && !failed ? (
-        <img src={imgSrc(src)!} alt="" loading="lazy" onError={() => setFailedSrc(src ?? null)} className="size-full object-contain" />
+        <RemoteImg src={src} alt="" loading="lazy" onFail={() => setFailedSrc(src ?? null)} className="size-full object-contain" />
       ) : (
         <svg viewBox="0 0 24 24" className="size-full text-black/40" aria-hidden>
           <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="currentColor" />

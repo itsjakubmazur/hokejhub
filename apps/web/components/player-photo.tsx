@@ -1,8 +1,8 @@
-/* eslint-disable @next/next/no-img-element -- remote hokej.cz photos */
+ 
 "use client";
 
 import { useState } from "react";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 /** Round player photo; hockey-player silhouette when hokej.cz has no photo. */
 export function PlayerPhoto({
@@ -28,13 +28,13 @@ export function PlayerPhoto({
       style={{ width: size, height: size }}
     >
       {src && !failed ? (
-        <img
-          src={imgSrc(src)!}
+        <RemoteImg
+          src={src}
           alt={alt}
           width={size}
           height={size}
           loading="lazy"
-          onError={() => setFailedSrc(src ?? null)}
+          onFail={() => setFailedSrc(src ?? null)}
           className="size-full object-cover object-top"
         />
       ) : (

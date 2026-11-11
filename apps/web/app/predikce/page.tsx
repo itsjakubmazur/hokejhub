@@ -16,7 +16,7 @@ import { getTeamLogos } from "@/lib/server/queries";
 import { CS, csCount } from "@hokejhub/core";
 
 export const metadata: Metadata = { title: "Predikce" };
-export const revalidate = 300;
+export const revalidate = 600;
 
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 

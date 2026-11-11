@@ -15,8 +15,11 @@ export async function GET(request: Request) {
   }).catch(() => null);
   const type = res?.headers.get("content-type") ?? "";
   if (!res || !res.ok || !type.startsWith("image/")) {
-    // Short negative cache: a missing photo may appear later, a transient error should not stick.
-    return new Response(null, { status: 404, headers: { "cache-control": "public, s-maxage=600" } });
+    // Negative cache: short for a transient error, a missing photo may appear later. A refusal
+    // (403: hokej.cz blocks this address for days) is kept for six hours — pages then load the
+    // image straight from hokej.cz (RemoteImg) instead of invoking this function for each one.
+    const ttl = res?.status === 403 ? 6 * 3600 : 600;
+    return new Response(null, { status: 404, headers: { "cache-control": `public, s-maxage=${ttl}` } });
   }
   return new Response(res.body, {
     headers: {

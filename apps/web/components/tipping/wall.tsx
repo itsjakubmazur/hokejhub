@@ -19,14 +19,14 @@ interface Message {
 const when = (iso: string) =>
   new Date(iso).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Prague" });
 
-/** Group trash-talk wall, refreshed every 20 s while open. */
+/** Group trash-talk wall, refreshed every minute while open (and on returning to the tab). */
 export function GroupWall({ group }: { group: string }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const { data } = useQuery({
     queryKey: ["tip", "wall", group],
     queryFn: () => api<{ messages: Message[] }>(`wall?group=${group}`),
-    refetchInterval: 20_000,
+    refetchInterval: 60_000,
   });
   const send = useMutation({
     mutationFn: () => api("wall", { method: "POST", body: { group, body: text } }),

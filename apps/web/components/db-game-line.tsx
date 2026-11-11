@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import type { GameRowDb } from "@/lib/server/queries";
 import { seasonLabel } from "@/lib/format";
 import { ClubLogo } from "./club-logo";

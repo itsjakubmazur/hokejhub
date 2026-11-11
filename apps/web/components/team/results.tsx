@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { useMemo, useState } from "react";
 import type { GameRowDb } from "@/lib/server/queries";
 import { Segmented } from "../game/segmented";

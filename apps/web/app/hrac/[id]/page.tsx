@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- remote club logos */
+ 
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PHONE_NAMES } from "@/lib/team-names";
@@ -17,9 +17,10 @@ import { CardSkeleton } from "@/components/ui/skeletons";
 import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
 import { getPlayer, getPlayerGameLog, getPlayerGoalieSeasons, getPlayerMilestones, getPlayerSeasons, getPlayerShots } from "@/lib/server/queries";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
-export const revalidate = 300;
+// Changes when the crawler stores a game, a few times a day at most.
+export const revalidate = 3600;
 
 const TABS = [
   { id: "kariera", label: "Kariéra" },
@@ -109,8 +110,8 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
     <div className="space-y-4">
       <header className="rise relative overflow-hidden bg-board text-board-text">
         {player.current_team_logo ? (
-          <img
-            src={imgSrc(player.current_team_logo)!}
+          <RemoteImg
+            src={player.current_team_logo}
             alt=""
             aria-hidden
             className="pointer-events-none absolute -right-10 top-1/2 size-72 -translate-y-1/2 object-contain opacity-[0.08] sm:size-96"
@@ -126,7 +127,7 @@ export default async function PlayerPage(props: PageProps<"/hrac/[id]">) {
                   <Link href={`/tym/${teamId}`} className="flex min-w-0 items-center gap-1.5 text-board-text hover:text-led">
                     {player.current_team_logo ? (
                       <span className="grid size-6 shrink-0 place-items-center bg-white p-0.5 sm:size-7">
-                        <img src={imgSrc(player.current_team_logo)!} alt="" className="size-full object-contain" />
+                        <RemoteImg src={player.current_team_logo} alt="" className="size-full object-contain" />
                       </span>
                     ) : null}
                     <span className="truncate sm:hidden">{PHONE_NAMES[teamId] ?? teamName}</span>

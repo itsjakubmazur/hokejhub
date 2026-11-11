@@ -3,7 +3,7 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import type { Game, HokejczMatch, LineupPlayer, MatchLineups, PlayerMatchStats, TeamLineup } from "@hokejhub/core";
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { Portrait } from "../portrait";
 import { fmtToi } from "@/lib/names";
 import { Segmented } from "./segmented";

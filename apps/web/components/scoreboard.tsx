@@ -73,6 +73,21 @@ const TABLE_HREF: Record<string, string> = {
   ...Object.fromEntries(["cz-maxa", "cz-2liga", "cz-u20", "cz-u20-2", "cz-u17", "cz-u16"].map((k) => [k, `/tabulka/${k}`])),
 };
 
+/**
+ * How often an open scoreboard asks again: every 20 s while a game is on, every 30 s around a
+ * face-off, otherwise only as often as the next start requires (at most every ten minutes) —
+ * and not at all once the day is over. A tab left open overnight used to ask every two minutes.
+ */
+function pollInterval(games: Game[], date: string, today: string): number | false {
+  if (games.some(isLive)) return 20_000;
+  if (date < today) return false;
+  const starts = games.filter((g) => g.status === "scheduled").map((g) => Date.parse(g.startAt));
+  if (starts.length === 0) return date > today ? 900_000 : false;
+  const wait = Math.min(...starts) - Date.now();
+  if (wait < 5 * 60_000) return wait > -30 * 60_000 ? 30_000 : 300_000;
+  return Math.min(Math.max(wait - 4 * 60_000, 60_000), 600_000);
+}
+
 export function Scoreboard({ date, initial }: { date: string; initial: ScoreboardResponse }) {
   const today = pragueDate();
   const { data, isFetching, isError } = useQuery({
@@ -81,7 +96,7 @@ export function Scoreboard({ date, initial }: { date: string; initial: Scoreboar
     initialData: initial,
     retry: 3,
     retryDelay: (n) => Math.min(1000 * 2 ** n, 15_000),
-    refetchInterval: (q) => (q.state.data?.games.some(isLive) ? 20_000 : date >= today ? 120_000 : false),
+    refetchInterval: (q) => pollInterval(q.state.data?.games ?? [], date, today),
   });
 
   const [selected, setSelected] = useLeagueSelection();

@@ -1,6 +1,7 @@
 /**
- * Read-only CORS proxy for sources that do not send CORS headers. Only allow-listed
- * hosts and path prefixes are forwarded; responses are cached at the edge.
+ * Read-only relay of the upstream sources, for local development (HOKEJCZ_ORIGIN) and debugging.
+ * Only allow-listed hosts and path prefixes are forwarded; responses are cached at the edge.
+ * No CORS headers: nothing in the app calls it from a browser, and other sites should not.
  */
 const SOURCES: Record<string, { base: string; allow: RegExp; maxAge: number; accept?: string }> = {
   // Server-rendered HTML; hokej.cz sends no CORS headers. Cached hard to stay polite.
@@ -42,7 +43,6 @@ export async function GET(request: Request, ctx: RouteContext<"/api/src/[source]
     headers: {
       "content-type": res.headers.get("content-type") ?? "application/json",
       "cache-control": `public, s-maxage=${cfg.maxAge}, stale-while-revalidate=${cfg.maxAge * 4}`,
-      "access-control-allow-origin": "*",
     },
   });
 }

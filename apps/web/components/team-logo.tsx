@@ -1,9 +1,9 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- remote SVG/PNG logos from several CDNs */
+ 
 import { useState } from "react";
 import type { TeamRef } from "@hokejhub/core";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 export function TeamLogo({ team, size = 28, className = "" }: { team: TeamRef; size?: number; className?: string }) {
   // Remember which URL failed, so a new photo for the same slot gets its own chance.
@@ -20,13 +20,13 @@ export function TeamLogo({ team, size = 28, className = "" }: { team: TeamRef; s
     );
   }
   return (
-    <img
-      src={imgSrc(team.logoUrl)!}
+    <RemoteImg
+      src={team.logoUrl}
       alt=""
       width={size}
       height={size}
       loading="lazy"
-      onError={() => setFailedSrc(team.logoUrl ?? null)}
+      onFail={() => setFailedSrc(team.logoUrl ?? null)}
       className={`shrink-0 object-contain ${className}`}
       style={{ width: size, height: size }}
     />

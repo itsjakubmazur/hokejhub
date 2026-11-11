@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { useMemo, useState } from "react";
 import type { Game } from "@hokejhub/core";
 import type { GameRowDb } from "@/lib/server/queries";

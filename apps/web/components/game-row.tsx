@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp } from "lucide-react";
-import Link from "next/link";
+import { IntentLink as Link } from "@/components/ui/intent-link";
 import { impliedProbs, type Game, type Odds1x2 } from "@hokejhub/core";
 import { formatOdds, formatTime } from "@/lib/format";
 import { TeamLogo } from "./team-logo";
