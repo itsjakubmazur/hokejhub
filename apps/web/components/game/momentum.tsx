@@ -128,7 +128,7 @@ export function Momentum({
               initial={{ scale: 0 }}
               whileInView={{ scale: 1 }}
               viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 500, damping: 18, delay: 0.3 }}
+              transition={{ type: "spring", stiffness: 500, damping: 36, delay: 0.3 }}
             >
               G
             </motion.span>

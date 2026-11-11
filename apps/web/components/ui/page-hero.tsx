@@ -19,7 +19,7 @@ export function PageHero({
     <header className="arena-lights rise relative overflow-hidden bg-board p-4 text-board-text sm:p-7">
       {Icon ? (
         <Icon
-          className="hero-float pointer-events-none absolute -right-6 -top-6 size-48 text-led opacity-[0.07]"
+          className="pointer-events-none absolute -right-6 -top-6 size-48 text-led opacity-[0.07]"
           strokeWidth={1.5}
           aria-hidden
         />

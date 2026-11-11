@@ -439,7 +439,7 @@ function TipRow({ game, initial, split }: { game: TipGame; initial: MyTip | null
             whileTap={{ scale: 0.9, rotate: -8 }}
             animate={joker ? { scale: [1, 1.15, 1] } : { scale: 1 }}
             className={`flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
-              joker ? "bg-gold text-black shadow-[0_0_14px_var(--gold)]" : "border border-line text-muted hover:text-fg"
+              joker ? "bg-gold text-black" : "border border-line text-muted hover:text-fg"
             }`}
             title="Žolík: dvojnásobek bodů, jeden na hrací den"
           >

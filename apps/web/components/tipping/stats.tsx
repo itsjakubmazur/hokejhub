@@ -70,7 +70,7 @@ export function MyStats() {
               key={b.id}
               initial={{ opacity: 0, scale: 0.85, rotate: -4 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ delay: i * 0.05, type: "spring", stiffness: 320, damping: 20 }}
+              transition={{ delay: i * 0.05, type: "spring", stiffness: 320, damping: 32 }}
               className={`flex items-center gap-3 border p-2.5 ${b.earned ? "border-gold/60 bg-gold/10" : "border-line opacity-55"}`}
             >
               <span className={`grid size-10 shrink-0 place-items-center ${b.earned ? "bg-gold text-black" : "bg-surface-2 text-muted"}`}>

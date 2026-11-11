@@ -952,7 +952,7 @@ function TeamBlock({ game, side, href, card }: { game: Game; side: "home" | "awa
       className="flex w-full flex-col items-center gap-2.5 text-center"
       initial={{ opacity: 0, x: side === "home" ? -60 : 60, rotate: side === "home" ? -6 : 6 }}
       animate={{ opacity: 1, x: 0, rotate: 0 }}
-      transition={{ type: "spring", stiffness: 300, damping: 18, delay: 0.15 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.15 }}
     >
       <div className="grid size-16 place-items-center bg-white p-1.5 shadow-[0_10px_40px_rgb(0_0_0/0.45)] sm:size-32 sm:p-3">
         <TeamLogo team={team} size={104} className="!size-full" />

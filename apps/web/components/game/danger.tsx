@@ -23,7 +23,7 @@ function Bubble({ value, size, cls, delay = 0 }: { value: string; size: number; 
       initial={{ scale: 0 }}
       whileInView={{ scale: 1 }}
       viewport={{ once: true }}
-      transition={{ type: "spring", stiffness: 260, damping: 16, delay }}
+      transition={{ type: "spring", stiffness: 260, damping: 28, delay }}
       className={`grid shrink-0 place-items-center rounded-full font-bold tabular ${cls}`}
       style={{ width: size, height: size, fontSize: size > 60 ? 22 : 15 }}
     >

@@ -37,7 +37,7 @@ export function NavProgress() {
       }}
       aria-hidden
     >
-      <div className="nav-progress-bar relative h-full bg-live shadow-[0_0_10px_var(--live)]">
+      <div className="nav-progress-bar relative h-full bg-live">
         <span className="absolute -right-2 top-1/2 h-2.5 w-4 -translate-y-1/2 rounded-[50%] bg-fg ring-2 ring-bg" />
       </div>
     </div>

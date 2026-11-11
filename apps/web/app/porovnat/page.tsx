@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element -- remote club logo watermark */
+ 
 import type { Metadata } from "next";
 import { ChartColumn, GitCompareArrows, ListChecks, UserRound } from "lucide-react";
 import { PageHero } from "@/components/ui/page-hero";
@@ -13,7 +13,7 @@ import { fmtToi } from "@/lib/names";
 import { dbAvailable } from "@/lib/server/db";
 import { careerTotals } from "@/lib/server/hub";
 import { getPlayer, getPlayerSeasons } from "@/lib/server/queries";
-import { imgSrc } from "@/lib/img";
+import { RemoteImg } from "@/components/ui/remote-img";
 
 export const metadata: Metadata = { title: "Porovnání hráčů" };
 
@@ -113,8 +113,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                 className="group relative flex flex-1 flex-col items-center overflow-hidden bg-board px-3 pb-4 pt-5 text-center text-board-text"
               >
                 {s.player.current_team_logo ? (
-                  <img
-                    src={imgSrc(s.player.current_team_logo)!}
+                  <RemoteImg
+                    src={s.player.current_team_logo}
                     alt=""
                     aria-hidden
                     className="pointer-events-none absolute -right-8 -top-8 size-44 object-contain opacity-[0.08]"
@@ -158,7 +158,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                         <div className="text-center text-xs text-muted">{r.label}</div>
                         <div className="mt-1 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
                           <div
-                            className="rounded-l-full bg-home transition-all"
+                            className="rounded-l-full bg-home transition-[width,opacity]"
                             style={{
                               width: `${share * 100}%`,
                               opacity: aWins ? 1 : 0.35,

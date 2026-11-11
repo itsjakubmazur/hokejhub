@@ -427,14 +427,6 @@ body {
   from { background-position: 140% 0; }
   to { background-position: -60% 0; }
 }
-.hero-float {
-  animation: hero-float 9s ease-in-out infinite alternate;
-}
-@keyframes hero-float {
-  from { transform: rotate(-4deg) translateY(0); }
-  to { transform: rotate(4deg) translateY(10px); }
-}
-
 /* Line change: player cards vault over the boards. */
 .line-change {
   animation: line-change 0.55s cubic-bezier(0.25, 1.4, 0.4, 1) both;
@@ -492,7 +484,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .puck-rail::after,
   .arena-lights::after,
-  .hero-float,
   .line-change,
   .led-on,
   .led-flip,

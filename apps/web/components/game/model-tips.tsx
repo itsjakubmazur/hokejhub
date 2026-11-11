@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Crosshair } from "lucide-react";
 
 export interface ModelTipChip {
   label: string;
@@ -14,7 +14,7 @@ export function ModelTips({ tips, className = "" }: { tips: ModelTipChip[]; clas
   return (
     <ul className={`flex flex-wrap items-center gap-1.5 ${className}`} aria-label="Tipy modelu">
       <li className="flex items-center gap-1 text-[11px] text-muted">
-        <Sparkles className="size-3" aria-hidden /> tipy modelu
+        <Crosshair className="size-3" aria-hidden /> tipy modelu
       </li>
       {tips.map((t) => (
         <li
