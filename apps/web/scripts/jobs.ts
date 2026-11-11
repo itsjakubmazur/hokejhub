@@ -83,13 +83,18 @@ async function crawl(minutes: number) {
   // Whatever is still not final although played: at least its result, from the live feed.
   log("results from the live feed", await catchUpResultsFromFeed().catch((e) => ({ error: String(e) })));
   await report().catch(() => 0);
-  const [w] = await sql<{ n: number }>(
-    `select count(*)::int as n from game g where league_id = 'cz-elh' and status = 'final' and start_at > now() - interval '300 days'
+  const [w] = await sql<{ n: number; days: number | null }>(
+    `select count(*)::int as n, extract(day from now() - min(updated_at))::int as days
+     from game g where league_id = 'cz-elh' and status = 'final' and start_at > now() - interval '300 days'
        and not exists (select 1 from box_skater b where b.game_id = g.id)`,
-  ).catch(() => [{ n: 0 }]);
-  // A run that could not read hokej.cz must not pass for a healthy one.
-  if (blocked && ok === 0)
-    throw new Error(`hokej.cz is not reachable from here (${blocked}); ${w?.n ?? 0} games hold a result only and wait for their box score`);
+  ).catch(() => [{ n: 0, days: null }]);
+  if (blocked && ok === 0) {
+    const msg = `hokej.cz is not reachable from here (${blocked}); ${w?.n ?? 0} games hold a result only and wait for their box score`;
+    // A refusal usually passes with the next runner; only one that lasts goes red.
+    if ((w?.days ?? 0) >= 3) throw new Error(msg);
+    console.log(`::warning::${msg}`);
+    return;
+  }
   if (failed && ok === 0) throw new Error(`all ${failed} pages failed`);
 }
 
