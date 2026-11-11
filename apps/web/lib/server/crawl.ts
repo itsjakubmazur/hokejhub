@@ -1,4 +1,4 @@
-import { hokejczShotsUrl, jobPath, processJob } from "@hokejhub/core";
+import { hokejczShotsUrl, jobPath, processJob, seasonOfDate } from "@hokejhub/core";
 import { sql } from "./db";
 import { enqueue, writeRows } from "./ingest";
 import { refreshAfterIngest } from "./stats-refresh";
@@ -20,25 +20,41 @@ export async function runCrawl(budgetMs: number) {
   const db = supabaseAdmin();
   const started = Date.now();
   const log: { key: string; ok: boolean; info: string }[] = [];
+  let blocked: string | null = null;
 
   // Games are re-read after the fact:
-  //  - crawled before they were played (round pages list the whole schedule) and not final yet
-  //    although they should be over — hourly, for two weeks;
+  //  - not final although they should be over (crawled before they were played: round pages
+  //    list the whole schedule) — hourly for two weeks, then daily for the rest of the season,
+  //    so a crawler that was down or blocked for a while catches up on its own;
   //  - final, to pick up corrections (an assist reassigned, a goal credited to another player)
   //    — daily, for a week after the game. Rows that did not change do not trigger a refresh.
+  // Jobs that gave up ("failed") are included: the page may simply have been unreachable.
   const recrawl = await sql<{ n: number }>(
     `with due as (
        update crawl_job j set status = 'pending', attempts = 0, next_at = now(), updated_at = now()
        from game g
-       where j.kind = 'match' and j.status = 'done' and g.id = 'hcz-' || (j.params->>'id')
+       where j.kind = 'match' and j.status in ('done', 'failed') and g.id = 'hcz-' || (j.params->>'id')
          and (
-           (g.status <> 'final' and g.start_at < now() - interval '150 minutes' and g.start_at > now() - interval '14 days'
-            and j.updated_at < now() - interval '1 hour')
+           (g.status not in ('final', 'cancelled') and g.start_at < now() - interval '150 minutes'
+            and g.start_at > now() - interval '300 days'
+            and j.updated_at < now() - (case when g.start_at > now() - interval '14 days' then interval '1 hour' else interval '1 day' end))
            or (g.status = 'final' and g.start_at > now() - interval '7 days' and j.updated_at < now() - interval '20 hours')
          )
        returning j.id
      ) select count(*)::int as n from due`,
   ).catch(() => [{ n: -1 }]);
+
+  // The running season's structure is re-read weekly (play-off competitions appear in spring,
+  // the table moves), and anything of it that gave up is tried again a day later.
+  const season = seasonOfDate();
+  await sql(
+    `update crawl_job set status = 'pending', attempts = 0, next_at = now(), updated_at = now()
+     where (params->>'season')::int = $1 and (
+       (kind in ('season', 'schedule', 'table') and status in ('done', 'failed') and updated_at < now() - interval '7 days')
+       or (status = 'failed' and updated_at < now() - interval '1 day')
+     )`,
+    [season],
+  ).catch((e) => console.error("[crawl] season refresh", e));
 
   // Jobs stuck in "running" (a crashed invocation) go back to the queue after 10 minutes.
   await db
@@ -103,25 +119,30 @@ export async function runCrawl(budgetMs: number) {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      const attempts = next.attempts + 1;
+      // hokej.cz refusing or struggling (403/429/5xx, timeout) says nothing about this page: put
+      // the job back untouched and stop the run instead of burning its attempts.
+      const unavailable = /HTTP (403|429|5\d\d)|timeout|aborted|fetch failed/i.test(msg);
+      const attempts = unavailable ? next.attempts : next.attempts + 1;
       await db
         .from("crawl_job")
         .update({
           status: attempts >= MAX_ATTEMPTS ? "failed" : "pending",
           attempts,
           last_error: msg.slice(0, 500),
-          next_at: new Date(Date.now() + 2 ** attempts * 60_000).toISOString(),
+          next_at: new Date(Date.now() + (unavailable ? 30 : 2 ** attempts) * 60_000).toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq("id", next.id);
       log.push({ key: next.key, ok: false, info: msg });
-      // A 5xx from hokej.cz means it is struggling — stop this run.
-      if (/HTTP 5\d\d|timeout|aborted/i.test(msg)) break;
+      if (unavailable) {
+        blocked = msg;
+        break;
+      }
     }
     await sleep(PAUSE_MS);
   }
 
   // Precomputed statistics follow the writes: players of the games just stored, then Elo.
   const stats = log.some((l) => l.ok) ? await refreshAfterIngest().catch((e) => ({ error: e instanceof Error ? e.message : String(e) })) : null;
-  return { processed: log.length, recrawled: recrawl[0]?.n ?? 0, ms: Date.now() - started, stats, log };
+  return { processed: log.length, recrawled: recrawl[0]?.n ?? 0, ms: Date.now() - started, stats, log, blocked };
 }

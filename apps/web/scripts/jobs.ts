@@ -8,6 +8,7 @@
  *                                         extraliga games, settle tips
  *   tsx scripts/jobs.ts audit             weekly: repair drifted season statistics, rewrite Elo
  *   tsx scripts/jobs.ts logos             weekly: current club crests from hokej.cz
+ *   tsx scripts/jobs.ts report            what the database holds (games by month, overdue, queue)
  *
  * Needs DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (and the VAPID keys for
  * push) in the environment.
@@ -33,13 +34,56 @@ async function callRoute(handler: (req: Request) => Promise<Response>, query: st
   return res.json() as Promise<Record<string, unknown>>;
 }
 
+/** What the database holds: extraliga games by month and status, overdue games, the queue. */
+async function report() {
+  const months = await sql<{ month: string; status: string; n: number }>(
+    `select to_char(date_trunc('month', start_at), 'YYYY-MM') as month, status, count(*)::int as n
+     from game where league_id = 'cz-elh' and start_at > now() - interval '150 days' and start_at < now() + interval '30 days'
+     group by 1, 2 order by 1, 2`,
+  );
+  const byMonth = new Map<string, string[]>();
+  for (const r of months) byMonth.set(r.month, [...(byMonth.get(r.month) ?? []), `${r.status} ${r.n}`]);
+  for (const [m, list] of byMonth) log("games", m, list.join(", "));
+  const [o] = await sql<{ n: number; first: string | null; last: string | null; last_final: string | null }>(
+    `select count(*) filter (where status not in ('final', 'cancelled') and start_at < now() - interval '150 minutes')::int as n,
+            min(start_at) filter (where status not in ('final', 'cancelled') and start_at < now() - interval '150 minutes')::text as first,
+            max(start_at) filter (where status not in ('final', 'cancelled') and start_at < now() - interval '150 minutes')::text as last,
+            max(start_at) filter (where status = 'final')::text as last_final
+     from game where league_id = 'cz-elh' and start_at > now() - interval '300 days'`,
+  );
+  log("overdue (played, not stored as final)", o?.n ?? 0, o?.n ? `${o.first} … ${o.last}` : "", "| last final game", o?.last_final);
+  const queue = await sql<{ kind: string; status: string; n: number }>(
+    "select kind, status, count(*)::int as n from crawl_job where status <> 'done' group by 1, 2 order by 1, 2",
+  );
+  log("queue (not done)", queue.map((q) => `${q.kind}/${q.status} ${q.n}`).join(", ") || "empty");
+  const errors = await sql<{ last_error: string; n: number }>(
+    `select left(last_error, 80) as last_error, count(*)::int as n from crawl_job
+     where last_error is not null and updated_at > now() - interval '45 days' group by 1 order by 2 desc limit 5`,
+  );
+  for (const e of errors) log("recent error", e.n, "×", e.last_error);
+  return o?.n ?? 0;
+}
+
 async function crawl(minutes: number) {
   const end = Date.now() + minutes * 60_000;
+  await report().catch((e) => console.error("[report]", e));
+  let ok = 0;
+  let failed = 0;
+  let blocked: string | null = null;
   while (Date.now() < end) {
     const r = await runCrawl(Math.min(10 * 60_000, end - Date.now()));
-    log("crawl", { processed: r.processed, recrawled: r.recrawled, ok: r.log.filter((l) => l.ok).length, stats: r.stats });
-    if (r.processed === 0) break;
+    const bad = r.log.filter((l) => !l.ok);
+    ok += r.log.length - bad.length;
+    failed += bad.length;
+    log("crawl", { processed: r.processed, recrawled: r.recrawled, ok: r.log.length - bad.length, stats: r.stats });
+    for (const l of bad.slice(0, 10)) log("  failed", l.key, l.info);
+    if (r.blocked) blocked = r.blocked;
+    if (r.processed === 0 || r.blocked) break;
   }
+  const overdue = await report().catch(() => 0);
+  // A run that stored nothing while games are waiting must not pass for a healthy one.
+  if (blocked && ok === 0) throw new Error(`hokej.cz is not reachable from here (${blocked}); ${overdue} played games are waiting`);
+  if (failed && ok === 0) throw new Error(`all ${failed} pages failed`);
 }
 
 /** Extraliga games of today and yesterday from the live feed, stored once final; tips settled. */
@@ -131,6 +175,7 @@ async function main() {
   await checkDatabase();
   const minutes = Number(arg) || 330;
   if (cmd === "crawl") await crawl(minutes);
+  else if (cmd === "report") await report();
   else if (cmd === "live") await live(minutes);
   else if (cmd === "audit") await audit();
   else if (cmd === "logos") await logos();
