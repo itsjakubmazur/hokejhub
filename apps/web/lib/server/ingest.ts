@@ -1,4 +1,18 @@
-import { hokejczShotsUrl, INSERT_ONLY, jobPath, PRIMARY_KEYS, processJob, TABLE_OF, WRITE_ORDER, type CrawlJob, type Game, type Rows } from "@hokejhub/core";
+import {
+  esportsUrls,
+  hokejczShotsUrl,
+  INSERT_ONLY,
+  jobPath,
+  parseScoreboard,
+  PRIMARY_KEYS,
+  processJob,
+  TABLE_OF,
+  WRITE_ORDER,
+  type CrawlJob,
+  type Game,
+  type Rows,
+} from "@hokejhub/core";
+import { fetchJson } from "./fetcher";
 import { sql } from "./db";
 import { refreshAfterIngest } from "./stats-refresh";
 import { supabaseAdmin } from "./supabase";
@@ -76,6 +90,7 @@ export async function ingestFinishedElh(games: Game[]) {
   const known = await sql<{ id: string }>("select id from game where id = any($1) and status = 'final'", [ids]);
   const finalIds = new Set(known.map((r) => r.id));
   let stored = 0;
+  const unreachable: Game[] = [];
   for (const g of done) {
     const hczId = g.external.hokejczId!;
     if (finalIds.has(`hcz-${hczId}`)) continue;
@@ -110,8 +125,70 @@ export async function ingestFinishedElh(games: Game[]) {
         key,
         (e instanceof Error ? e.message : String(e)).slice(0, 500),
       ]);
+      unreachable.push(g);
     }
   }
+  // hokej.cz did not answer: keep at least the result, the crawler adds the box score later.
+  const results = unreachable.length ? await storeFeedResults(unreachable).catch(() => 0) : 0;
+  if (stored || results) await refreshAfterIngest().catch((e) => console.error("[ingest] refresh", e));
+  return { stored, results };
+}
+
+/**
+ * Result-only fallback for when hokej.cz cannot be read (it refuses some datacenter addresses for
+ * days at a time): the final score, periods and how the game was decided are taken from the live
+ * feed, which names games by their hokej.cz id. Only games the database already holds and does
+ * not have as final are touched, so tables, Elo and tips stay right; goals and player statistics
+ * follow once the crawler gets the match page (it keeps re-reading finals without a box score).
+ */
+export async function storeFeedResults(games: Game[]): Promise<number> {
+  const done = games.filter(
+    (g) => g.leagueKey === "cz-elh" && g.status === "final" && g.external.hokejczId && g.homeScore !== null && g.awayScore !== null,
+  );
+  if (done.length === 0) return 0;
+  const open = await sql<{ id: string; home_team_id: string; away_team_id: string }>(
+    "select id, home_team_id, away_team_id from game where id = any($1) and status <> 'final'",
+    [done.map((g) => `hcz-${g.external.hokejczId}`)],
+  );
+  const byId = new Map(open.map((r) => [r.id, r]));
+  let stored = 0;
+  for (const g of done) {
+    const row = byId.get(`hcz-${g.external.hokejczId}`);
+    if (!row) continue;
+    // Same game, same sides: where the feed knows the clubs they must match ours.
+    if (g.home.hokejczClubId && `hcz-${g.home.hokejczClubId}` !== row.home_team_id) continue;
+    if (g.away.hokejczClubId && `hcz-${g.away.hokejczClubId}` !== row.away_team_id) continue;
+    // Regulation plus overtime, as the crawler stores them: a shootout is not a period.
+    const periods = g.periods.slice(0, g.decidedIn === "OT" ? 4 : 3);
+    if (g.decidedIn === "OT" && periods.length === 3) {
+      // The feed lists regulation only: the overtime goal is what the final score adds to it.
+      const ot: [number, number] = [g.homeScore! - periods.reduce((n, p) => n + p[0], 0), g.awayScore! - periods.reduce((n, p) => n + p[1], 0)];
+      if (ot[0] + ot[1] === 1 && Math.min(...ot) === 0) periods.push(ot);
+    }
+    const updated = await sql<{ id: string }>(
+      `update game set status = 'final', status_label = 'Konec', home_score = $2, away_score = $3, periods = $4::jsonb,
+              decided_in = $5, updated_at = now()
+       where id = $1 and status <> 'final' returning id`,
+      [row.id, g.homeScore, g.awayScore, JSON.stringify(periods), g.decidedIn ?? "REG"],
+    );
+    stored += updated.length;
+  }
+  return stored;
+}
+
+/** Results of every played extraliga game the database still holds as unfinished, from the feed. */
+export async function catchUpResultsFromFeed(): Promise<{ dates: number; stored: number }> {
+  const days = await sql<{ d: string }>(
+    `select distinct (start_at at time zone 'Europe/Prague')::date::text as d from game
+     where league_id = 'cz-elh' and status not in ('final', 'cancelled')
+       and start_at < now() - interval '150 minutes' and start_at > now() - interval '300 days'
+     order by 1 limit 90`,
+  );
+  let stored = 0;
+  for (const { d } of days) {
+    const board = await fetchJson(esportsUrls.scoreboard(d), parseScoreboard, { revalidate: 0, notFoundIsEmpty: true });
+    if (board.data) stored += await storeFeedResults(board.data);
+  }
   if (stored) await refreshAfterIngest().catch((e) => console.error("[ingest] refresh", e));
-  return { stored };
+  return { dates: days.length, stored };
 }

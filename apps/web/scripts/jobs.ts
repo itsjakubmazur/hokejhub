@@ -16,7 +16,7 @@
 import { addDays, pragueDate } from "@hokejhub/core";
 import { runCrawl } from "../lib/server/crawl";
 import { appDatabaseUrl, sql } from "../lib/server/db";
-import { ingestFinishedElh } from "../lib/server/ingest";
+import { catchUpResultsFromFeed, ingestFinishedElh } from "../lib/server/ingest";
 import { tick, vapidConfigured } from "../lib/server/push";
 import { getScoreboard } from "../lib/server/scoreboard";
 import { settle } from "../lib/server/tipping";
@@ -80,9 +80,16 @@ async function crawl(minutes: number) {
     if (r.blocked) blocked = r.blocked;
     if (r.processed === 0 || r.blocked) break;
   }
-  const overdue = await report().catch(() => 0);
-  // A run that stored nothing while games are waiting must not pass for a healthy one.
-  if (blocked && ok === 0) throw new Error(`hokej.cz is not reachable from here (${blocked}); ${overdue} played games are waiting`);
+  // Whatever is still not final although played: at least its result, from the live feed.
+  log("results from the live feed", await catchUpResultsFromFeed().catch((e) => ({ error: String(e) })));
+  await report().catch(() => 0);
+  const [w] = await sql<{ n: number }>(
+    `select count(*)::int as n from game g where league_id = 'cz-elh' and status = 'final' and start_at > now() - interval '300 days'
+       and not exists (select 1 from box_skater b where b.game_id = g.id)`,
+  ).catch(() => [{ n: 0 }]);
+  // A run that could not read hokej.cz must not pass for a healthy one.
+  if (blocked && ok === 0)
+    throw new Error(`hokej.cz is not reachable from here (${blocked}); ${w?.n ?? 0} games hold a result only and wait for their box score`);
   if (failed && ok === 0) throw new Error(`all ${failed} pages failed`);
 }
 

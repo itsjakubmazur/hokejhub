@@ -27,7 +27,9 @@ export async function runCrawl(budgetMs: number) {
   //    list the whole schedule) — hourly for two weeks, then daily for the rest of the season,
   //    so a crawler that was down or blocked for a while catches up on its own;
   //  - final, to pick up corrections (an assist reassigned, a goal credited to another player)
-  //    — daily, for a week after the game. Rows that did not change do not trigger a refresh.
+  //    — daily, for a week after the game. Rows that did not change do not trigger a refresh;
+  //  - final by result only (stored from the live feed while hokej.cz was unreachable, so no
+  //    box score yet) — on every run until the match page is read.
   // Jobs that gave up ("failed") are included: the page may simply have been unreachable.
   const recrawl = await sql<{ n: number }>(
     `with due as (
@@ -39,6 +41,8 @@ export async function runCrawl(budgetMs: number) {
             and g.start_at > now() - interval '300 days'
             and j.updated_at < now() - (case when g.start_at > now() - interval '14 days' then interval '1 hour' else interval '1 day' end))
            or (g.status = 'final' and g.start_at > now() - interval '7 days' and j.updated_at < now() - interval '20 hours')
+           or (g.status = 'final' and g.start_at > now() - interval '300 days' and j.updated_at < now() - interval '5 hours'
+               and not exists (select 1 from box_skater b where b.game_id = g.id))
          )
        returning j.id
      ) select count(*)::int as n from due`,
