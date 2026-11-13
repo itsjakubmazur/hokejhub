@@ -25,3 +25,4 @@ export * from "./sources/hokejcz-history.ts";
 export * from "./sources/hokejcz-national-modern.ts";
 export * from "./sources/nhl-gamecenter.ts";
 export * from "./ingest/s3-match.ts";
+export * from "./model/group-tables.ts";

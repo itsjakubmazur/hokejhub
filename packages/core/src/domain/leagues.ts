@@ -17,6 +17,7 @@ const LEAGUES: LeagueInfo[] = [
   { key: "cz-u20", name: "Extraliga juniorů", shortName: "ELJ", group: "cz-youth", sort: 20 },
   { key: "cz-u20-2", name: "Liga juniorů", shortName: "LJ", group: "cz-youth", sort: 21 },
   { key: "cz-u17", name: "Extraliga dorostu", shortName: "ELD", group: "cz-youth", sort: 22 },
+  { key: "cz-u17-2", name: "Liga staršího dorostu", shortName: "LSD", group: "cz-youth", sort: 22.5 },
   { key: "cz-u16", name: "Extraliga mladšího dorostu", shortName: "ELMD", group: "cz-youth", sort: 23 },
   { key: "cz-u16-2", name: "Liga mladšího dorostu", shortName: "LMD", group: "cz-youth", sort: 24 },
   { key: "nhl-pre", name: "NHL – příprava", shortName: "NHL př.", group: "nhl", sort: 5 },
@@ -33,7 +34,9 @@ const ESPORTS_LEAGUE_IDS: Record<string, string> = {
   "3456": "cz-women-1",
   "33": "cz-u20",
   "36": "cz-u20-2",
-  "3465": "cz-u17",
+  // CCM extraliga staršího dorostu; 3465 is the (lower) Liga staršího dorostu.
+  "34": "cz-u17",
+  "3465": "cz-u17-2",
   "35": "cz-u16",
   "100": "cz-u16-2",
   "101": "nhl",
