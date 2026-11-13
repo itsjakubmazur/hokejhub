@@ -95,8 +95,10 @@ async function crawl(minutes: number) {
     log("crawl", { processed: r.processed, recrawled: r.recrawled, ok: r.log.length - bad.length, stats: r.stats });
     for (const l of bad.slice(0, 10)) log("  failed", l.key, l.info);
     if (r.blocked) blocked = r.blocked;
-    if (r.processed === 0 || r.blocked) break;
+    // Refused by hokej.cz, games still go on from S3; stop only when a round got nothing done.
+    if (r.processed === 0 || (r.blocked && r.log.length === bad.length)) break;
   }
+  if (blocked && ok) log(`hokej.cz refuses this runner (${blocked}); games were stored from the S3 files instead`);
   // Whatever is still not final although played: at least its result, from the live feed.
   log("results from the live feed", await catchUpResultsFromFeed().catch((e) => ({ error: String(e) })));
   await report().catch(() => 0);
