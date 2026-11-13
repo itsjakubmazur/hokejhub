@@ -41,6 +41,7 @@ import {
 } from "@hokejhub/core";
 import type { GameDetailResponse } from "../types";
 import { dbAvailable } from "./db";
+import { matchFromDb } from "./game-db";
 import { predictMatch } from "./model";
 import { fetchJson, type SourceState } from "./fetcher";
 import { getHeadToHead, getPhotos, getPlayerNotes, getTeamStreaks, sql } from "./queries";
@@ -87,7 +88,14 @@ async function hokejczBox(game: Game, sources: Record<string, SourceState>) {
     { revalidate: live ? 30 : 3600, text: true },
   );
   sources.hokejcz = res.state;
-  return res.data;
+  if (res.data?.home.name) return res.data;
+  // hokej.cz refuses this server: a finished game's box score is in the database (the crawler
+  // stores it from the match page or from the S3 files).
+  if (game.status !== "final") return res.data;
+  const stored = await matchFromDb(id).catch((e) => (console.error("[db] box", e), null));
+  if (!stored?.box) return res.data;
+  delete sources.hokejcz;
+  return stored.box;
 }
 
 /** Line-ups, per-period team/player stats (onlajny S3) and the shot feed (hokej.cz S3). */
@@ -258,8 +266,13 @@ export async function getGameDetail(id: string, date?: string, t?: Timings): Pro
   // Historical / archived Czech game from our database (hokej.cz match id).
   if (id.startsWith("hcz-")) {
     const hczId = Number(id.slice(4));
-    const game = await gameFromHokejcz(hczId, sources);
-    if (!game) return null;
+    let game: { game: Game; box: HokejczMatch | null } | null = await gameFromHokejcz(hczId, sources);
+    if (!game) {
+      // The match page did not get through: the game as the database holds it.
+      game = await matchFromDb(hczId).catch((e) => (console.error("[db] game", e), null));
+      if (!game) return null;
+      if (game.box) delete sources.hokejcz;
+    }
     const box = game.box;
     const details = await czDetails(game.game, box, sources);
     const links = await dbLinks(box, game.game);
