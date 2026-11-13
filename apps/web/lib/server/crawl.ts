@@ -1,6 +1,6 @@
-import { hokejczShotsUrl, jobPath, processJob, seasonOfDate } from "@hokejhub/core";
+import { jobPath, processJob, seasonOfDate } from "@hokejhub/core";
 import { sql } from "./db";
-import { enqueue, writeRows } from "./ingest";
+import { enqueue, ingestMatch, isUnavailable, writeRows } from "./ingest";
 import { refreshAfterIngest } from "./stats-refresh";
 import { supabaseAdmin } from "./supabase";
 
@@ -68,14 +68,14 @@ export async function runCrawl(budgetMs: number) {
     .lt("updated_at", new Date(Date.now() - 10 * 60_000).toISOString());
 
   while (Date.now() - started < budgetMs - PAUSE_MS - 8000 - 10_000) {
-    const { data: candidates, error } = await db
+    // Once hokej.cz has refused this run, only games are worth taking: they come from S3.
+    let query = db
       .from("crawl_job")
       .select("id,key,kind,params,priority,attempts")
       .eq("status", "pending")
-      .lte("next_at", new Date().toISOString())
-      .order("priority")
-      .order("id")
-      .limit(5);
+      .lte("next_at", new Date().toISOString());
+    if (blocked) query = query.eq("kind", "match");
+    const { data: candidates, error } = await query.order("priority").order("id").limit(5);
     if (error) throw new Error(error.message);
     if (!candidates?.length) break;
     // Claim atomically so several drivers can run in parallel without doing a job twice.
@@ -94,38 +94,40 @@ export async function runCrawl(budgetMs: number) {
     }
     if (!next) continue;
 
-    const target = new URL(jobPath(next), ORIGIN).toString();
     try {
-      const res = await fetch(target, {
-        headers: { "user-agent": USER_AGENT, accept: "text/html" },
-        cache: "no-store",
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      // The shot feed (coordinates → xG) lives on S3; missing for older seasons.
-      let shots: unknown;
+      let info: string;
       if (next.kind === "match") {
-        const s = await fetch(hokejczShotsUrl(next.params.id), { cache: "no-store", signal: AbortSignal.timeout(15000) });
-        if (s.ok) shots = await s.json().catch(() => undefined); // some old games answer with an HTML redirect
+        // The match page when hokej.cz answers, the S3 files its own pages load when it does not.
+        const r = await ingestMatch(next.params, { skipHtml: !!blocked });
+        if (r.htmlError && isUnavailable(r.htmlError)) blocked ??= r.htmlError;
+        info =
+          r.source === "html"
+            ? `+${r.jobs ?? 0} jobs, match page`
+            : r.skipped
+              ? `S3: ${r.skipped}`
+              : `S3 box score${r.unresolved?.length ? `, no hokej.cz id: ${r.unresolved.join(", ")}` : ""}`;
+      } else {
+        const res = await fetch(new URL(jobPath(next), ORIGIN).toString(), {
+          headers: { "user-agent": USER_AGENT, accept: "text/html" },
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { rows, jobs: found } = processJob(next, await res.text());
+        await writeRows(rows);
+        await enqueue(found);
+        info = `+${found.length} jobs, ${rows.game.length} games`;
       }
-      const { rows, jobs: found } = processJob(next, html, shots);
-      await writeRows(rows);
-      await enqueue(found);
       await db
         .from("crawl_job")
         .update({ status: "done", attempts: next.attempts + 1, last_error: null, updated_at: new Date().toISOString() })
         .eq("id", next.id);
-      log.push({
-        key: next.key,
-        ok: true,
-        info: `+${found.length} jobs, ${rows.game.length} games, ${rows.game_event.filter((e) => e.type === "shot").length} shots`,
-      });
+      log.push({ key: next.key, ok: true, info });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      // hokej.cz refusing or struggling (403/429/5xx, timeout) says nothing about this page: put
-      // the job back untouched and stop the run instead of burning its attempts.
-      const unavailable = /HTTP (403|429|5\d\d)|timeout|aborted|fetch failed/i.test(msg);
+      // hokej.cz (or S3) refusing or struggling (403/429/5xx, timeout) says nothing about this
+      // page: put the job back untouched instead of burning its attempts.
+      const unavailable = isUnavailable(msg);
       const attempts = unavailable ? next.attempts : next.attempts + 1;
       await db
         .from("crawl_job")
@@ -139,8 +141,9 @@ export async function runCrawl(budgetMs: number) {
         .eq("id", next.id);
       log.push({ key: next.key, ok: false, info: msg });
       if (unavailable) {
+        // A game failing this way means S3 itself is struggling: nothing left to try this run.
+        if (next.kind === "match" || blocked) break;
         blocked = msg;
-        break;
       }
     }
     await sleep(PAUSE_MS);
