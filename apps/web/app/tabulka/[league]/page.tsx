@@ -16,7 +16,7 @@ export async function generateMetadata(props: PageProps<"/tabulka/[league]">): P
 }
 
 /** Columns past the basic ones, scrolled to sideways on phones. */
-const EXTRA = ["V", "VP", "PP", "P"] as const;
+const EXTRA = ["V", "VP", "R", "PP", "P"] as const;
 
 const NHL_VIEWS: [NhlView, string][] = [
   ["divize", "Divize"],
@@ -118,7 +118,9 @@ export default async function OtherTablePage(props: PageProps<"/tabulka/[league]
   return (
     <div className="space-y-4">
       <PageHero kicker="Tabulka" title={def.name} icon={ListOrdered}>
-        Aktuální pořadí podle hokej.cz.
+        {groups?.[0]?.computed
+          ? "Pořadí spočítané z výsledků zápasů (tabulka z hokej.cz teď není dostupná)."
+          : "Aktuální pořadí podle hokej.cz."}
       </PageHero>
       {!groups?.length ? (
         <Card>
