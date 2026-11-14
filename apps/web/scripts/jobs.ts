@@ -16,7 +16,7 @@
 import { addDays, pragueDate } from "@hokejhub/core";
 import { runCrawl } from "../lib/server/crawl";
 import { appDatabaseUrl, sql } from "../lib/server/db";
-import { catchUpResultsFromFeed, ingestFinishedElh } from "../lib/server/ingest";
+import { catchUpResultsFromFeed, ingestFinishedElh, scheduleFromFeed } from "../lib/server/ingest";
 import { tick, vapidConfigured } from "../lib/server/push";
 import { getScoreboard } from "../lib/server/scoreboard";
 import { settle } from "../lib/server/tipping";
@@ -84,6 +84,9 @@ async function report() {
 async function crawl(minutes: number) {
   const end = Date.now() + minutes * 60_000;
   await report().catch((e) => console.error("[report]", e));
+  // New games (play-off and relegation rounds above all) from the live feed: hokej.cz's season
+  // pages, which used to give the schedule, refuse this runner.
+  log("schedule from the live feed", await scheduleFromFeed().catch((e) => ({ error: String(e) })));
   let ok = 0;
   let failed = 0;
   let blocked: string | null = null;
