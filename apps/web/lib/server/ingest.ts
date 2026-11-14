@@ -1,13 +1,16 @@
 import {
   addDays,
   esportsUrls,
+  feedScheduleRow,
   hokejczOnlineUrl,
   hokejczShotsUrl,
   INSERT_ONLY,
   jobPath,
   onlajnyMatchUrls,
   parseScoreboard,
+  parseScoreboardAlt,
   pragueDate,
+  seasonOfDate,
   PRIMARY_KEYS,
   processJob,
   processS3Match,
@@ -331,4 +334,86 @@ export async function catchUpResultsFromFeed(): Promise<{ dates: number; stored:
   }
   if (stored) await refreshAfterIngest().catch((e) => console.error("[ingest] refresh", e));
   return { dates: days.length, stored };
+}
+
+/**
+ * Adds the extraliga games the live feed lists from a week back to three weeks ahead that the
+ * database does not have — the schedule hokej.cz's season pages gave the crawler before hokej.cz
+ * started refusing datacenter addresses; above all the play-off and relegation rounds, which are
+ * drawn as the season goes. Each new game gets its crawl job (box score once it is played).
+ */
+export async function scheduleFromFeed(back = 7, ahead = 21): Promise<{ dates: number; added: number; unmatched: string[] }> {
+  const today = pragueDate();
+  const dates: string[] = [];
+  for (let d = -back; d <= ahead; d++) dates.push(addDays(today, d));
+  const days = await Promise.all(
+    dates.map(async (d) => {
+      const [main, alt] = await Promise.all([
+        fetchJson(esportsUrls.scoreboard(d), parseScoreboard, { revalidate: 0, notFoundIsEmpty: true }),
+        fetchJson(esportsUrls.scoreboardAlt(d), parseScoreboardAlt, { revalidate: 0, notFoundIsEmpty: true }),
+      ]);
+      return { main: main.data ?? [], alt: alt.data ?? [] };
+    }),
+  );
+  const games = new Map<string, Game>();
+  const clubs = new Map<string, { home: number | null; away: number | null }>();
+  for (const { main, alt } of days) {
+    for (const g of main) if (g.leagueKey === "cz-elh" && g.external.hokejczId) games.set(g.id, g);
+    for (const g of alt) clubs.set(g.id, { home: g.home.hokejczClubId ?? null, away: g.away.hokejczClubId ?? null });
+  }
+  if (!games.size) return { dates: dates.length, added: 0, unmatched: [] };
+  const ids = [...games.values()].map((g) => `hcz-${g.external.hokejczId}`);
+  const have = new Set((await sql<{ id: string }>("select id from game where id = any($1)", [ids])).map((r) => r.id));
+  const missing = [...games.values()].filter((g) => !have.has(`hcz-${g.external.hokejczId}`));
+  if (!missing.length) return { dates: dates.length, added: 0, unmatched: [] };
+
+  const season = seasonOfDate();
+  const teams = await sql<{ id: string; abbrev: string; name: string; regular: boolean }>(
+    `select t.id, t.abbrev, t.name, bool_or(g.phase = 'regular') as regular
+     from game g join team t on t.id in (g.home_team_id, g.away_team_id)
+     where g.league_id = 'cz-elh' and g.season = $1 group by t.id, t.abbrev, t.name`,
+    [season],
+  );
+  const regularTeams = new Set(teams.filter((t) => t.regular).map((t) => t.id));
+  const rows: Record<string, unknown>[] = [];
+  const jobs: CrawlJob[] = [];
+  const unmatched: string[] = [];
+  for (const g of missing) {
+    const r = feedScheduleRow({ game: g, clubs: clubs.get(g.id) ?? { home: null, away: null }, teams, regularTeams });
+    if (!r) {
+      unmatched.push(`${g.startAt.slice(0, 10)} ${g.home.abbrev}-${g.away.abbrev}`);
+      continue;
+    }
+    rows.push(r.game);
+    jobs.push(r.job);
+  }
+  // A club from below (the relegation round) may not be in the team table yet.
+  const known = new Set((await sql<{ id: string }>("select id from team where id = any($1)", [rows.flatMap((r) => [r.home_team_id, r.away_team_id])])).map((t) => t.id));
+  const newTeams = new Map<string, Record<string, unknown>>();
+  for (const g of missing) {
+    const c = clubs.get(g.id);
+    for (const [club, t] of [[c?.home, g.home], [c?.away, g.away]] as const) {
+      if (!club || known.has(`hcz-${club}`)) continue;
+      newTeams.set(`hcz-${club}`, {
+        id: `hcz-${club}`,
+        league_id: "cz-maxa",
+        name: t.name,
+        short_name: t.shortName || t.name,
+        abbrev: t.abbrev,
+        logo_url: t.logoUrl,
+        external: { hokejczClubId: club },
+      });
+    }
+  }
+  const db = supabaseAdmin();
+  if (newTeams.size) {
+    const { error } = await db.from("team").upsert([...newTeams.values()], { onConflict: "id", ignoreDuplicates: true });
+    if (error) throw new Error(`team: ${error.message}`);
+  }
+  if (rows.length) {
+    const { error } = await db.from("game").upsert(rows, { onConflict: "id", ignoreDuplicates: true });
+    if (error) throw new Error(`game: ${error.message}`);
+    await enqueue(jobs);
+  }
+  return { dates: dates.length, added: rows.length, unmatched };
 }
